@@ -35,7 +35,13 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // 静态文件服务
 app.use(express.static(path.join(__dirname, 'public')));
-app.use('/uploads', express.static(path.join(__dirname, 'data/uploads')));
+
+// 上传文件服务 - 确保目录存在
+const uploadsPath = path.join(__dirname, 'data', 'uploads');
+if (!require('fs').existsSync(uploadsPath)) {
+    require('fs').mkdirSync(uploadsPath, { recursive: true });
+}
+app.use('/uploads', express.static(uploadsPath));
 
 // API路由
 app.use('/api/auth', authRoutes);

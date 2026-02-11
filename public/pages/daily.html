@@ -34,74 +34,96 @@
             justify-content: center;
         }
 
-        /* 搜索栏 */
-        .search-section {
+        /* 置顶工具栏 - 替代导航栏 */
+        .toolbar-section {
             background: white;
-            padding: 24px;
+            padding: 12px 24px;
             border-bottom: 1px solid var(--border-color);
             position: sticky;
-            top: 70px;
-            z-index: 100;
+            top: 0;
+            z-index: 1000;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            transition: all 0.3s ease;
         }
 
-        .search-container {
+        .toolbar-section.scrolled {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+        }
+
+        .toolbar-container {
             max-width: 800px;
             margin: 0 auto;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        /* 搜索框 */
+        .toolbar-search {
+            flex: 1;
             position: relative;
         }
 
-        .search-input {
+        .toolbar-search input {
             width: 100%;
-            padding: 14px 20px;
-            padding-right: 50px;
-            border: 2px solid var(--border-color);
-            border-radius: var(--radius-lg);
-            font-size: 16px;
+            padding: 10px 16px;
+            padding-right: 40px;
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            font-size: 14px;
             transition: var(--transition);
-            background: white;
+            background: #f8fafc;
         }
 
-        .search-input:focus {
+        .toolbar-search input:focus {
             outline: none;
             border-color: var(--primary-color);
-            box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
+            background: white;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
         }
 
-        .search-btn {
+        .toolbar-search button {
             position: absolute;
-            right: 8px;
+            right: 4px;
             top: 50%;
             transform: translateY(-50%);
-            padding: 10px 16px;
-            background: var(--primary-color);
-            color: white;
+            padding: 6px 10px;
+            background: transparent;
+            color: var(--text-muted);
             border: none;
-            border-radius: var(--radius);
             cursor: pointer;
             transition: var(--transition);
         }
 
-        .search-btn:hover {
-            background: var(--primary-dark);
+        .toolbar-search button:hover {
+            color: var(--primary-color);
         }
 
-        /* 筛选栏 */
-        .filter-section {
-            background: white;
-            padding: 16px 24px;
-            border-bottom: 1px solid var(--border-color);
-            position: sticky;
-            top: 134px;
-            z-index: 99;
-        }
-
-        .filter-container {
-            max-width: 800px;
-            margin: 0 auto;
+        /* 筛选按钮组 */
+        .toolbar-filters {
             display: flex;
-            gap: 12px;
-            flex-wrap: wrap;
-            justify-content: center;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+
+        .toolbar-filter-btn {
+            padding: 8px 14px;
+            border: 1px solid var(--border-color);
+            background: white;
+            border-radius: 16px;
+            cursor: pointer;
+            transition: var(--transition);
+            font-size: 13px;
+            white-space: nowrap;
+            color: var(--text-secondary);
+        }
+
+        .toolbar-filter-btn:hover,
+        .toolbar-filter-btn.active {
+            background: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
         }
 
         .filter-btn {
@@ -355,45 +377,23 @@
         <div class="page-actions" id="pageActions"></div>
     </header>
 
-    <!-- 搜索栏 -->
-    <section class="search-section">
-        <div class="search-container">
-            <input type="text" class="search-input" id="searchInput" placeholder="搜索日报...">
-            <button class="search-btn" id="searchBtn">
-                <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                </svg>
-            </button>
-        </div>
-    </section>
-
-    <!-- 筛选栏 -->
-    <section class="filter-section">
-        <div class="filter-container">
-            <button class="filter-btn active" data-filter="all">
-                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path>
-                </svg>
-                全部
-            </button>
-            <button class="filter-btn" data-filter="activity">
-                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                </svg>
-                活动记录
-            </button>
-            <button class="filter-btn" data-filter="event">
-                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
-                </svg>
-                重要事件
-            </button>
-            <button class="filter-btn" data-filter="achievement">
-                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"></path>
-                </svg>
-                公会成就
-            </button>
+    <!-- 置顶工具栏（替代导航栏） -->
+    <section class="toolbar-section" id="toolbar">
+        <div class="toolbar-container">
+            <div class="toolbar-search">
+                <input type="text" id="searchInput" placeholder="搜索日报...">
+                <button id="searchBtn">
+                    <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                    </svg>
+                </button>
+            </div>
+            <div class="toolbar-filters">
+                <button class="toolbar-filter-btn active" data-filter="all">全部</button>
+                <button class="toolbar-filter-btn" data-filter="activity">活动</button>
+                <button class="toolbar-filter-btn" data-filter="event">事件</button>
+                <button class="toolbar-filter-btn" data-filter="achievement">成就</button>
+            </div>
         </div>
     </section>
 
@@ -461,9 +461,9 @@
         // 绑定事件
         function bindEvents() {
             // 筛选按钮
-            document.querySelectorAll('.filter-btn').forEach(btn => {
+            document.querySelectorAll('.toolbar-filter-btn').forEach(btn => {
                 btn.addEventListener('click', function() {
-                    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                    document.querySelectorAll('.toolbar-filter-btn').forEach(b => b.classList.remove('active'));
                     this.classList.add('active');
                     currentFilter = this.dataset.filter;
                     currentPage = 1;
@@ -486,6 +486,16 @@
                     currentSearch = searchInput.value.trim();
                     currentPage = 1;
                     loadPosts();
+                }
+            });
+
+            // 滚动监听 - 工具栏样式变化
+            window.addEventListener('scroll', () => {
+                const toolbar = document.getElementById('toolbar');
+                if (window.scrollY > 100) {
+                    toolbar.classList.add('scrolled');
+                } else {
+                    toolbar.classList.remove('scrolled');
                 }
             });
         }

@@ -171,12 +171,32 @@ const initSettings = () => {
     });
 };
 
+// 检查并创建默认头像
+const initDefaultAvatar = () => {
+    const uploadsDir = path.join(__dirname, '..', 'data', 'uploads');
+    const defaultAvatarPath = path.join(uploadsDir, 'default-avatar.png');
+    
+    if (!fs.existsSync(uploadsDir)) {
+        fs.mkdirSync(uploadsDir, { recursive: true });
+        console.log('创建上传目录:', uploadsDir);
+    }
+    
+    if (!fs.existsSync(defaultAvatarPath)) {
+        // 创建一个简单的默认头像（1x1像素的透明PNG）
+        // 实际使用时应该准备一个真实的默认头像文件
+        const defaultAvatarBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+        fs.writeFileSync(defaultAvatarPath, Buffer.from(defaultAvatarBase64, 'base64'));
+        console.log('创建默认头像:', defaultAvatarPath);
+    }
+};
+
 // 执行初始化
 const init = async () => {
     try {
         await initTables();
         await createDefaultAdmin();
         await initSettings();
+        initDefaultAvatar();
         console.log('数据库初始化完成！');
         db.close();
     } catch (error) {
