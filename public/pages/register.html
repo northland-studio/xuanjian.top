@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>注册 - 我的世界玄剑公会</title>
+    <link rel="icon" href="/icon.ico" type="image/x-icon">
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        .auth-page {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .auth-box {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            width: 100%;
+            max-width: 420px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        .auth-logo {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .auth-logo img {
+            width: 80px;
+            height: 80px;
+            border-radius: 16px;
+        }
+        .auth-title {
+            font-size: 24px;
+            font-weight: 600;
+            text-align: center;
+            margin-bottom: 8px;
+        }
+        .auth-subtitle {
+            text-align: center;
+            color: #64748b;
+            margin-bottom: 30px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            font-size: 14px;
+        }
+        .form-input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 15px;
+            transition: all 0.3s;
+        }
+        .form-input:focus {
+            outline: none;
+            border-color: #6366f1;
+        }
+        .auth-btn {
+            width: 100%;
+            padding: 14px;
+            background: #6366f1;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .auth-btn:hover {
+            background: #4f46e5;
+        }
+        .auth-footer {
+            text-align: center;
+            margin-top: 24px;
+            padding-top: 24px;
+            border-top: 1px solid #e2e8f0;
+        }
+        .auth-footer a {
+            color: #6366f1;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        .error-message {
+            background: #fee2e2;
+            color: #dc2626;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            display: none;
+        }
+        .success-message {
+            background: #d1fae5;
+            color: #059669;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="auth-page">
+        <div class="auth-box">
+            <div class="auth-logo">
+                <img src="/icon.png" alt="玄剑公会">
+            </div>
+            <h1 class="auth-title">创建账号</h1>
+            <p class="auth-subtitle">加入玄剑公会，开启精彩旅程</p>
+            
+            <div class="error-message" id="error-msg"></div>
+            <div class="success-message" id="success-msg"></div>
+            
+            <form id="register-form">
+                <div class="form-group">
+                    <label class="form-label">用户名</label>
+                    <input type="text" class="form-input" id="username" placeholder="请输入用户名" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">昵称</label>
+                    <input type="text" class="form-input" id="nickname" placeholder="请输入昵称" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">邮箱</label>
+                    <input type="email" class="form-input" id="email" placeholder="请输入邮箱" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">密码</label>
+                    <input type="password" class="form-input" id="password" placeholder="请输入密码（至少6位）" required minlength="6">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">确认密码</label>
+                    <input type="password" class="form-input" id="confirm-password" placeholder="请再次输入密码" required>
+                </div>
+                <button type="submit" class="auth-btn">注册</button>
+            </form>
+            
+            <div class="auth-footer">
+                已有账号？<a href="/login">立即登录</a>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/common.js"></script>
+    <script>
+        document.getElementById('register-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const username = document.getElementById('username').value;
+            const nickname = document.getElementById('nickname').value;
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const confirmPassword = document.getElementById('confirm-password').value;
+            const errorMsg = document.getElementById('error-msg');
+            const successMsg = document.getElementById('success-msg');
+            
+            // 验证密码
+            if (password !== confirmPassword) {
+                errorMsg.textContent = '两次输入的密码不一致';
+                errorMsg.style.display = 'block';
+                successMsg.style.display = 'none';
+                return;
+            }
+            
+            try {
+                await post('/api/auth/register', {
+                    username,
+                    nickname,
+                    email,
+                    password
+                });
+                
+                successMsg.textContent = '注册成功！即将跳转到登录页面...';
+                successMsg.style.display = 'block';
+                errorMsg.style.display = 'none';
+                
+                setTimeout(() => {
+                    window.location.href = '/login';
+                }, 1500);
+            } catch (error) {
+                errorMsg.textContent = error.message;
+                errorMsg.style.display = 'block';
+                successMsg.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>

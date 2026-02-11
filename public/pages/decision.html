@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>决策公告 - 我的世界玄剑公会</title>
+    <link rel="icon" href="/icon.ico" type="image/x-icon">
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        /* 页面头部 */
+        .page-header {
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+            color: white;
+            padding: 80px 24px 60px;
+            text-align: center;
+            margin-top: 70px;
+        }
+
+        .page-title {
+            font-size: 36px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .page-subtitle {
+            font-size: 16px;
+            opacity: 0.9;
+            margin-bottom: 24px;
+        }
+
+        .page-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+        }
+
+        /* 搜索栏 */
+        .search-section {
+            background: white;
+            padding: 24px;
+            border-bottom: 1px solid var(--border-color);
+            position: sticky;
+            top: 70px;
+            z-index: 100;
+        }
+
+        .search-container {
+            max-width: 800px;
+            margin: 0 auto;
+            position: relative;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 14px 20px;
+            padding-right: 50px;
+            border: 2px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            font-size: 16px;
+            transition: var(--transition);
+            background: white;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
+        }
+
+        .search-btn {
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            padding: 10px 16px;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: var(--radius);
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .search-btn:hover {
+            background: var(--primary-dark);
+        }
+
+        /* 筛选栏 */
+        .filter-section {
+            background: white;
+            padding: 16px 24px;
+            border-bottom: 1px solid var(--border-color);
+            position: sticky;
+            top: 134px;
+            z-index: 99;
+        }
+
+        .filter-container {
+            max-width: 800px;
+            margin: 0 auto;
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .filter-btn {
+            padding: 8px 16px;
+            border: 1px solid var(--border-color);
+            background: white;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: var(--transition);
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .filter-btn:hover,
+        .filter-btn.active {
+            background: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+
+        /* 内容列表 */
+        .content-section {
+            padding: 40px 24px;
+            min-height: 500px;
+        }
+
+        .content-container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        /* 内容卡片 */
+        .post-card {
+            background: white;
+            border-radius: var(--radius-lg);
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: var(--shadow);
+            transition: var(--transition);
+            cursor: pointer;
+        }
+
+        .post-card:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .post-header {
+            margin-bottom: 16px;
+        }
+
+        .post-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 12px;
+            line-height: 1.4;
+        }
+
+        .post-author {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .post-author-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+
+        .post-author-name {
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        .post-content {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .post-text {
+            flex: 1;
+            font-size: 14px;
+            color: var(--text-secondary);
+            line-height: 1.6;
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .post-image {
+            width: 100px;
+            height: 100px;
+            border-radius: var(--radius);
+            object-fit: cover;
+            flex-shrink: 0;
+        }
+
+        .post-footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding-top: 16px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .post-stats {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .post-stat {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+
+        .post-stat svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        .post-date {
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+
+        /* 置顶标记 */
+        .post-pinned {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 10px;
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            color: white;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+            margin-bottom: 12px;
+        }
+
+        /* 加载状态 */
+        .loading {
+            text-align: center;
+            padding: 60px 20px;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--border-color);
+            border-top-color: var(--primary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 16px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* 空状态 */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-secondary);
+        }
+
+        .empty-state svg {
+            width: 64px;
+            height: 64px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+
+        /* 分页 */
+        .pagination {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 40px;
+        }
+
+        .page-btn {
+            padding: 8px 16px;
+            border: 1px solid var(--border-color);
+            background: white;
+            border-radius: var(--radius);
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .page-btn:hover,
+        .page-btn.active {
+            background: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+
+        .page-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* 移动端适配 */
+        @media (max-width: 768px) {
+            .page-title {
+                font-size: 28px;
+            }
+
+            .post-content {
+                flex-direction: column;
+            }
+
+            .post-image {
+                width: 100%;
+                height: 200px;
+            }
+
+            .filter-section {
+                top: 126px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 导航栏 -->
+    <nav class="navbar">
+        <div class="navbar-content">
+            <a href="/" class="navbar-brand">
+                <img src="/icon.png" alt="玄剑公会" class="navbar-logo">
+                <div class="navbar-title">
+                    <span class="navbar-title-cn">我的世界玄剑公会</span>
+                    <span class="navbar-title-en">Minecraft Xuanjian Guild</span>
+                </div>
+            </a>
+            <div class="navbar-nav">
+                <a href="/daily" class="nav-link">日报</a>
+                <a href="/decision" class="nav-link active">决策</a>
+                <a href="/forum" class="nav-link">贴吧</a>
+                <a href="/social" class="nav-link">社交媒体</a>
+                <div class="nav-user"></div>
+            </div>
+            <button class="mobile-menu-btn">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- 页面头部 -->
+    <header class="page-header">
+        <h1 class="page-title">决策公告</h1>
+        <p class="page-subtitle">公会重要决策与官方公告</p>
+        <div class="page-actions" id="pageActions"></div>
+    </header>
+
+    <!-- 搜索栏 -->
+    <section class="search-section">
+        <div class="search-container">
+            <input type="text" class="search-input" id="searchInput" placeholder="搜索决策公告...">
+            <button class="search-btn" id="searchBtn">
+                <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                </svg>
+            </button>
+        </div>
+    </section>
+
+    <!-- 筛选栏 -->
+    <section class="filter-section">
+        <div class="filter-container">
+            <button class="filter-btn active" data-filter="all">
+                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path>
+                </svg>
+                全部
+            </button>
+            <button class="filter-btn" data-filter="policy">
+                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                </svg>
+                政策调整
+            </button>
+            <button class="filter-btn" data-filter="event">
+                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                </svg>
+                活动决策
+            </button>
+            <button class="filter-btn" data-filter="member">
+                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
+                </svg>
+                成员管理
+            </button>
+            <button class="filter-btn" data-filter="other">
+                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h.01M12 12h.01M19 12h.01M6 12a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0z"></path>
+                </svg>
+                其他决策
+            </button>
+        </div>
+    </section>
+
+    <!-- 内容列表 -->
+    <section class="content-section">
+        <div class="content-container" id="contentContainer">
+            <div class="loading">
+                <div class="spinner"></div>
+                <p>加载中...</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- 回顶按钮 -->
+    <button class="back-to-top">
+        <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"></path>
+        </svg>
+    </button>
+
+    <script src="/js/common.js"></script>
+    <script>
+        let currentFilter = 'all';
+        let currentPage = 1;
+        let currentSearch = '';
+
+        // 初始化页面
+        document.addEventListener('DOMContentLoaded', function() {
+            initUserStatus();
+            loadPosts();
+            bindEvents();
+        });
+
+        // 初始化用户状态
+        function initUserStatus() {
+            const user = getCurrentUser();
+            const navUser = document.querySelector('.nav-user');
+            const pageActions = document.getElementById('pageActions');
+
+            if (user) {
+                // 已登录
+                navUser.innerHTML = `
+                    <a href="/profile">
+                        <img src="${user.avatar || '/uploads/default-avatar.png'}" alt="${user.nickname}" class="nav-avatar">
+                    </a>
+                `;
+
+                // 管理员显示发布按钮
+                if (user.level >= 1 && pageActions) {
+                    pageActions.innerHTML = `
+                        <a href="/editor?type=decision" class="btn btn-primary">
+                            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                            </svg>
+                            发布公告
+                        </a>
+                    `;
+                }
+            } else {
+                // 未登录
+                navUser.innerHTML = `<a href="/login" class="nav-login-btn">登录</a>`;
+            }
+        }
+
+        // 绑定事件
+        function bindEvents() {
+            // 筛选按钮
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                    currentFilter = this.dataset.filter;
+                    currentPage = 1;
+                    loadPosts();
+                });
+            });
+
+            // 搜索
+            const searchInput = document.getElementById('searchInput');
+            const searchBtn = document.getElementById('searchBtn');
+
+            searchBtn.addEventListener('click', () => {
+                currentSearch = searchInput.value.trim();
+                currentPage = 1;
+                loadPosts();
+            });
+
+            searchInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    currentSearch = searchInput.value.trim();
+                    currentPage = 1;
+                    loadPosts();
+                }
+            });
+        }
+
+        // 加载决策列表
+        async function loadPosts() {
+            const container = document.getElementById('contentContainer');
+            container.innerHTML = `
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>加载中...</p>
+                </div>
+            `;
+
+            try {
+                // 构建查询参数
+                const params = new URLSearchParams();
+                params.append('type', 'decision');
+                params.append('page', currentPage);
+                params.append('limit', 10);
+
+                if (currentSearch) {
+                    params.append('search', currentSearch);
+                }
+
+                // 调用API获取数据
+                const response = await fetch(`/api/posts?${params}`);
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || '获取数据失败');
+                }
+
+                if (data.posts.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path>
+                            </svg>
+                            <p>暂无决策公告</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                // 渲染内容列表
+                container.innerHTML = data.posts.map(post => renderPostCard(post)).join('');
+
+                // 渲染分页
+                if (data.totalPages > 1) {
+                    renderPagination(data.totalPages);
+                }
+
+            } catch (error) {
+                console.error('加载决策失败:', error);
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <p>加载失败，请稍后重试</p>
+                    </div>
+                `;
+            }
+        }
+
+        // 渲染内容卡片
+        function renderPostCard(post) {
+            const firstImage = post.images && post.images.length > 0 ? post.images[0] : null;
+
+            return `
+                <div class="post-card" onclick="window.location.href='/post/${post.id}'">
+                    ${post.is_pinned ? `
+                        <div class="post-pinned">
+                            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"></path>
+                            </svg>
+                            置顶
+                        </div>
+                    ` : ''}
+                    <div class="post-header">
+                        <h2 class="post-title">${escapeHtml(post.title)}</h2>
+                        <div class="post-author">
+                            <img src="${post.author_avatar || '/uploads/default-avatar.png'}" alt="${post.author_nickname}" class="post-author-avatar">
+                            <span class="post-author-name">${escapeHtml(post.author_nickname)}</span>
+                        </div>
+                    </div>
+                    <div class="post-content">
+                        <div class="post-text">${escapeHtml(post.content)}</div>
+                        ${firstImage ? `<img src="${firstImage}" alt="" class="post-image">` : ''}
+                    </div>
+                    <div class="post-footer">
+                        <div class="post-stats">
+                            <div class="post-stat">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
+                                </svg>
+                                <span>${post.likes || 0}</span>
+                            </div>
+                            <div class="post-stat">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
+                                </svg>
+                                <span>${post.comments_count || 0}</span>
+                            </div>
+                            <div class="post-stat">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                </svg>
+                                <span>${post.views || 0}</span>
+                            </div>
+                        </div>
+                        <div class="post-date">${formatDate(post.created_at)}</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // 渲染分页
+        function renderPagination(totalPages) {
+            const container = document.getElementById('contentContainer');
+            let paginationHtml = '<div class="pagination">';
+
+            // 上一页
+            paginationHtml += `
+                <button class="page-btn" ${currentPage === 1 ? 'disabled' : ''} onclick="changePage(${currentPage - 1})">
+                    上一页
+                </button>
+            `;
+
+            // 页码
+            for (let i = 1; i <= totalPages; i++) {
+                paginationHtml += `
+                    <button class="page-btn ${i === currentPage ? 'active' : ''}" onclick="changePage(${i})">
+                        ${i}
+                    </button>
+                `;
+            }
+
+            // 下一页
+            paginationHtml += `
+                <button class="page-btn" ${currentPage === totalPages ? 'disabled' : ''} onclick="changePage(${currentPage + 1})">
+                    下一页
+                </button>
+            `;
+
+            paginationHtml += '</div>';
+            container.insertAdjacentHTML('beforeend', paginationHtml);
+        }
+
+        // 切换页面
+        function changePage(page) {
+            currentPage = page;
+            loadPosts();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // HTML转义
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+</html>

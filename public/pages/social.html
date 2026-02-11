@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>社交媒体 - 我的世界玄剑公会</title>
+    <link rel="icon" href="/icon.ico" type="image/x-icon">
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        .social-grid {
+            max-width: 900px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 24px;
+            padding: 20px;
+        }
+        .social-card {
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            text-align: center;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            transition: all 0.3s;
+            text-decoration: none;
+            color: inherit;
+        }
+        .social-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 12px 40px rgba(0,0,0,0.12);
+        }
+        .social-icon {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 20px;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .social-icon.douyin {
+            background: linear-gradient(135deg, #ff0050, #ff6b6b);
+        }
+        .social-icon.bilibili {
+            background: linear-gradient(135deg, #00a1d6, #00b5e5);
+        }
+        .social-icon.qq {
+            background: linear-gradient(135deg, #12b7f5, #00a1d6);
+        }
+        .social-icon.email {
+            background: linear-gradient(135deg, #ea4335, #fbbc05);
+        }
+        .social-icon svg {
+            width: 40px;
+            height: 40px;
+            color: white;
+        }
+        .social-name {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        .social-desc {
+            color: #64748b;
+            font-size: 14px;
+            margin-bottom: 16px;
+        }
+        .social-btn {
+            display: inline-block;
+            padding: 10px 24px;
+            background: #6366f1;
+            color: white;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        .contact-info {
+            max-width: 600px;
+            margin: 40px auto;
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        }
+        .contact-title {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .contact-item {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 16px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .contact-item:last-child {
+            border-bottom: none;
+        }
+        .contact-icon {
+            width: 48px;
+            height: 48px;
+            background: #f1f5f9;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .contact-icon svg {
+            width: 24px;
+            height: 24px;
+            color: #6366f1;
+        }
+        .contact-content {
+            flex: 1;
+        }
+        .contact-label {
+            font-size: 13px;
+            color: #64748b;
+            margin-bottom: 4px;
+        }
+        .contact-value {
+            font-size: 15px;
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="navbar-content">
+            <a href="/" class="navbar-brand">
+                <img src="/icon.png" alt="玄剑公会" class="navbar-logo">
+                <div class="navbar-title">
+                    <span class="navbar-title-cn">我的世界玄剑公会</span>
+                    <span class="navbar-title-en">Minecraft Xuanjian Guild</span>
+                </div>
+            </a>
+            <div class="navbar-nav">
+                <a href="/daily" class="nav-link">日报</a>
+                <a href="/decision" class="nav-link">决策</a>
+                <a href="/forum" class="nav-link">贴吧</a>
+                <a href="/social" class="nav-link active">社交媒体</a>
+                <div class="nav-user"></div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        <div class="content-header">
+            <h1 class="content-title">
+                <div class="content-title-cn">社交媒体</div>
+                <div class="content-title-en">Social Media</div>
+            </h1>
+        </div>
+
+        <div class="social-grid">
+            <a href="https://v.douyin.com/pNyb7PYyn3s/" target="_blank" class="social-card">
+                <div class="social-icon douyin">
+                    <svg fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12.53.02C13.84 0 15.14.01 16.44 0c.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z"/>
+                    </svg>
+                </div>
+                <h3 class="social-name">抖音官号</h3>
+                <p class="social-desc">关注我们的抖音账号，获取最新短视频内容</p>
+                <span class="social-btn">立即关注</span>
+            </a>
+
+            <a href="https://space.bilibili.com/678742876" target="_blank" class="social-card">
+                <div class="social-icon bilibili">
+                    <svg fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M17.813 4.653h.854c1.51.054 2.769.578 3.773 1.574 1.004.995 1.524 2.249 1.56 3.76v7.36c-.036 1.51-.556 2.769-1.56 3.773s-2.262 1.524-3.773 1.56H5.333c-1.51-.036-2.769-.556-3.773-1.56S.036 18.858 0 17.347v-7.36c.036-1.511.556-2.765 1.56-3.76 1.004-.996 2.262-1.52 3.773-1.574h.774l-1.174-1.12a1.234 1.234 0 0 1-.373-.906c0-.356.124-.658.373-.907l.027-.027c.267-.249.573-.373.92-.373.347 0 .653.124.92.373L9.653 4.44c.071.071.134.142.187.213h4.267a.836.836 0 0 1 .16-.213l2.853-2.747c.267-.249.573-.373.92-.373.347 0 .662.151.929.4.267.249.391.551.391.907 0 .355-.124.657-.373.906zM5.333 7.24c-.746.018-1.373.276-1.88.773-.506.498-.769 1.13-.786 1.894v7.52c.017.764.28 1.395.786 1.893.507.498 1.134.756 1.88.773h13.334c.746-.017 1.373-.275 1.88-.773.506-.498.769-1.129.786-1.893v-7.52c-.017-.765-.28-1.396-.786-1.894-.507-.497-1.134-.755-1.88-.773zM8 11.107c.373 0 .684.124.933.373.25.249.383.569.4.96v1.173c-.017.391-.15.711-.4.96-.249.25-.56.374-.933.374s-.684-.125-.933-.374c-.25-.249-.383-.569-.4-.96V12.44c0-.373.129-.689.386-.947.258-.257.574-.386.947-.386zm8 0c.373 0 .684.124.933.373.25.249.383.569.4.96v1.173c-.017.391-.15.711-.4.96-.249.25-.56.374-.933.374s-.684-.125-.933-.374c-.25-.249-.383-.569-.4-.96V12.44c.017-.391.15-.711.4-.96.249-.249.56-.373.933-.373z"/>
+                    </svg>
+                </div>
+                <h3 class="social-name">B站官号</h3>
+                <p class="social-desc">订阅B站频道，观看精彩视频和直播</p>
+                <span class="social-btn">立即订阅</span>
+            </a>
+
+            <a href="http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=_gw12An9YHGh949KbwjRv03G4FN8KC3p&authKey=y5fNaas3k4fVQhb69ROWVG%2B6L5lQJe09csgIL%2FTXw6w1oux2zMI9hCd0AKqcLzQJ&noverify=0&group_code=860336849" target="_blank" class="social-card">
+                <div class="social-icon qq">
+                    <svg fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12.003 2c-2.265 0-6.29 1.364-6.29 7.325v1.195S3.55 14.96 3.55 17.474c0 .665.17 1.025.281 1.025.114 0 .902-.484 1.748-2.072 0 0-.18 2.197 1.904 3.967 0 0-1.77.495-1.77 1.182 0 .686 4.078.43 6.29.43 2.21 0 6.287.257 6.287-.43 0-.687-1.768-1.182-1.768-1.182 2.085-1.77 1.905-3.967 1.905-3.967.845 1.588 1.634 2.072 1.746 2.072.111 0 .283-.36.283-1.025 0-2.514-2.166-6.954-2.166-6.954V9.325C18.29 3.364 14.268 2 12.003 2z"/>
+                    </svg>
+                </div>
+                <h3 class="social-name">QQ群</h3>
+                <p class="social-desc">加入官方QQ群，与公会成员实时交流</p>
+                <span class="social-btn">立即加入</span>
+            </a>
+
+            <a href="mailto:xuanjian_guild@xuanjian.top" class="social-card">
+                <div class="social-icon email">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                    </svg>
+                </div>
+                <h3 class="social-name">反馈邮箱</h3>
+                <p class="social-desc">发送邮件至官方邮箱，反馈问题或建议</p>
+                <span class="social-btn">发送邮件</span>
+            </a>
+        </div>
+
+        <div class="contact-info">
+            <h2 class="contact-title">联系方式</h2>
+            <div class="contact-item">
+                <div class="contact-icon">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                    </svg>
+                </div>
+                <div class="contact-content">
+                    <div class="contact-label">官网运维</div>
+                    <div class="contact-value">3239658930</div>
+                </div>
+            </div>
+            <div class="contact-item">
+                <div class="contact-icon">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                    </svg>
+                </div>
+                <div class="contact-content">
+                    <div class="contact-label">反馈邮箱</div>
+                    <div class="contact-value">xuanjian_guild@xuanjian.top</div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <button class="back-to-top">
+        <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"></path>
+        </svg>
+    </button>
+
+    <script src="/js/common.js"></script>
+</body>
+</html>
