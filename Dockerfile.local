@@ -1,0 +1,25 @@
+# 使用本地构建的方式，不需要从Docker Hub下载
+# 这个Dockerfile使用本地node_modules
+
+FROM node:18-slim
+
+# 设置工作目录
+WORKDIR /app
+
+# 复制整个项目（包括node_modules）
+COPY . .
+
+# 创建必要的目录并设置权限
+RUN mkdir -p data/uploads && \
+    chmod -R 755 data && \
+    chmod -R 755 data/uploads
+
+# 暴露端口
+EXPOSE 3000
+
+# 设置环境变量
+ENV NODE_ENV=production
+ENV PORT=3000
+
+# 启动命令
+CMD ["node", "server.js"]

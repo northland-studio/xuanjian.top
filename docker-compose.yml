@@ -2,7 +2,10 @@ version: '3.8'
 
 services:
   xuanjian-guild:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: xuanjian-guild:latest
     container_name: xuanjian-guild-website
     ports:
       - "3000:3000"
