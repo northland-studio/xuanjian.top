@@ -349,7 +349,7 @@
     <nav class="navbar">
         <div class="navbar-content">
             <a href="/" class="navbar-brand">
-                <img data-src="/icon.png" alt="玄剑公会" class="navbar-logo">
+                <img src="/icon.png" alt="玄剑公会" class="navbar-logo">
                 <div class="navbar-title">
                     <span class="navbar-title-cn">我的世界玄剑公会</span>
                     <span class="navbar-title-en">Minecraft Xuanjian Guild</span>
@@ -437,7 +437,7 @@
                 // 已登录
                 navUser.innerHTML = `
                     <a href="/profile">
-                        <img data-src="${user.avatar || '/uploads/default-avatar.png'}" alt="${user.nickname}" class="nav-avatar">
+                        <img src="${user.avatar || '/uploads/default-avatar.png'}" alt="${user.nickname}" class="nav-avatar">
                     </a>
                 `;
 
@@ -568,13 +568,13 @@
                     <div class="post-header">
                         <h2 class="post-title">${escapeHtml(post.title)}</h2>
                         <div class="post-author">
-                            <img data-src="${post.author_avatar || '/uploads/default-avatar.png'}" alt="${post.author_nickname}" class="post-author-avatar">
+                            <img src="${post.author_avatar || '/uploads/default-avatar.png'}" alt="${post.author_nickname}" class="post-author-avatar">
                             <span class="post-author-name">${escapeHtml(post.author_nickname)}</span>
                         </div>
                     </div>
                     <div class="post-content">
                         <div class="post-text">${escapeHtml(post.content)}</div>
-                        ${firstImage ? `<img data-src="${firstImage}" alt="" class="post-image">` : ''}
+                        ${firstImage ? `<img src="${firstImage}" alt="" class="post-image">` : ''}
                     </div>
                     <div class="post-footer">
                         <div class="post-stats">

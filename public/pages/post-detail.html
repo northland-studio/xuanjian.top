@@ -1,1 +1,169 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>内容详情 - 我的世界玄剑公会</title>
+    <link rel="icon" href="/icon.ico" type="image/x-icon">
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        .post-detail { max-width: 800px; margin: 0 auto; padding: 20px; }
+        .post-detail-header { background: white; border-radius: 16px; padding: 30px; margin-bottom: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); }
+        .post-detail-title { font-size: 28px; font-weight: 700; margin-bottom: 20px; line-height: 1.4; }
+        .post-detail-meta { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+        .post-detail-author { display: flex; align-items: center; gap: 12px; }
+        .post-detail-avatar { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; }
+        .post-detail-author-info { display: flex; flex-direction: column; }
+        .post-detail-author-name { font-weight: 600; }
+        .post-detail-date { font-size: 13px; color: #64748b; }
+        .post-detail-tags { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+        .post-detail-tag { padding: 4px 12px; background: rgba(99,102,241,0.1); color: #6366f1; border-radius: 20px; font-size: 13px; }
+        .post-detail-content { 
+            background: white; 
+            border-radius: 16px; 
+            padding: 30px; 
+            margin-bottom: 20px; 
+            box-shadow: 0 2px 10px rgba(0,0,0,0.08); 
+            line-height: 1.8; 
+            font-size: 16px; 
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .post-detail-content img { max-width: 100%; border-radius: 8px; margin: 16px 0; }
+        .post-detail-actions { display: flex; gap: 16px; margin-bottom: 20px; }
+        .action-btn { display: flex; align-items: center; gap: 8px; padding: 12px 24px; border: 1px solid #e2e8f0; background: white; border-radius: 10px; cursor: pointer; transition: all 0.3s; }
+        .action-btn:hover { border-color: #6366f1; color: #6366f1; }
+        .action-btn.liked { background: #6366f1; color: white; border-color: #6366f1; }
+        .comments-section { background: white; border-radius: 16px; padding: 30px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); }
+        .comments-title { font-size: 20px; font-weight: 600; margin-bottom: 20px; }
+        .comment-form { margin-bottom: 30px; }
+        .comment-input { width: 100%; padding: 16px; border: 2px solid #e2e8f0; border-radius: 12px; font-size: 15px; resize: vertical; min-height: 100px; }
+        .comment-input:focus { outline: none; border-color: #6366f1; }
+        .comment-submit { margin-top: 12px; padding: 12px 24px; background: #6366f1; color: white; border: none; border-radius: 8px; cursor: pointer; }
+        .comment-item { padding: 20px 0; border-bottom: 1px solid #e2e8f0; }
+        .comment-header { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+        .comment-avatar { width: 40px; height: 40px; border-radius: 50%; }
+        .comment-author { font-weight: 600; }
+        .comment-time { font-size: 13px; color: #64748b; margin-left: auto; }
+        .comment-content { color: #334155; line-height: 1.6; }
+        .replies { margin-left: 52px; margin-top: 16px; padding-left: 20px; border-left: 2px solid #e2e8f0; }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="navbar-content">
+            <a href="/" class="navbar-brand">
+                <img src="/icon.png" alt="玄剑公会" class="navbar-logo">
+                <div class="navbar-title">
+                    <span class="navbar-title-cn">我的世界玄剑公会</span>
+                    <span class="navbar-title-en">Minecraft Xuanjian Guild</span>
+                </div>
+            </a>
+            <div class="navbar-nav">
+                <a href="/daily" class="nav-link">日报</a>
+                <a href="/decision" class="nav-link">决策</a>
+                <a href="/forum" class="nav-link">贴吧</a>
+                <a href="/social" class="nav-link">社交媒体</a>
+                <div class="nav-user"></div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        <div class="post-detail" id="post-detail">
+            <div class="loading"><div class="spinner"></div></div>
+        </div>
+    </main>
+
+    <script src="/js/common.js"></script>
+    <script>
+        const postId = window.location.pathname.split('/').pop();
+        let currentPost = null;
+
+        async function loadPost() {
+            try {
+                const data = await get(`/api/posts/${postId}`);
+                currentPost = data.post;
+                renderPost(data.post, data.comments);
+            } catch (error) {
+                document.getElementById('post-detail').innerHTML = '<div class="empty-state"><h3>内容不存在</h3></div>';
+            }
+        }
+
+        function renderPost(post, comments) {
+            const container = document.getElementById('post-detail');
+            const imagesHtml = post.images?.map(img => `<img src="${img}" alt="">`).join('') || '';
+            
+            container.innerHTML = `
+                <div class="post-detail-header">
+                    <h1 class="post-detail-title">${post.title}</h1>
+                    <div class="post-detail-meta">
+                        <div class="post-detail-author">
+                            <img src="${post.author_avatar || '/uploads/default-avatar.png'}" class="post-detail-avatar">
+                            <div class="post-detail-author-info">
+                                <span class="post-detail-author-name">${post.author_nickname}</span>
+                                <span class="post-detail-date">${formatDate(post.created_at)}</span>
+                            </div>
+                        </div>
+                    </div>
+                    ${post.tags ? `<div class="post-detail-tags">${post.tags.split(',').map(t => `<span class="post-detail-tag">${t.trim()}</span>`).join('')}</div>` : ''}
+                </div>
+                <div class="post-detail-content">${post.content}${imagesHtml}</div>
+                <div class="post-detail-actions">
+                    <button class="action-btn ${post.isLiked ? 'liked' : ''}" onclick="toggleLike()">
+                        <svg width="20" height="20" fill="${post.isLiked ? 'currentColor' : 'none'}" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path></svg>
+                        <span>${formatNumber(post.likes)}</span>
+                    </button>
+                    <button class="action-btn"><svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg><span>${formatNumber(post.views)}</span></button>
+                </div>
+                <div class="comments-section">
+                    <h3 class="comments-title">评论 (${comments.length})</h3>
+                    ${isLoggedIn() ? `
+                        <div class="comment-form">
+                            <textarea class="comment-input" id="comment-content" placeholder="发表你的评论..."></textarea>
+                            <button class="comment-submit" onclick="submitComment()">发表评论</button>
+                        </div>
+                    ` : '<p style="color:#64748b;margin-bottom:20px;">请<a href="/login" style="color:#6366f1;">登录</a>后发表评论</p>'}
+                    <div class="comments-list">${comments.map(c => renderComment(c)).join('')}</div>
+                </div>
+            `;
+        }
+
+        function renderComment(comment) {
+            const repliesHtml = comment.replies?.length ? `<div class="replies">${comment.replies.map(r => renderComment(r)).join('')}</div>` : '';
+            return `
+                <div class="comment-item">
+                    <div class="comment-header">
+                        <img src="${comment.author_avatar || '/uploads/default-avatar.png'}" class="comment-avatar">
+                        <span class="comment-author">${comment.author_nickname}</span>
+                        <span class="comment-time">${formatDate(comment.created_at)}</span>
+                    </div>
+                    <div class="comment-content">${comment.content}</div>
+                    ${repliesHtml}
+                </div>
+            `;
+        }
+
+        async function toggleLike() {
+            if (!isLoggedIn()) { window.location.href = '/login'; return; }
+            try {
+                await post(`/api/posts/${postId}/like`);
+                loadPost();
+            } catch (e) { showToast('操作失败', 'error'); }
+        }
+
+        async function submitComment() {
+            const content = document.getElementById('comment-content').value.trim();
+            if (!content) return;
+            try {
+                await post(`/api/posts/${postId}/comments`, { content });
+                document.getElementById('comment-content').value = '';
+                loadPost();
+                showToast('评论成功', 'success');
+            } catch (e) { showToast('评论失败', 'error'); }
+        }
+
+        document.addEventListener('DOMContentLoaded', loadPost);
+    </script>
+</body>
 </html>
