@@ -608,6 +608,48 @@ body {
    移动端适配 - 在原有样式基础上扩展
    ============================================ */
 
+/* 图片懒加载样式 - 渐进式加载（模糊到清晰） */
+img[data-src],
+img[data-bg] {
+    opacity: 0;
+    filter: blur(10px);
+    transform: scale(1.05);
+    transition: opacity 0.5s ease, filter 0.5s ease, transform 0.5s ease;
+}
+
+img.loaded,
+img[data-src].loaded,
+img[data-bg].loaded {
+    opacity: 1;
+    filter: blur(0);
+    transform: scale(1);
+}
+
+/* 懒加载占位符 - 骨架屏动画 */
+.lazy-placeholder {
+    background: linear-gradient(90deg, #f0f0f0 25%, #e8e8e8 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: skeleton-loading 1.5s ease-in-out infinite;
+}
+
+@keyframes skeleton-loading {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+/* 低质量图片占位（LQIP） */
+img[data-src].lqip {
+    opacity: 0.5;
+    filter: blur(20px);
+    transform: scale(1.1);
+}
+
+img[data-src].lqip.loaded {
+    opacity: 1;
+    filter: blur(0);
+    transform: scale(1);
+}
+
 /* 移动端菜单按钮 */
 .mobile-menu-btn {
     display: none;

@@ -6,6 +6,14 @@ const { v4: uuidv4 } = require('uuid');
 const { authMiddleware } = require('../middleware/auth');
 const router = express.Router();
 
+// 尝试加载 sharp（图片压缩库）
+let sharp;
+try {
+    sharp = require('sharp');
+} catch (e) {
+    console.log('sharp 未安装，图片压缩功能不可用');
+}
+
 // 确保上传目录存在
 const uploadsDir = path.join(__dirname, '..', 'data', 'uploads');
 if (!fs.existsSync(uploadsDir)) {
@@ -42,11 +50,44 @@ const upload = multer({
     }
 });
 
+// 压缩图片函数
+async function compressImage(inputPath, outputPath, maxWidth = 1920, quality = 80) {
+    if (!sharp) return false;
+    
+    try {
+        await sharp(inputPath)
+            .resize(maxWidth, null, { withoutEnlargement: true })
+            .jpeg({ quality, progressive: true })
+            .toFile(outputPath + '.tmp');
+        
+        // 替换原文件
+        fs.unlinkSync(inputPath);
+        fs.renameSync(outputPath + '.tmp', outputPath);
+        
+        return true;
+    } catch (error) {
+        console.error('压缩失败:', error);
+        return false;
+    }
+}
+
 // 上传图片
-router.post('/image', authMiddleware, upload.single('image'), (req, res) => {
+router.post('/image', authMiddleware, upload.single('image'), async (req, res) => {
     try {
         if (!req.file) {
             return res.status(400).json({ error: '没有上传文件' });
+        }
+        
+        const filePath = path.join(uploadsDir, req.file.filename);
+        
+        // 压缩图片（如果是图片且 sharp 可用）
+        if (sharp && req.file.mimetype.startsWith('image/')) {
+            const compressed = await compressImage(filePath, filePath);
+            if (compressed) {
+                // 获取压缩后的大小
+                const stats = fs.statSync(filePath);
+                console.log(`图片已压缩: ${req.file.originalname} -> ${(stats.size / 1024).toFixed(2)}KB`);
+            }
         }
         
         const imageUrl = `/uploads/${req.file.filename}`;
