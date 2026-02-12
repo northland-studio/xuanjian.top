@@ -1,126 +1,136 @@
-# 我的世界玄剑公会官网
+<div align="center">
 
-## 项目概述
+# 🗡️ 我的世界玄剑公会官网
 
-这是一个为"我的世界玄剑公会"开发的完整官网系统，包含内容发布、用户管理、社交互动等功能。
+[![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)](https://nodejs.org/)
+[![Express](https://img.shields.io/badge/Express-4.x-blue.svg)](https://expressjs.com/)
+[![SQLite](https://img.shields.io/badge/SQLite-3-orange.svg)](https://www.sqlite.org/)
+[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-## 技术栈
+**一个功能完善的 Minecraft 公会官网系统**
 
-- **前端**: HTML5 + CSS3 + JavaScript (原生，无框架依赖)
-- **后端**: Node.js + Express
-- **数据库**: SQLite3 (本地文件存储，无需云端数据库)
-- **部署**: Nginx 反向代理 + PM2 进程管理 / Docker
+[在线演示](https://xuanjiaaaan.top) · [部署文档](#部署方式) · [API文档](#api接口)
 
-## 项目结构
+</div>
+
+---
+
+## 📋 项目简介
+
+玄剑公会官网是一个专为 Minecraft 公会设计的完整内容管理系统，支持内容发布、用户管理、社交互动等功能。采用轻量级架构，无需复杂的数据库配置，适合中小型公会快速部署使用。
+
+### ✨ 核心特性
+
+- 📝 **内容管理** - 公会日报、决策公告、贴吧三大板块
+- 👥 **用户系统** - 三级权限体系，支持头像上传
+- 💬 **社交互动** - 评论、点赞、内容搜索
+- 🎨 **响应式设计** - 完美适配 PC 和移动端
+- 🚀 **一键部署** - 支持 Docker 和传统部署方式
+
+---
+
+## 🛠️ 技术栈
+
+| 层级 | 技术 | 说明 |
+|:---:|:---|:---|
+| **前端** | HTML5 + CSS3 + JavaScript | 原生开发，无框架依赖 |
+| **后端** | Node.js + Express | 轻量级 Web 框架 |
+| **数据库** | SQLite3 | 本地文件存储，零配置 |
+| **进程管理** | PM2 | 生产环境进程守护 |
+| **反向代理** | Nginx | 高性能反向代理 |
+| **容器化** | Docker | 快速部署方案 |
+
+---
+
+## 📁 项目结构
 
 ```
-├── data/                   # 数据目录
-│   ├── uploads/           # 上传文件存储
-│   └── guild.db           # SQLite数据库文件
-├── middleware/            # 中间件
-│   └── auth.js           # 认证中间件
-├── public/               # 静态文件
-│   ├── css/             # 样式文件
-│   │   └── style.css
-│   ├── js/              # JavaScript文件
-│   │   └── common.js    # 公共函数库
-│   ├── pages/           # 页面文件
-│   │   ├── admin.html      # 管理后台
-│   │   ├── daily.html      # 公会日报
-│   │   ├── decision.html   # 决策公告
-│   │   ├── editor.html     # 内容编辑器
-│   │   ├── forum.html      # 公会贴吧
-│   │   ├── login.html      # 登录页
-│   │   ├── post-detail.html # 内容详情页
-│   │   ├── profile.html    # 用户主页
-│   │   ├── register.html   # 注册页
-│   │   └── social.html     # 社交媒体页
-│   └── index.html       # 首页
-├── routes/               # API路由
-│   ├── admin.js         # 管理接口
-│   ├── announcement.js  # 公告接口
-│   ├── auth.js          # 认证接口
-│   ├── posts.js         # 内容接口
-│   └── upload.js        # 上传接口
-├── scripts/              # 脚本
-│   └── init-db.js       # 数据库初始化
-├── database.js           # 数据库连接模块
-├── server.js             # 服务器入口
-├── package.json          # 项目配置
-├── Dockerfile            # Docker镜像配置
-├── docker-compose.yml    # Docker Compose配置
-├── nginx.conf            # Nginx配置
-├── 运维帮助文档.md        # 部署运维文档
-└── DOCKER_DEPLOY.md      # Docker部署文档
+xuanjian-guild-website/
+├── 📂 data/                    # 数据目录
+│   ├── 📂 uploads/            # 上传文件存储
+│   └── 🗄️ guild.db            # SQLite 数据库
+├── 📂 middleware/              # 中间件
+│   └── 🔐 auth.js             # JWT 认证中间件
+├── 📂 public/                  # 静态资源
+│   ├── 📂 css/                # 样式文件
+│   ├── 📂 js/                 # JavaScript 文件
+│   ├── 📂 pages/              # 页面文件
+│   │   ├── 🏠 index.html          # 首页
+│   │   ├── 📰 daily.html          # 公会日报
+│   │   ├── 📋 decision.html       # 决策公告
+│   │   ├── 💬 forum.html          # 公会贴吧
+│   │   ├── 📝 editor.html         # 内容编辑器
+│   │   ├── 👤 profile.html        # 用户主页
+│   │   ├── ⚙️ admin.html           # 管理后台
+│   │   ├── 🔑 login.html          # 登录页
+│   │   └── 📝 register.html       # 注册页
+│   └── 🏠 index.html
+├── 📂 routes/                  # API 路由
+│   ├── 🔐 auth.js             # 认证接口
+│   ├── 📝 posts.js            # 内容接口
+│   ├── 👥 admin.js            # 管理接口
+│   └── 📤 upload.js           # 上传接口
+├── 📂 scripts/                 # 工具脚本
+│   └── 🗄️ init-db.js          # 数据库初始化
+├── 🚀 server.js                # 服务器入口
+├── 🗄️ database.js              # 数据库模块
+├── 📦 package.json             # 项目配置
+├── 🐳 Dockerfile               # Docker 配置
+├── ⚙️ docker-compose.yml       # Docker Compose 配置
+└── 📖 README.md                # 项目文档
 ```
 
-## 功能特性
+---
 
-### 内容管理
-- **公会日报**: 管理员可发布，普通用户可浏览
-- **决策公示**: 管理员可发布，普通用户可浏览
-- **公会贴吧**: 所有登录用户可发布和浏览
+## 🚀 快速开始
 
-### 用户系统
-- 三级权限体系: 普通用户(0级)、管理员(1级)、超级管理员(2级)
-- 用户注册/登录/登出
-- 用户资料管理（支持头像上传）
-- 贡献点系统
-
-### 交互功能
-- 内容点赞
-- 评论系统(支持回复)
-- 内容搜索
-- 弹窗公告
-- 文件上传（头像、内容图片）
-
-### 管理功能
-- 内容管理(删除、置顶)
-- 用户管理(修改信息、设置等级)
-- 公告管理
-- 数据统计
-
-## 部署方式
-
-### 方式一：Docker部署（推荐）
-
-详见 [DOCKER_DEPLOY.md](./DOCKER_DEPLOY.md)
+### 方式一：Docker 部署（推荐）
 
 ```bash
-# 快速部署
+# 克隆项目
+git clone https://github.com/yourusername/xuanjian-guild-website.git
+#或使用gitee
+git clone https://gitee.com/morzane123/xj20260211.git
+cd xuanjian-guild-website
+
+# 启动服务
 docker-compose up -d
+
+# 访问 http://localhost:3000
 ```
 
 ### 方式二：传统部署
 
-详见 [运维帮助文档.md](./运维帮助文档.md)
+```bash
+# 1. 安装依赖
+npm install --production
 
-#### 快速开始
+# 2. 初始化数据库
+npm run init-db
 
-1. 安装依赖
+# 3. 配置环境变量
+cp .env.example .env
+# 编辑 .env 设置 JWT_SECRET 和 ADMIN_PASSWORD
+
+# 4. 启动服务
+npm start
+
+# 或使用 PM2 启动（推荐生产环境）
+pm2 start server.js --name "xuanjian-guild"
+pm2 save
+pm2 startup
+```
+
+### 方式三：开发模式
+
 ```bash
 npm install
+npm run dev
 ```
 
-2. 初始化数据库
-```bash
-npm run init-db
-```
+---
 
-3. 配置环境变量
-```bash
-cp .env.example .env
-# 编辑 .env 文件，设置 JWT_SECRET 和 ADMIN_PASSWORD
-```
-
-4. 启动服务
-```bash
-npm start
-# 或
-npm run dev  # 开发模式
-```
-
-## 环境变量配置
+## ⚙️ 环境变量
 
 创建 `.env` 文件：
 
@@ -129,105 +139,189 @@ npm run dev  # 开发模式
 PORT=3000
 NODE_ENV=production
 
-# JWT密钥（请修改为随机字符串）
-JWT_SECRET=your-secret-key-here
+# JWT 密钥（请修改为随机字符串）
+JWT_SECRET=your-super-secret-key-here
 
-# 管理员初始密码（部署后请修改）
+# 管理员初始密码（部署后请立即修改）
 ADMIN_PASSWORD=xuanjian123
 ```
 
-## 默认账号
+---
 
-- **用户名**: admin
-- **密码**: xuanjian123
-- **等级**: 超级管理员(2级)
+## 🔑 默认账号
 
-**注意**: 部署后请立即修改默认密码！
+| 字段 | 值 |
+|:---|:---|
+| **用户名** | `admin` |
+| **密码** | `xuanjian123` |
+| **等级** | 超级管理员 (2级) |
 
-## API接口
+> ⚠️ **安全提示**: 部署后请立即修改默认密码！
 
-### 认证接口
-- `POST /api/auth/register` - 用户注册
-- `POST /api/auth/login` - 用户登录
-- `GET /api/auth/me` - 获取当前用户信息
-- `PUT /api/auth/profile` - 更新用户资料
+---
 
-### 内容接口
-- `GET /api/posts` - 获取内容列表
-- `GET /api/posts/:id` - 获取内容详情
-- `POST /api/posts` - 发布内容
-- `PUT /api/posts/:id` - 更新内容
-- `DELETE /api/posts/:id` - 删除内容
-- `POST /api/posts/:id/like` - 点赞
-- `POST /api/posts/:id/comments` - 发表评论
+## 📡 API 接口
 
-### 上传接口
-- `POST /api/upload/image` - 上传单张图片
-- `POST /api/upload/images` - 上传多张图片
+### 🔐 认证接口
 
-### 管理接口
-- `GET /api/admin/stats` - 获取统计数据
-- `GET /api/admin/users` - 获取用户列表
-- `PUT /api/admin/users/:id` - 更新用户信息
-- `GET /api/admin/posts` - 获取所有内容
+| 方法 | 路径 | 说明 |
+|:---:|:---|:---|
+| POST | `/api/auth/register` | 用户注册 |
+| POST | `/api/auth/login` | 用户登录 |
+| GET | `/api/auth/me` | 获取当前用户信息 |
+| PUT | `/api/auth/profile` | 更新用户资料 |
 
-## 页面路由
+### 📝 内容接口
 
-- `/` - 首页
-- `/daily` - 公会日报
-- `/decision` - 决策公告
-- `/forum` - 公会贴吧
-- `/post/:id` - 内容详情
-- `/editor` - 内容编辑器
-- `/profile` - 用户主页
-- `/login` - 登录
-- `/register` - 注册
-- `/admin` - 管理后台
-- `/social` - 社交媒体
+| 方法 | 路径 | 说明 |
+|:---:|:---|:---|
+| GET | `/api/posts` | 获取内容列表 |
+| GET | `/api/posts/:id` | 获取内容详情 |
+| POST | `/api/posts` | 发布内容 |
+| PUT | `/api/posts/:id` | 更新内容 |
+| DELETE | `/api/posts/:id` | 删除内容 |
+| POST | `/api/posts/:id/like` | 点赞 |
+| POST | `/api/posts/:id/comments` | 发表评论 |
 
-## 社交媒体链接
+### 📤 上传接口
 
-- 抖音: https://v.douyin.com/pNyb7PYyn3s/
-- B站: https://space.bilibili.com/678742876
-- QQ群: http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=_gw12An9YHGh949KbwjRv03G4FN8KC3p
-- 邮箱: xuanjian_guild@xuanjian.top
+| 方法 | 路径 | 说明 |
+|:---:|:---|:---|
+| POST | `/api/upload/image` | 上传单张图片 |
+| POST | `/api/upload/images` | 上传多张图片 |
 
-## 注意事项
+### 👥 管理接口
 
-1. **安全**: 部署前请修改默认管理员密码和 JWT_SECRET
-2. **权限**: 确保 `data/uploads` 目录有写入权限
-3. **HTTPS**: 生产环境建议使用 HTTPS
-4. **备份**: 定期备份数据库文件 (`data/guild.db`)
-5. **上传**: 头像和内容图片存储在 `data/uploads` 目录
+| 方法 | 路径 | 说明 |
+|:---:|:---|:---|
+| GET | `/api/admin/stats` | 获取统计数据 |
+| GET | `/api/admin/users` | 获取用户列表 |
+| PUT | `/api/admin/users/:id` | 更新用户信息 |
+| GET | `/api/admin/posts` | 获取所有内容 |
 
-## 常见问题
+---
 
-### 头像上传失败
+## 🌐 页面路由
+
+| 路径 | 页面 | 说明 |
+|:---|:---|:---|
+| `/` | 首页 | 公会介绍、最新内容 |
+| `/daily` | 公会日报 | 管理员发布，全员浏览 |
+| `/decision` | 决策公告 | 重要决策公示 |
+| `/forum` | 公会贴吧 | 全员可发帖交流 |
+| `/post/:id` | 内容详情 | 查看具体内容 |
+| `/editor` | 内容编辑器 | 发布/编辑内容 |
+| `/profile` | 用户主页 | 个人资料管理 |
+| `/admin` | 管理后台 | 系统管理 |
+| `/login` | 登录 | 用户登录 |
+| `/register` | 注册 | 用户注册 |
+
+---
+
+## 📸 功能展示
+
+### 首页
+- 公会介绍展示
+- 最新内容聚合
+- 快速导航入口
+
+### 内容系统
+- **公会日报** - 记录公会日常活动
+- **决策公告** - 发布重要决策通知
+- **公会贴吧** - 成员交流讨论区
+
+### 用户功能
+- 三级权限体系（普通用户/管理员/超级管理员）
+- 头像上传支持
+- 贡献点系统
+- 内容点赞、评论
+
+### 管理后台
+- 内容管理（审核、置顶、删除）
+- 用户管理（信息修改、权限设置）
+- 数据统计（用户数、内容数、访问量）
+- 公告管理
+
+---
+
+## 📦 部署文档
+
+- [Docker 部署指南](./DOCKER_DEPLOY.md)
+- [SSH 部署指南](./SSH_DEPLOY.md)
+- [宝塔面板部署指南](./BT_PANEL_DEPLOY.md)
+- [PM2 维护命令](./PM2_COMMANDS.md)
+
+---
+
+## 🔧 常见问题
+
+### Q: 头像上传失败？
+**A:** 
 - 检查 `data/uploads` 目录是否存在且有写入权限
 - 确认文件大小不超过 5MB
 - 确认文件格式为 JPG、PNG、GIF 或 WEBP
 
-### 时间显示不正确
+### Q: 时间显示不正确？
+**A:** 
 - 确保服务器时区设置正确
 - 客户端会自动根据本地时区显示时间
 
-### 数据库错误
+### Q: 数据库错误？
+**A:** 
 - 运行 `npm run init-db` 初始化数据库
 - 检查 `data` 目录权限
 
-## 更新日志
-
-### v1.0.0
-- 初始版本发布
-- 完整的内容管理系统
-- 用户权限管理
-- 评论和点赞功能
-- Docker 支持
-
-## 开源协议
-
-MIT License
+### Q: 如何备份数据？
+**A:** 
+- 数据库文件：`data/guild.db`
+- 上传文件：`data/uploads/`
+- 定期备份这两个目录即可
 
 ---
 
-**我的世界玄剑公会** - 官方网站
+## 🌟 社交媒体
+
+- 🎵 **抖音**: https://v.douyin.com/pNyb7PYyn3s/
+- 📺 **B站**: https://space.bilibili.com/678742876
+- 💬 **QQ群**: http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=_gw12An9YHGh949KbwjRv03G4FN8KC3p
+- 📧 **邮箱**: xuanjian_guild@xuanjian.top
+
+---
+
+## 📝 更新日志
+
+### v1.0.0 (2026-2-11)
+- ✨ 初始版本发布
+- 📝 完整的内容管理系统
+- 👥 用户权限管理
+- 💬 评论和点赞功能
+- 🐳 Docker 支持
+- 📱 响应式设计
+
+---
+
+## 🤝 贡献指南
+
+欢迎提交 Issue 和 Pull Request！
+
+1. Fork 本仓库
+2. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
+3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
+4. 推送分支 (`git push origin feature/AmazingFeature`)
+5. 创建 Pull Request
+
+---
+
+## 📄 开源协议
+
+本项目基于 [MIT License](LICENSE) 开源。
+
+---
+
+<div align="center">
+
+**🗡️ 我的世界玄剑公会** - 官方网站
+
+*Made with ❤️ by 北域工作室网络工程组*
+
+</div>
