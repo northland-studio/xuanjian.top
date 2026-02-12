@@ -374,11 +374,37 @@ function showPopupAnnouncement(announcement) {
     };
 }
 
+// 移动端菜单切换
+function toggleMobileMenu() {
+    const navbarNav = document.querySelector('.navbar-nav');
+    if (navbarNav) {
+        navbarNav.classList.toggle('active');
+    }
+}
+
+// 点击页面其他地方关闭菜单
+document.addEventListener('click', (e) => {
+    const navbarNav = document.querySelector('.navbar-nav');
+    const mobileMenuBtn = document.querySelector('.mobile-menu-btn');
+    
+    if (navbarNav && navbarNav.classList.contains('active')) {
+        if (!navbarNav.contains(e.target) && !mobileMenuBtn.contains(e.target)) {
+            navbarNav.classList.remove('active');
+        }
+    }
+});
+
 // 初始化页面
 function initPage() {
     renderNavbar();
     initNavbarScroll();
     checkPopupAnnouncement();
+    
+    // 绑定移动端菜单按钮
+    const mobileMenuBtn = document.querySelector('.mobile-menu-btn');
+    if (mobileMenuBtn) {
+        mobileMenuBtn.addEventListener('click', toggleMobileMenu);
+    }
 }
 
 // 页面加载完成后初始化
