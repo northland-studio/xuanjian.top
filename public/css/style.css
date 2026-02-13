@@ -6,14 +6,14 @@
 }
 
 :root {
-    --primary-color: #6366f1;
-    --primary-dark: #4f46e5;
-    --primary-light: #818cf8;
+    --primary-color: #ffc800;
+    --primary-dark: #e5c846;
+    --primary-light: #f4f881;
     --secondary-color: #10b981;
     --danger-color: #ef4444;
     --warning-color: #f59e0b;
     --bg-color: #f8fafc;
-    --card-bg: #ffffff;
+    --card-bg: rgb(149, 0, 0);
     --text-primary: #1e293b;
     --text-secondary: #64748b;
     --text-muted: #94a3b8;
@@ -42,7 +42,7 @@ body {
     left: 0;
     right: 0;
     height: 70px;
-    background: rgba(255, 255, 255, 0.95);
+    background: rgba(146, 0, 0, 0.95);
     backdrop-filter: blur(10px);
     border-bottom: 1px solid var(--border-color);
     z-index: 1000;
@@ -87,11 +87,12 @@ body {
     font-size: 16px;
     font-weight: 600;
     line-height: 1.2;
+    color: rgb(255, 221, 0);
 }
 
 .navbar-title-en {
     font-size: 11px;
-    color: var(--text-secondary);
+    color: rgb(255, 221, 0);
     line-height: 1.2;
 }
 
@@ -105,7 +106,7 @@ body {
     padding: 8px 16px;
     border-radius: var(--radius-sm);
     text-decoration: none;
-    color: var(--text-secondary);
+    color: rgb(255, 221, 0);
     font-size: 14px;
     font-weight: 500;
     transition: var(--transition);
@@ -178,8 +179,7 @@ body {
 
 /* 页面头部 */
 .page-header {
-    background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
-    color: white;
+    background: url('/1.png') center/cover no-repeat;
     padding: 60px 24px;
     text-align: center;
 }
