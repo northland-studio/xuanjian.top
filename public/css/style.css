@@ -13,7 +13,11 @@
     --danger-color: #ef4444;
     --warning-color: #f59e0b;
     --bg-color: #f8fafc;
+<<<<<<< HEAD
     --card-bg: white;
+=======
+    --card-bg: rgb(149, 0, 0);
+>>>>>>> 4ed3964b5a6d6c6a30512572281f9dc556025b61
     --text-primary: #1e293b;
     --text-secondary: #64748b;
     --text-muted: #94a3b8;
