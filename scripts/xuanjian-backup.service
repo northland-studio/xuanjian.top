@@ -1,0 +1,14 @@
+[Unit]
+Description=玄剑公会官网数据备份服务
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/var/www/xuanjian-guild/scripts/backup.sh
+User=root
+Group=root
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

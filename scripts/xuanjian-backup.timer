@@ -1,0 +1,12 @@
+[Unit]
+Description=玄剑公会官网数据每日备份定时器
+Requires=xuanjian-backup.service
+
+[Timer]
+OnCalendar=*-*-* 03:00:00
+Persistent=true
+AccuracySec=1min
+RandomizedDelaySec=5min
+
+[Install]
+WantedBy=timers.target

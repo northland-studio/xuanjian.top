@@ -604,6 +604,61 @@ body {
     padding: 16px 24px 24px;
     display: flex;
     justify-content: flex-end;
+    gap: 12px;
+}
+
+/* 弹窗按钮样式 */
+.bt {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px 24px;
+    border-radius: var(--radius);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: var(--transition);
+    border: none;
+    text-decoration: none;
+}
+
+.bt-primary {
+    background: var(--primary-color);
+    color: white;
+}
+
+.bt-primary:hover {
+    background: var(--primary-dark);
+}
+
+.bt-secondary {
+    background: var(--bg-color);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+}
+
+.bt-secondary:hover {
+    background: var(--border-color);
+}
+
+.bt-danger {
+    background: var(--danger-color);
+    color: white;
+}
+
+.bt-danger:hover {
+    background: #dc2626;
+}
+
+.bt-sm {
+    padding: 8px 16px;
+    font-size: 13px;
+}
+
+.bt-lg {
+    padding: 14px 32px;
+    font-size: 16px;
 }
 
 /* ============================================

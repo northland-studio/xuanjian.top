@@ -26,6 +26,27 @@
         .stat-card-label { opacity: 0.9; margin-top: 4px; }
         .tab-content { display: none; }
         .tab-content.active { display: block; }
+        .bt {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 12px 24px;
+            border-radius: var(--radius);
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: var(--transition);
+            border: none;
+            text-decoration: none;
+        }
+        .bt-primary {
+            background: var(--primary-color);
+            color: white;
+        }
+        .bt-primary:hover {
+            background: var(--primary-dark);
+        }
     </style>
 </head>
 <body>
@@ -75,7 +96,7 @@
                     </table>
                 </div>
                 <div id="tab-announcements" class="tab-content">
-                    <button class="btn btn-primary" onclick="createAnnouncement()" style="margin-bottom:20px;">发布公告</button>
+                    <button class="bt bt-primary" onclick="createAnnouncement()" style="margin-bottom:20px;">发布公告</button>
                     <div id="announcements-list"></div>
                 </div>
             </div>
