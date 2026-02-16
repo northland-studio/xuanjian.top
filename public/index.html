@@ -94,15 +94,14 @@
         }
         
         .hero-btn-primary {
-            background: rgb(255, 221, 0);
+            background: rgba(255, 255, 255, 0.1);
             color: white;
-            border: 2px solid transparent;
+            border: 2px solid rgba(255, 255, 255, 0.3);
         }
         
         .hero-btn-primary:hover {
-            background: rgb(255, 221, 0);
-            transform: translateY(-2px);
-            box-shadow: 0 10px 30px rgba(99, 102, 241, 0.4);
+            background: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.5);
         }
         
         .hero-btn-secondary {
@@ -118,7 +117,7 @@
         
         .features {
             padding: 80px 24px;
-            background: rgba(146, 0, 0, 0.95);
+            background: var(--bg-color);
         }
         
         .features-grid {
@@ -130,7 +129,7 @@
         }
         
         .feature-card {
-            background: rgb(255, 255, 255);
+            background: white;
             border-radius: 20px;
             padding: 40px 30px;
             text-align: center;
@@ -150,7 +149,7 @@
             width: 70px;
             height: 70px;
             margin: 0 auto 24px;
-            background: rgb(255, 221, 0);
+            background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
             border-radius: 20px;
             display: flex;
             align-items: center;
@@ -172,13 +171,13 @@
         
         .feature-desc {
             font-size: 14px;
-            color: gray;
+            color: var(--text-secondary);
             line-height: 1.6;
         }
         
         .stats {
             padding: 60px 24px;
-            background: rgba(146, 0, 0, 0.95);
+            background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
             color: white;
         }
         

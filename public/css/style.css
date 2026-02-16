@@ -6,18 +6,14 @@
 }
 
 :root {
-    --primary-color: #ffc800;
-    --primary-dark: #e5c846;
-    --primary-light: #f4f881;
+    --primary-color: #6366f1;
+    --primary-dark: #4f46e5;
+    --primary-light: #818cf8;
     --secondary-color: #10b981;
     --danger-color: #ef4444;
     --warning-color: #f59e0b;
     --bg-color: #f8fafc;
-<<<<<<< HEAD
-    --card-bg: white;
-=======
-    --card-bg: rgb(149, 0, 0);
->>>>>>> 4ed3964b5a6d6c6a30512572281f9dc556025b61
+    --card-bg: #ffffff;
     --text-primary: #1e293b;
     --text-secondary: #64748b;
     --text-muted: #94a3b8;
@@ -46,7 +42,7 @@ body {
     left: 0;
     right: 0;
     height: 70px;
-    background: rgba(146, 0, 0, 0.95);
+    background: rgba(255, 255, 255, 0.95);
     backdrop-filter: blur(10px);
     border-bottom: 1px solid var(--border-color);
     z-index: 1000;
@@ -91,12 +87,11 @@ body {
     font-size: 16px;
     font-weight: 600;
     line-height: 1.2;
-    color: rgb(255, 221, 0);
 }
 
 .navbar-title-en {
     font-size: 11px;
-    color: rgb(255, 221, 0);
+    color: var(--text-secondary);
     line-height: 1.2;
 }
 
@@ -110,7 +105,7 @@ body {
     padding: 8px 16px;
     border-radius: var(--radius-sm);
     text-decoration: none;
-    color: rgb(255, 221, 0);
+    color: var(--text-secondary);
     font-size: 14px;
     font-weight: 500;
     transition: var(--transition);
@@ -183,7 +178,8 @@ body {
 
 /* 页面头部 */
 .page-header {
-    background: url('/1.png') center/cover no-repeat;
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+    color: white;
     padding: 60px 24px;
     text-align: center;
 }
@@ -460,15 +456,17 @@ body {
     transition: var(--transition);
     border: none;
     text-decoration: none;
+    backdrop-filter: blur(10px);
 }
 
 .btn-primary {
-    background: var(--primary-color);
+    background: rgba(255, 255, 255, 0.1);
     color: white;
-}
+    border: 2px solid rgba(255, 255, 255, 0.3);}
 
 .btn-primary:hover {
-    background: var(--primary-dark);
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.5);
 }
 
 .btn-secondary {
