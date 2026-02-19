@@ -414,7 +414,7 @@
         </svg>
     </button>
 
-    <script src="/js/common.js"></script>
+    <script src="/js/common.js?v=2.0.2"></script>
     <script>
         let currentFilter = 'all';
         let currentPage = 1;
@@ -573,7 +573,7 @@
                         </div>
                     </div>
                     <div class="post-content">
-                        <div class="post-text">${escapeHtml(post.content)}</div>
+                        <div class="post-text">${escapeHtml(stripHtml(post.content).substring(0, 200))}</div>
                         ${firstImage ? `<img src="${firstImage}" alt="" class="post-image">` : ''}
                     </div>
                     <div class="post-footer">

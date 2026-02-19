@@ -36,6 +36,8 @@
             box-shadow: 0 2px 10px rgba(0,0,0,0.08); 
             line-height: 1.8; 
             font-size: 16px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
         }
         .post-detail-content p { margin-bottom: 16px; }
         .post-detail-content img { max-width: 100%; border-radius: 8px; margin: 16px 0; }
@@ -47,6 +49,11 @@
             margin: 16px 0; 
             color: #64748b; 
         }
+        .post-detail-content strong, .post-detail-content b { font-weight: 700; }
+        .post-detail-content em, .post-detail-content i { font-style: italic; }
+        .post-detail-content u { text-decoration: underline; }
+        .post-detail-content s, .post-detail-content strike { text-decoration: line-through; }
+        .post-detail-content br { display: block; margin: 8px 0; }
         .post-detail-actions { 
             display: flex; 
             gap: 16px; 
@@ -111,7 +118,7 @@
         </div>
     </main>
 
-    <script src="/js/common.js"></script>
+    <script src="/js/common.js?v=2.0.2"></script>
     <script>
         const postId = window.location.pathname.split('/').pop();
         let currentPost = null;
@@ -149,7 +156,7 @@
                         <div class="post-detail-author" onclick="viewProfile('${post.author_username || post.author_id}')">
                             <img src="${post.author_avatar || '/uploads/default-avatar.png'}" class="post-detail-avatar">
                             <div class="post-detail-author-info">
-                                <span class="post-detail-author-name">${post.author_nickname}</span>
+                                <span class="post-detail-author-name">${post.author_nickname || '未知用户'}</span>
                                 <span class="post-detail-author-username">@${post.author_username || 'user' + post.author_id}</span>
                                 <span class="post-detail-date">${formatDate(post.created_at)}</span>
                             </div>
@@ -214,6 +221,7 @@
             } catch (e) { showToast('操作失败', 'error'); }
         }
 
+        // 显示点赞用户列表
         async function submitComment() {
             const content = document.getElementById('comment-content').value.trim();
             if (!content) return;

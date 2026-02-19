@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
@@ -149,6 +150,57 @@
             gap: 12px;
             margin-top: 24px;
         }
+        
+        /* 发布按钮独立样式 */
+        .btn-publish {
+            background: #6366f1;
+            color: white;
+            padding: 12px 32px;
+            border: none;
+            border-radius: var(--radius);
+            font-size: 15px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .btn-publish:hover {
+            background: #4f46e5;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+        }
+        
+        /* 富文本编辑器工具栏悬停提示 */
+        .ql-toolbar button {
+            position: relative;
+        }
+        
+        .ql-toolbar button:hover::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 4px 8px;
+            background: #1e293b;
+            color: white;
+            font-size: 12px;
+            border-radius: 4px;
+            white-space: nowrap;
+            z-index: 100;
+            margin-bottom: 4px;
+        }
+        
+        .ql-toolbar button:hover::before {
+            content: '';
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 4px solid transparent;
+            border-top-color: #1e293b;
+            margin-bottom: -4px;
+        }
     </style>
 </head>
 <body>
@@ -190,13 +242,13 @@
                 
                 <div class="editor-actions">
                     <a href="/" class="btn btn-secondary">取消</a>
-                    <button type="submit" class="btn btn-primary" id="submit-btn">发布</button>
+                    <button type="submit" class="btn-publish" id="submit-btn">发布</button>
                 </div>
             </form>
         </div>
     </main>
 
-    <script src="/js/common.js"></script>
+    <script src="/js/common.js?v=2.0.2"></script>
     <script>
         // 存储已上传的图片 URL
         let uploadedImages = [];

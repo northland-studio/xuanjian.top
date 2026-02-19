@@ -3,26 +3,21 @@ const db = require('../database');
 const { authMiddleware, adminMiddleware } = require('../middleware/auth');
 const router = express.Router();
 
-// 服务器基础 URL，用于拼接图片完整路径
-const SERVER_URL = process.env.SERVER_URL || 'http://115.190.153.44';
-
 /**
- * 处理图片路径，将相对路径转换为完整 URL
- * 支持 Base64 图片（保持原样）和相对路径图片
+ * 处理图片路径
+ * 相对路径保持不变（浏览器自动使用当前协议）
+ * Base64 和完整 URL 保持原样
  */
 function processImages(images) {
     if (!images || !Array.isArray(images)) return [];
     
     return images.map(img => {
-        // 如果已经是 Base64 或完整 URL，保持原样
-        if (img.startsWith('data:') || img.startsWith('http://') || img.startsWith('https://')) {
+        // 如果已经是 Base64、完整 URL 或相对路径，保持原样
+        if (img.startsWith('data:') || img.startsWith('http://') || img.startsWith('https://') || img.startsWith('/')) {
             return img;
         }
-        // 相对路径转换为完整 URL
-        if (img.startsWith('/')) {
-            return `${SERVER_URL}${img}`;
-        }
-        return `${SERVER_URL}/${img}`;
+        // 其他情况添加 / 前缀
+        return `/${img}`;
     });
 }
 
@@ -83,7 +78,7 @@ router.get('/', async (req, res) => {
         
         // 获取列表
         const posts = await db.all(
-            `SELECT p.*, u.nickname as author_nickname, u.avatar as author_avatar
+            `SELECT p.*, u.nickname as author_nickname, u.avatar as author_avatar, u.username as author_username
              FROM posts p
              LEFT JOIN users u ON p.author_id = u.id
              ${whereClause}
@@ -125,7 +120,7 @@ router.get('/:id', async (req, res) => {
         
         // 获取内容详情
         const post = await db.get(
-            `SELECT p.*, u.nickname as author_nickname, u.avatar as author_avatar, u.contribution as author_contribution
+            `SELECT p.*, u.nickname as author_nickname, u.avatar as author_avatar, u.username as author_username, u.contribution as author_contribution
              FROM posts p
              LEFT JOIN users u ON p.author_id = u.id
              WHERE p.id = ? AND p.status = 'active'`,
@@ -154,7 +149,7 @@ router.get('/:id', async (req, res) => {
         
         // 获取评论
         const comments = await db.all(
-            `SELECT c.*, u.nickname as author_nickname, u.avatar as author_avatar
+            `SELECT c.*, u.nickname as author_nickname, u.avatar as author_avatar, u.username as author_username
              FROM comments c
              LEFT JOIN users u ON c.author_id = u.id
              WHERE c.post_id = ? AND c.status = 'active' AND c.parent_id IS NULL
@@ -165,7 +160,7 @@ router.get('/:id', async (req, res) => {
         // 获取回复
         for (let comment of comments) {
             const replies = await db.all(
-                `SELECT c.*, u.nickname as author_nickname, u.avatar as author_avatar
+                `SELECT c.*, u.nickname as author_nickname, u.avatar as author_avatar, u.username as author_username
                  FROM comments c
                  LEFT JOIN users u ON c.author_id = u.id
                  WHERE c.parent_id = ? AND c.status = 'active'

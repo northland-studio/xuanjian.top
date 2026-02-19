@@ -67,7 +67,7 @@
         </div>
     </main>
 
-    <script src="/js/common.js"></script>
+    <script src="/js/common.js?v=2.0.2"></script>
     <script>
         let isOwnProfile = false;
         let currentUser = null;
@@ -88,13 +88,28 @@
 
                 if (usernameFromUrl && usernameFromUrl !== 'profile') {
                     // 查看他人档案
-                    const data = await get(`/api/auth/user/${usernameFromUrl}`);
-                    profileUser = data.user;
-                    isOwnProfile = currentUser && currentUser.id === profileUser.id;
+                    try {
+                        const data = await get(`/api/auth/user/${usernameFromUrl}`);
+                        profileUser = data.user;
+                        isOwnProfile = currentUser && currentUser.id === profileUser.id;
+                    } catch (e) {
+                        document.getElementById('profile-container').innerHTML = '<div class="empty-state"><h3>用户不存在</h3><p>该用户可能已被删除或不存在</p></div>';
+                        return;
+                    }
                 } else if (currentUser) {
-                    // 查看自己的档案
-                    profileUser = currentUser;
-                    isOwnProfile = true;
+                    // 查看自己的档案 - 获取完整信息
+                    try {
+                        const data = await get(`/api/auth/user/${currentUser.username}`);
+                        profileUser = data.user;
+                        isOwnProfile = true;
+                    } catch (e) {
+                        // 如果API失败，使用当前用户数据
+                        profileUser = currentUser;
+                        profileUser.posts_count = 0;
+                        profileUser.comments_count = 0;
+                        profileUser.likes_count = 0;
+                        isOwnProfile = true;
+                    }
                 } else {
                     // 未登录且没有指定用户
                     window.location.href = '/login';
@@ -104,7 +119,8 @@
                 renderProfile();
                 loadUserPosts();
             } catch (error) {
-                document.getElementById('profile-container').innerHTML = '<div class="empty-state"><h3>用户不存在</h3></div>';
+                console.error('加载档案错误:', error);
+                document.getElementById('profile-container').innerHTML = '<div class="empty-state"><h3>加载失败</h3><p>请稍后重试</p></div>';
             }
         }
 
@@ -112,10 +128,16 @@
             const container = document.getElementById('profile-container');
             const levelText = profileUser.level === 2 ? '超级管理员' : profileUser.level === 1 ? '管理员' : '普通成员';
             
-            const actionButtons = isOwnProfile 
-                ? `<button class="btn btn-secondary" onclick="openSettings()">账号设置</button>
-                   <button class="btn btn-danger" onclick="logout()">退出登录</button>`
-                : '';
+            // 构建操作按钮
+            let actionButtons = '';
+            if (isOwnProfile) {
+                actionButtons += `<button class="btn btn-secondary" onclick="openSettings()">账号设置</button>
+                   <button class="btn btn-danger" onclick="logout()">退出登录</button>`;
+                // 管理员显示管理按钮
+                if (profileUser.level >= 1) {
+                    actionButtons += `<button class="btn btn-primary" onclick="window.location.href='/admin'">管理系统</button>`;
+                }
+            }
 
             container.innerHTML = `
                 <div class="profile-header">
@@ -135,6 +157,10 @@
                         <div class="profile-stat">
                             <div class="profile-stat-value">${profileUser.comments_count || 0}</div>
                             <div class="profile-stat-label">评论</div>
+                        </div>
+                        <div class="profile-stat">
+                            <div class="profile-stat-value">${profileUser.likes_count || 0}</div>
+                            <div class="profile-stat-label">获赞</div>
                         </div>
                     </div>
                     <div class="profile-actions">
@@ -171,7 +197,18 @@
 
         async function loadUserPosts() {
             try {
-                const posts = await get(`/api/posts?author=${profileUser.id}&limit=5`);
+                // 使用用户ID获取帖子
+                const response = await get('/api/posts?limit=100');
+                const allPosts = response.posts || response; // 兼容两种返回格式
+                // 使用 == 而不是 === 来比较，因为 ID 可能是字符串或数字
+                const userId = profileUser.id;
+                const username = profileUser.username;
+                const posts = allPosts.filter(p => {
+                    const postAuthorId = p.author_id;
+                    const postAuthorUsername = p.author_username;
+                    return postAuthorId == userId || postAuthorUsername === username;
+                }).slice(0, 5);
+                
                 const container = document.getElementById('user-posts-list');
                 
                 if (posts.length === 0) {
@@ -181,11 +218,12 @@
 
                 container.innerHTML = posts.map(post => `
                     <div class="user-post-item" onclick="window.location.href='/post/${post.id}'">
-                        <div class="user-post-title">${post.title}</div>
+                        <div class="user-post-title">${escapeHtml(post.title)}</div>
                         <div class="user-post-meta">${formatDate(post.created_at)} · ${post.type === 'daily' ? '日报' : post.type === 'decision' ? '决策' : '贴吧'}</div>
                     </div>
                 `).join('');
             } catch (error) {
+                console.error('加载帖子失败:', error);
                 document.getElementById('user-posts-list').innerHTML = '<div class="empty-state">加载失败</div>';
             }
         }
@@ -195,8 +233,8 @@
         }
 
         async function logout() {
-            if (!confirm('确定要退出登录吗？')) return;
             localStorage.removeItem('token');
+            localStorage.removeItem('user');
             window.location.href = '/';
         }
 

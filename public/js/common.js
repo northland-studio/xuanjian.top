@@ -157,6 +157,26 @@ function truncateText(text, maxLength) {
     return text.substring(0, maxLength) + '...';
 }
 
+// 从 HTML 中提取纯文本
+function stripHtml(html) {
+    if (!html) return '';
+    // 创建一个临时元素
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html;
+    // 获取纯文本
+    let text = tmp.textContent || tmp.innerText || '';
+    // 去除多余空白
+    return text.replace(/\s+/g, ' ').trim();
+}
+
+// 转义 HTML 特殊字符
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
 // 显示提示消息
 function showToast(message, type = 'info') {
     const toast = document.createElement('div');

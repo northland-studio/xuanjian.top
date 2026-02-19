@@ -184,11 +184,18 @@ router.get('/user/:username', async (req, res) => {
         // 获取用户评论数
         const commentCount = await db.get('SELECT COUNT(*) as count FROM comments WHERE author_id = ? AND status = "active"', [user.id]);
         
+        // 获取用户获赞数（所有帖子的点赞总和）
+        const likesCount = await db.get(
+            'SELECT SUM(CAST(likes AS INTEGER)) as total FROM posts WHERE author_id = ? AND status = "active"',
+            [user.id]
+        );
+        
         res.json({
             user: {
                 ...user,
-                posts_count: postCount.count,
-                comments_count: commentCount.count
+                posts_count: postCount.count || 0,
+                comments_count: commentCount.count || 0,
+                likes_count: likesCount.total || 0
             }
         });
     } catch (error) {
