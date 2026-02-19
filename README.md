@@ -9,7 +9,7 @@
 
 **一个功能完善的 Minecraft 公会官网系统**
 
-[在线演示](https://xuanjiaaaan.top) · [部署文档](#部署方式) · [API文档](#api接口)
+[在线演示](https://xuanjian.top) · [部署文档](#部署方式) · [API文档](#api接口)
 
 </div>
 
@@ -25,7 +25,9 @@
 - 👥 **用户系统** - 三级权限体系，支持头像上传
 - 💬 **社交互动** - 评论、点赞、内容搜索
 - 🎨 **响应式设计** - 完美适配 PC 和移动端
-- 🚀 **一键部署** - 支持 Docker 和传统部署方式
+- 🖥️ **桌面应用** - 支持 Windows/macOS/Linux 桌面客户端
+- � **自动备份** - 系统定时备份，数据安全有保障
+- �🚀 **一键部署** - 支持 Docker 和传统部署方式
 
 ---
 
@@ -39,6 +41,7 @@
 | **进程管理** | PM2 | 生产环境进程守护 |
 | **反向代理** | Nginx | 高性能反向代理 |
 | **容器化** | Docker | 快速部署方案 |
+| **桌面应用** | Electron / WebView2 | 跨平台桌面客户端 |
 
 ---
 
@@ -46,32 +49,29 @@
 
 ```
 xuanjian-guild-website/
+├── 📂 app/                     # 桌面应用源码
+│   ├── 📂 electron/            # Electron 主进程
+│   ├── 📂 src/                 # 前端源码
+│   └── 📂 玄剑公会桌面客户端/   # 打包后的桌面应用
 ├── 📂 data/                    # 数据目录
-│   ├── 📂 uploads/            # 上传文件存储
-│   └── 🗄️ guild.db            # SQLite 数据库
+│   ├── 📂 uploads/             # 上传文件存储
+│   └── 🗄️ guild.db             # SQLite 数据库
 ├── 📂 middleware/              # 中间件
-│   └── 🔐 auth.js             # JWT 认证中间件
+│   └── 🔐 auth.js              # JWT 认证中间件
 ├── 📂 public/                  # 静态资源
-│   ├── 📂 css/                # 样式文件
-│   ├── 📂 js/                 # JavaScript 文件
-│   ├── 📂 pages/              # 页面文件
-│   │   ├── 🏠 index.html          # 首页
-│   │   ├── 📰 daily.html          # 公会日报
-│   │   ├── 📋 decision.html       # 决策公告
-│   │   ├── 💬 forum.html          # 公会贴吧
-│   │   ├── 📝 editor.html         # 内容编辑器
-│   │   ├── 👤 profile.html        # 用户主页
-│   │   ├── ⚙️ admin.html           # 管理后台
-│   │   ├── 🔑 login.html          # 登录页
-│   │   └── 📝 register.html       # 注册页
-│   └── 🏠 index.html
-├── 📂 routes/                  # API 路由
-│   ├── 🔐 auth.js             # 认证接口
-│   ├── 📝 posts.js            # 内容接口
-│   ├── 👥 admin.js            # 管理接口
-│   └── 📤 upload.js           # 上传接口
+│   ├── 📂 css/                 # 样式文件
+│   ├── 📂 js/                  # JavaScript 文件
+│   ├── 📂 pages/               # 页面文件
+│   └── 🏠 index.html           # 首页
+├──  routes/                  # API 路由
+│   ├── 🔐 auth.js              # 认证接口
+│   ├── 📝 posts.js             # 内容接口
+│   ├── 👥 admin.js             # 管理接口
+│   └── 📤 upload.js            # 上传接口
 ├── 📂 scripts/                 # 工具脚本
-│   └── 🗄️ init-db.js          # 数据库初始化
+│   ├── 🗄️ init-db.js           # 数据库初始化
+│   ├── 💾 backup.sh            # 自动备份脚本
+│   └── ⚙️ install-backup.sh    # 备份系统部署
 ├── 🚀 server.js                # 服务器入口
 ├── 🗄️ database.js              # 数据库模块
 ├── 📦 package.json             # 项目配置
@@ -89,8 +89,6 @@ xuanjian-guild-website/
 ```bash
 # 克隆项目
 git clone https://github.com/yourusername/xuanjian-guild-website.git
-#或使用gitee
-git clone https://gitee.com/morzane123/xj20260211.git
 cd xuanjian-guild-website
 
 # 启动服务
@@ -218,29 +216,21 @@ ADMIN_PASSWORD=xuanjian123
 
 ---
 
-## 📸 功能展示
+## �️ 桌面应用
 
-### 首页
-- 公会介绍展示
-- 最新内容聚合
-- 快速导航入口
+项目提供跨平台桌面客户端，支持 Windows、macOS 和 Linux。
 
-### 内容系统
-- **公会日报** - 记录公会日常活动
-- **决策公告** - 发布重要决策通知
-- **公会贴吧** - 成员交流讨论区
+### 功能特性
 
-### 用户功能
-- 三级权限体系（普通用户/管理员/超级管理员）
-- 头像上传支持
-- 贡献点系统
-- 内容点赞、评论
+- 🎮 直接访问玄剑公会官网
+- 🖥️ 原生桌面应用体验
+- ⌨️ 支持快捷键操作
+- 🔍 页面缩放功能
+- 🛠️ 开发者工具支持
 
-### 管理后台
-- 内容管理（审核、置顶、删除）
-- 用户管理（信息修改、权限设置）
-- 数据统计（用户数、内容数、访问量）
-- 公告管理
+### 获取方式
+
+桌面应用位于 `app/玄剑公会桌面客户端/` 目录，双击运行即可。
 
 ---
 
@@ -249,7 +239,7 @@ ADMIN_PASSWORD=xuanjian123
 - [Docker 部署指南](./DOCKER_DEPLOY.md)
 - [SSH 部署指南](./SSH_DEPLOY.md)
 - [宝塔面板部署指南](./BT_PANEL_DEPLOY.md)
-- [PM2 维护命令](./PM2_COMMANDS.md)
+- [运维手册](./OPS_GUIDE.md)
 
 ---
 
@@ -275,12 +265,13 @@ ADMIN_PASSWORD=xuanjian123
 **A:** 
 - 数据库文件：`data/guild.db`
 - 上传文件：`data/uploads/`
-- 定期备份这两个目录即可
+- 系统已配置自动备份，详见 [运维手册](./OPS_GUIDE.md)
 
 ---
 
 ## 🌟 社交媒体
 
+- 🌐 **官网**: https://xuanjian.top
 - 🎵 **抖音**: https://v.douyin.com/pNyb7PYyn3s/
 - 📺 **B站**: https://space.bilibili.com/678742876
 - 💬 **QQ群**: http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=_gw12An9YHGh949KbwjRv03G4FN8KC3p
@@ -289,6 +280,13 @@ ADMIN_PASSWORD=xuanjian123
 ---
 
 ## 📝 更新日志
+
+### v1.1.0 (2026-2-16)
+- 🖥️ 新增桌面客户端支持
+- 💾 新增自动备份系统
+- 🎨 优化弹窗按钮样式
+- 📱 改进移动端适配
+- 🐛 修复若干已知问题
 
 ### v1.0.0 (2026-2-11)
 - ✨ 初始版本发布
