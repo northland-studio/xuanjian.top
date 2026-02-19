@@ -293,16 +293,56 @@ function renderNavbar() {
     
     if (!navUser) return;
     
+    const themeBtn = `
+        <button class="theme-toggle" onclick="toggleTheme()" title="切换主题">
+            <svg class="moon-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path>
+            </svg>
+            <svg class="sun-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path>
+            </svg>
+        </button>
+    `;
+    
     if (user) {
-        navUser.innerHTML = `
+        navUser.innerHTML = themeBtn + `
             <a href="/profile">
                 <img src="${user.avatar || '/uploads/default-avatar.png'}" alt="${user.nickname}" class="nav-avatar">
             </a>
         `;
     } else {
-        navUser.innerHTML = `<a href="/login" class="nav-login-btn">登录</a>`;
+        navUser.innerHTML = themeBtn + `<a href="/login" class="nav-login-btn">登录</a>`;
     }
 }
+
+// 主题管理
+function initTheme() {
+    const savedTheme = localStorage.getItem('theme');
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    
+    if (savedTheme) {
+        document.documentElement.setAttribute('data-theme', savedTheme);
+    } else if (prefersDark) {
+        document.documentElement.setAttribute('data-theme', 'dark');
+    }
+}
+
+function toggleTheme() {
+    const currentTheme = document.documentElement.getAttribute('data-theme');
+    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', newTheme);
+    localStorage.setItem('theme', newTheme);
+}
+
+// 监听系统主题变化
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+    if (!localStorage.getItem('theme')) {
+        document.documentElement.setAttribute('data-theme', e.matches ? 'dark' : 'light');
+    }
+});
+
+// 立即初始化主题（防止闪烁）
+initTheme();
 
 // 导航栏滚动效果
 function initNavbarScroll() {
@@ -416,6 +456,7 @@ document.addEventListener('click', (e) => {
 
 // 初始化页面
 function initPage() {
+    initTheme();
     renderNavbar();
     initNavbarScroll();
     checkPopupAnnouncement();

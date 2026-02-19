@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>管理系统 - 我的世界玄剑公会</title>
     <link rel="icon" href="/icon.ico" type="image/x-icon">
-    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/style.css?v=2.0.3">
     <style>
         .admin-container { max-width: 1200px; margin: 0 auto; padding: 20px; }
         .admin-tabs { display: flex; gap: 8px; margin-bottom: 24px; border-bottom: 2px solid #e2e8f0; padding-bottom: 16px; }
@@ -103,7 +103,7 @@
         </div>
     </main>
 
-    <script src="/js/common.js?v=2.0.2"></script>
+    <script src="/js/common.js?v=2.0.3"></script>
     <script>
         if (!isAdmin()) { window.location.href = '/'; }
 
@@ -141,7 +141,7 @@
                     <td>${p.status}</td>
                     <td>
                         <button class="admin-btn admin-btn-danger" onclick="deletePost(${p.id})">删除</button>
-                        <button class="admin-btn admin-btn-primary" onclick="togglePin(${p.id}, ${p.is_pinned})">${p.is_pinned ? '取消置顶' : '置顶'}</button>
+                        <button class="admin-btn admin-btn-primary" onclick="togglePin(${p.id}, ${p.is_pinned || 0})">${p.is_pinned ? '取消置顶' : '置顶'}</button>
                     </td>
                 </tr>
             `).join('');
@@ -182,9 +182,10 @@
         }
 
         async function togglePin(id, isPinned) {
-            await put(`/api/admin/posts/${id}/pin`, { isPinned: !isPinned });
+            const newPinStatus = isPinned ? 0 : 1;
+            await put(`/api/admin/posts/${id}/pin`, { isPinned: newPinStatus });
             loadPosts();
-            showToast(isPinned ? '已取消置顶' : '已置顶', 'success');
+            showToast(newPinStatus ? '已置顶' : '已取消置顶', 'success');
         }
 
         async function setUserLevel(id, currentLevel) {
