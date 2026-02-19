@@ -121,12 +121,26 @@ router.get('/me', authMiddleware, async (req, res) => {
 // 更新用户信息
 router.put('/profile', authMiddleware, async (req, res) => {
     try {
-        const { nickname, email, avatar } = req.body;
+        const { nickname, email, avatar, currentPassword, newPassword } = req.body;
         
-        await db.run(
-            'UPDATE users SET nickname = ?, email = ?, avatar = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-            [nickname, email, avatar, req.userId]
-        );
+        // 如果要修改密码
+        if (newPassword) {
+            const user = await db.get('SELECT password FROM users WHERE id = ?', [req.userId]);
+            const isValid = await bcrypt.compare(currentPassword, user.password);
+            if (!isValid) {
+                return res.status(400).json({ error: '当前密码错误' });
+            }
+            const hashedPassword = await bcrypt.hash(newPassword, 10);
+            await db.run(
+                'UPDATE users SET nickname = ?, email = ?, avatar = ?, password = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+                [nickname, email, avatar, hashedPassword, req.userId]
+            );
+        } else {
+            await db.run(
+                'UPDATE users SET nickname = ?, email = ?, avatar = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+                [nickname, email, avatar, req.userId]
+            );
+        }
         
         res.json({ message: '用户信息更新成功' });
     } catch (error) {

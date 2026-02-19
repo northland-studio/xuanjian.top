@@ -92,6 +92,10 @@ app.get('/profile/:username', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'pages', 'profile.html'));
 });
 
+app.get('/settings', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'pages', 'settings.html'));
+});
+
 app.get('/editor', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'pages', 'editor.html'));
 });
