@@ -3,6 +3,48 @@ const db = require('../database');
 const { authMiddleware, adminMiddleware } = require('../middleware/auth');
 const router = express.Router();
 
+// 服务器基础 URL，用于拼接图片完整路径
+const SERVER_URL = process.env.SERVER_URL || 'http://115.190.153.44';
+
+/**
+ * 处理图片路径，将相对路径转换为完整 URL
+ * 支持 Base64 图片（保持原样）和相对路径图片
+ */
+function processImages(images) {
+    if (!images || !Array.isArray(images)) return [];
+    
+    return images.map(img => {
+        // 如果已经是 Base64 或完整 URL，保持原样
+        if (img.startsWith('data:') || img.startsWith('http://') || img.startsWith('https://')) {
+            return img;
+        }
+        // 相对路径转换为完整 URL
+        if (img.startsWith('/')) {
+            return `${SERVER_URL}${img}`;
+        }
+        return `${SERVER_URL}/${img}`;
+    });
+}
+
+// 获取公开统计数据（首页展示用，无需登录）
+// 注意：此路由必须在 /:id 之前定义，否则会被 :id 参数匹配
+router.get('/public-stats', async (req, res) => {
+    try {
+        const userCount = await db.get('SELECT COUNT(*) as count FROM users');
+        const postCount = await db.get('SELECT COUNT(*) as count FROM posts WHERE status = "active"');
+        const commentCount = await db.get('SELECT COUNT(*) as count FROM comments WHERE status = "active"');
+        
+        res.json({
+            users: userCount.count,
+            posts: postCount.count,
+            comments: commentCount.count
+        });
+    } catch (error) {
+        console.error('获取统计数据错误:', error);
+        res.status(500).json({ error: '获取统计数据失败' });
+    }
+});
+
 // 获取内容列表
 router.get('/', async (req, res) => {
     try {
@@ -50,11 +92,12 @@ router.get('/', async (req, res) => {
             [...params, parseInt(limit), parseInt(offset)]
         );
         
-        // 解析图片JSON
+        // 解析图片JSON并处理为完整URL
         posts.forEach(post => {
             if (post.images) {
                 try {
-                    post.images = JSON.parse(post.images);
+                    const images = JSON.parse(post.images);
+                    post.images = processImages(images);
                 } catch {
                     post.images = [];
                 }
@@ -93,10 +136,11 @@ router.get('/:id', async (req, res) => {
             return res.status(404).json({ error: '内容不存在' });
         }
         
-        // 解析图片JSON
+        // 解析图片JSON并处理为完整URL
         if (post.images) {
             try {
-                post.images = JSON.parse(post.images);
+                const images = JSON.parse(post.images);
+                post.images = processImages(images);
             } catch {
                 post.images = [];
             }

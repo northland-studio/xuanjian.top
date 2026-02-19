@@ -164,4 +164,37 @@ router.put('/password', authMiddleware, async (req, res) => {
     }
 });
 
+// 通过用户名获取用户信息（公开接口）
+router.get('/user/:username', async (req, res) => {
+    try {
+        const { username } = req.params;
+        
+        const user = await db.get(
+            'SELECT id, username, nickname, email, avatar, level, contribution, created_at FROM users WHERE username = ?',
+            [username]
+        );
+        
+        if (!user) {
+            return res.status(404).json({ error: '用户不存在' });
+        }
+        
+        // 获取用户帖子数
+        const postCount = await db.get('SELECT COUNT(*) as count FROM posts WHERE author_id = ? AND status = "active"', [user.id]);
+        
+        // 获取用户评论数
+        const commentCount = await db.get('SELECT COUNT(*) as count FROM comments WHERE author_id = ? AND status = "active"', [user.id]);
+        
+        res.json({
+            user: {
+                ...user,
+                posts_count: postCount.count,
+                comments_count: commentCount.count
+            }
+        });
+    } catch (error) {
+        console.error('获取用户信息错误:', error);
+        res.status(500).json({ error: '获取用户信息失败' });
+    }
+});
+
 module.exports = router;

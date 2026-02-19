@@ -3,154 +3,409 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>发布内容 - 我的世界玄剑公会</title>
-    <link rel="icon" href="/icon.ico" type="image/x-icon">
+    <title>发布内容 - 玄剑公会</title>
     <link rel="stylesheet" href="/css/style.css">
+    <!-- 引入富文本编辑器 -->
+    <link href="https://cdn.jsdelivr.net/npm/quill@2.0.0/dist/quill.snow.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/quill@2.0.0/dist/quill.min.js"></script>
     <style>
-        .editor-container { max-width: 800px; margin: 0 auto; padding: 20px; }
-        .editor-box { background: white; border-radius: 16px; padding: 30px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); }
-        .editor-title { font-size: 24px; font-weight: 600; margin-bottom: 24px; }
-        .form-group { margin-bottom: 20px; }
-        .form-label { display: block; margin-bottom: 8px; font-weight: 500; }
-        .form-input, .form-textarea { width: 100%; padding: 12px 16px; border: 2px solid #e2e8f0; border-radius: 10px; font-size: 15px; }
-        .form-input:focus, .form-textarea:focus { outline: none; border-color: #6366f1; }
-        .form-textarea { min-height: 300px; resize: vertical; }
-        .image-upload { border: 2px dashed #e2e8f0; border-radius: 10px; padding: 30px; text-align: center; cursor: pointer; transition: all 0.3s; }
-        .image-upload:hover { border-color: #6366f1; background: rgba(99,102,241,0.05); }
-        .image-preview { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 16px; }
-        .image-preview-item { position: relative; width: 100px; height: 100px; border-radius: 8px; overflow: hidden; }
-        .image-preview-item img { width: 100%; height: 100%; object-fit: cover; }
-        .image-remove { position: absolute; top: 4px; right: 4px; width: 24px; height: 24px; background: rgba(0,0,0,0.5); color: white; border: none; border-radius: 50%; cursor: pointer; }
-        .editor-actions { display: flex; gap: 12px; justify-content: flex-end; margin-top: 24px; }
-        .bt {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            padding: 12px 24px;
-            border-radius: var(--radius);
-            font-size: 14px;
+        .editor-container {
+            max-width: 900px;
+            margin: 100px auto 40px;
+            padding: 0 20px;
+        }
+        
+        .editor-card {
+            background: var(--card-bg);
+            border-radius: var(--radius-lg);
+            padding: 32px;
+            box-shadow: var(--shadow);
+        }
+        
+        .editor-title {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 24px;
+            text-align: center;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
             font-weight: 500;
+            color: var(--text-primary);
+        }
+        
+        .form-input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid var(--border-color);
+            border-radius: var(--radius);
+            font-size: 15px;
+            transition: var(--transition);
+            font-family: inherit;
+        }
+        
+        .form-input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+        }
+        
+        /* 富文本编辑器样式 */
+        .ql-container {
+            border-radius: 0 0 var(--radius) var(--radius);
+            min-height: 300px;
+            font-size: 15px;
+        }
+        
+        .ql-toolbar {
+            border-radius: var(--radius) var(--radius) 0 0;
+            background: var(--bg-color);
+        }
+        
+        .ql-editor {
+            min-height: 300px;
+            font-family: inherit;
+        }
+        
+        .ql-editor p {
+            margin-bottom: 12px;
+            line-height: 1.8;
+        }
+        
+        .image-upload-area {
+            border: 2px dashed var(--border-color);
+            border-radius: var(--radius);
+            padding: 40px;
+            text-align: center;
             cursor: pointer;
             transition: var(--transition);
-            border: none;
-            text-decoration: none;
         }
-        .bt-primary {
-            background: var(--primary-color);
+        
+        .image-upload-area:hover {
+            border-color: var(--primary-color);
+            background: rgba(99, 102, 241, 0.05);
+        }
+        
+        .image-preview-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 12px;
+            margin-top: 16px;
+        }
+        
+        .image-preview-item {
+            position: relative;
+            aspect-ratio: 1;
+            border-radius: var(--radius);
+            overflow: hidden;
+            border: 2px solid var(--border-color);
+        }
+        
+        .image-preview-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .image-remove {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            width: 24px;
+            height: 24px;
+            background: var(--danger-color);
             color: white;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
         }
-        .bt-primary:hover {
-            background: var(--primary-dark);
+        
+        .image-uploading {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 12px;
+        }
+        
+        .editor-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+            margin-top: 24px;
         }
     </style>
 </head>
 <body>
-    <nav class="navbar">
-        <div class="navbar-content">
-            <a href="/" class="navbar-brand">
-                <img src="/icon.png" alt="玄剑公会" class="navbar-logo">
-                <div class="navbar-title">
-                    <span class="navbar-title-cn">我的世界玄剑公会</span>
-                    <span class="navbar-title-en">Minecraft Xuanjian Guild</span>
-                </div>
-            </a>
-            <div class="navbar-nav">
-                <a href="/daily" class="nav-link">日报</a>
-                <a href="/decision" class="nav-link">决策</a>
-                <a href="/forum" class="nav-link">贴吧</a>
-                <div class="nav-user"></div>
-            </div>
-        </div>
-    </nav>
+    <nav class="navbar" id="navbar"></nav>
 
-    <main class="main-content">
-        <div class="editor-container">
-            <div class="editor-box">
-                <h1 class="editor-title">发布内容</h1>
-                <form id="editor-form">
-                    <div class="form-group">
-                        <label class="form-label">标题</label>
-                        <input type="text" class="form-input" id="title" placeholder="请输入标题" required>
+    <main class="editor-container">
+        <div class="editor-card">
+            <h1 class="editor-title" id="page-title">发布内容</h1>
+            <form id="editor-form">
+                <input type="hidden" id="post-id" value="">
+                
+                <div class="form-group">
+                    <label class="form-label">标题</label>
+                    <input type="text" id="title" class="form-input" placeholder="请输入标题" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">内容</label>
+                    <div id="editor"></div>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">标签（用逗号分隔）</label>
+                    <input type="text" id="tags" class="form-input" placeholder="例如：公告,活动,攻略">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">图片</label>
+                    <div class="image-upload-area" onclick="document.getElementById('image-input').click()">
+                        <svg width="48" height="48" fill="none" stroke="var(--text-muted)" viewBox="0 0 24 24" style="margin: 0 auto 12px;">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                        </svg>
+                        <div>点击上传图片</div>
+                        <div style="font-size: 12px; color: var(--text-muted); margin-top: 8px;">支持 JPG、PNG、GIF，最多 10 张</div>
                     </div>
-                    <div class="form-group">
-                        <label class="form-label">正文</label>
-                        <textarea class="form-textarea" id="content" placeholder="请输入内容..." required></textarea>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">标签（用逗号分隔）</label>
-                        <input type="text" class="form-input" id="tags" placeholder="例如：公告,活动,重要">
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">图片</label>
-                        <div class="image-upload" onclick="document.getElementById('image-input').click()">
-                            <svg width="48" height="48" fill="none" stroke="#94a3b8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
-                            <p style="color:#64748b;margin-top:8px;">点击上传图片</p>
-                        </div>
-                        <input type="file" id="image-input" multiple accept="image/*" style="display:none" onchange="handleImageUpload(event)">
-                        <div class="image-preview" id="image-preview"></div>
-                    </div>
-                    <div class="editor-actions">
-                        <a href="/" class="btn btn-secondary">取消</a>
-                        <button type="submit" class="bt bt-primary">发布</button>
-                    </div>
-                </form>
-            </div>
+                    <input type="file" id="image-input" accept="image/*" multiple style="display: none;">
+                    <div class="image-preview-grid" id="image-preview"></div>
+                </div>
+                
+                <div class="editor-actions">
+                    <a href="/" class="btn btn-secondary">取消</a>
+                    <button type="submit" class="btn btn-primary" id="submit-btn">发布</button>
+                </div>
+            </form>
         </div>
     </main>
 
     <script src="/js/common.js"></script>
     <script>
-        const urlParams = new URLSearchParams(window.location.search);
-        const postType = urlParams.get('type') || 'forum';
+        // 存储已上传的图片 URL
         let uploadedImages = [];
-
-        function handleImageUpload(e) {
-            const files = Array.from(e.target.files);
-            files.forEach(file => {
-                const reader = new FileReader();
-                reader.onload = (event) => {
-                    uploadedImages.push(event.target.result);
-                    renderImagePreview();
-                };
-                reader.readAsDataURL(file);
+        let quill = null;
+        let isEditMode = false;
+        let currentPostId = null;
+        let postType = 'forum'; // 默认发布到贴吧
+        
+        // 初始化富文本编辑器
+        function initEditor() {
+            quill = new Quill('#editor', {
+                theme: 'snow',
+                placeholder: '请输入内容...',
+                modules: {
+                    toolbar: [
+                        ['bold', 'italic', 'underline', 'strike'],
+                        ['blockquote', 'code-block'],
+                        [{ 'header': 1 }, { 'header': 2 }],
+                        [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                        [{ 'indent': '-1'}, { 'indent': '+1' }],
+                        [{ 'size': ['small', false, 'large', 'huge'] }],
+                        [{ 'color': [] }, { 'background': [] }],
+                        [{ 'align': [] }],
+                        ['link', 'image'],
+                        ['clean']
+                    ]
+                }
             });
         }
-
-        function renderImagePreview() {
-            const container = document.getElementById('image-preview');
-            container.innerHTML = uploadedImages.map((img, i) => `
-                <div class="image-preview-item">
-                    <img src="${img}">
-                    <button type="button" class="image-remove" onclick="removeImage(${i})">×</button>
-                </div>
-            `).join('');
+        
+        // 检查是否为编辑模式
+        async function checkEditMode() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const editId = urlParams.get('edit');
+            const type = urlParams.get('type');
+            
+            if (type) {
+                postType = type;
+            }
+            
+            if (editId) {
+                isEditMode = true;
+                currentPostId = editId;
+                document.getElementById('page-title').textContent = '编辑内容';
+                document.getElementById('submit-btn').textContent = '保存';
+                await loadPostForEdit(editId);
+            }
         }
-
+        
+        // 加载帖子数据用于编辑
+        async function loadPostForEdit(postId) {
+            try {
+                const data = await get(`/api/posts/${postId}`);
+                const post = data.post;
+                
+                // 检查是否为作者
+                const currentUser = await get('/api/auth/me');
+                if (currentUser.id !== post.author_id) {
+                    showToast('只有作者可以编辑', 'error');
+                    window.location.href = '/';
+                    return;
+                }
+                
+                document.getElementById('post-id').value = postId;
+                document.getElementById('title').value = post.title;
+                document.getElementById('tags').value = post.tags || '';
+                quill.root.innerHTML = post.content;
+                postType = post.type;
+                
+                // 加载已有图片
+                if (post.images && post.images.length > 0) {
+                    uploadedImages = post.images;
+                    renderImagePreviews();
+                }
+            } catch (error) {
+                showToast('加载失败', 'error');
+                window.location.href = '/';
+            }
+        }
+        
+        // 渲染图片预览
+        function renderImagePreviews() {
+            const previewContainer = document.getElementById('image-preview');
+            previewContainer.innerHTML = '';
+            
+            uploadedImages.forEach((url, index) => {
+                const previewId = 'preview-' + index;
+                const previewDiv = document.createElement('div');
+                previewDiv.className = 'image-preview-item';
+                previewDiv.id = previewId;
+                previewDiv.innerHTML = `
+                    <img src="${url}" alt="预览">
+                    <button type="button" class="image-remove" onclick="removeImage(${index})">×</button>
+                `;
+                previewContainer.appendChild(previewDiv);
+            });
+        }
+        
+        // 处理图片上传
+        document.getElementById('image-input').addEventListener('change', async (e) => {
+            const files = Array.from(e.target.files);
+            if (files.length === 0) return;
+            
+            if (uploadedImages.length + files.length > 10) {
+                showToast('最多只能上传 10 张图片', 'error');
+                return;
+            }
+            
+            for (const file of files) {
+                await uploadImage(file);
+            }
+            
+            e.target.value = '';
+        });
+        
+        // 上传单张图片
+        async function uploadImage(file) {
+            const previewId = 'preview-' + Date.now() + Math.random();
+            const previewDiv = document.createElement('div');
+            previewDiv.className = 'image-preview-item';
+            previewDiv.id = previewId;
+            previewDiv.innerHTML = `<div class="image-uploading">上传中...</div>`;
+            document.getElementById('image-preview').appendChild(previewDiv);
+            
+            try {
+                const formData = new FormData();
+                formData.append('image', file);
+                
+                const response = await fetch('/api/upload/image', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${getToken()}`
+                    },
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.error || '上传失败');
+                }
+                
+                uploadedImages.push(data.url);
+                renderImagePreviews();
+                
+            } catch (error) {
+                previewDiv.remove();
+                showToast(error.message, 'error');
+            }
+        }
+        
+        // 移除图片
         function removeImage(index) {
             uploadedImages.splice(index, 1);
-            renderImagePreview();
+            renderImagePreviews();
         }
-
+        
+        // 提交表单
         document.getElementById('editor-form').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const data = {
-                title: document.getElementById('title').value,
-                content: document.getElementById('content').value,
-                type: postType,
-                tags: document.getElementById('tags').value,
-                images: uploadedImages
-            };
+            
+            const content = quill.root.innerHTML;
+            if (content === '<p><br></p>' || !content.trim()) {
+                showToast('请输入内容', 'error');
+                return;
+            }
+            
             try {
-                await post('/api/posts', data);
-                showToast('发布成功', 'success');
-                setTimeout(() => window.location.href = `/${postType}`, 500);
+                const data = {
+                    title: document.getElementById('title').value,
+                    content: content,
+                    type: postType,
+                    tags: document.getElementById('tags').value,
+                    images: uploadedImages
+                };
+                
+                if (isEditMode) {
+                    await put(`/api/posts/${currentPostId}`, data);
+                    showToast('保存成功', 'success');
+                    setTimeout(() => {
+                        window.location.href = `/post/${currentPostId}`;
+                    }, 1000);
+                } else {
+                    const result = await post('/api/posts', data);
+                    showToast('发布成功', 'success');
+                    setTimeout(() => {
+                        window.location.href = `/${postType}`;
+                    }, 1000);
+                }
+                
             } catch (error) {
                 showToast(error.message, 'error');
             }
         });
-
-        if (!isLoggedIn()) window.location.href = '/login';
+        
+        // 检查登录状态
+        document.addEventListener('DOMContentLoaded', () => {
+            const token = getToken();
+            if (!token) {
+                showToast('请先登录', 'error');
+                setTimeout(() => {
+                    window.location.href = '/login';
+                }, 1000);
+                return;
+            }
+            
+            initEditor();
+            checkEditMode();
+        });
     </script>
 </body>
 </html>

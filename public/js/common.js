@@ -352,7 +352,7 @@ function showPopupAnnouncement(announcement) {
                 <div class="popup-text">${announcement.content}</div>
             </div>
             <div class="popup-footer">
-                <button class="btn btn-primary popup-close">我知道了</button>
+                <button class="bt bt-primary popup-close">我知道了</button>
             </div>
         </div>
     `;

@@ -386,7 +386,7 @@
         // 加载统计数据
         async function loadStats() {
             try {
-                const stats = await get('/api/admin/statistics');
+                const stats = await get('/api/posts/public-stats');
                 document.getElementById('stat-users').textContent = stats.users;
                 document.getElementById('stat-posts').textContent = stats.posts;
                 document.getElementById('stat-comments').textContent = stats.comments;

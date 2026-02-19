@@ -19,8 +19,13 @@ app.use(helmet({
     contentSecurityPolicy: false
 }));
 
-// CORS配置
-app.use(cors());
+// CORS配置 - 允许桌面应用访问
+app.use(cors({
+    origin: '*',
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true
+}));
 
 // 请求限制
 const limiter = rateLimit({
