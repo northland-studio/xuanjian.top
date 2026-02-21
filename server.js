@@ -14,6 +14,9 @@ const { router: notificationRoutes } = require('./routes/notifications');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// 信任代理（Nginx反向代理）
+app.set('trust proxy', 1);
+
 // 安全中间件
 app.use(helmet({
     contentSecurityPolicy: false
@@ -24,7 +27,9 @@ app.use(helmet({
 // 请求限制
 const limiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15分钟
-    max: 100 // 每个IP限制100个请求
+    max: 100, // 每个IP限制100个请求
+    standardHeaders: true,
+    legacyHeaders: false
 });
 app.use('/api/', limiter);
 

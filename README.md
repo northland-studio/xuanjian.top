@@ -25,23 +25,190 @@
 - 👥 **用户系统** - 三级权限体系，支持头像上传
 - 💬 **社交互动** - 评论、点赞、内容搜索
 - 🎨 **响应式设计** - 完美适配 PC 和移动端
-- 🖥️ **桌面应用** - 支持 Windows/macOS/Linux 桌面客户端
-- � **自动备份** - 系统定时备份，数据安全有保障
-- �🚀 **一键部署** - 支持 Docker 和传统部署方式
+- 🖥️ **多平台支持** - Web、桌面、移动端全覆盖
+- 🔔 **通知系统** - 实时通知，不错过任何动态
+- 🔐 **邮箱验证** - 企业邮箱验证码注册
+- 🔄 **自动备份** - 系统定时备份，数据安全有保障
+- 🚀 **一键部署** - 支持 Docker 和传统部署方式
 
 ---
 
-## 🛠️ 技术栈
+## 📱 多平台版本
+
+本项目提供三个版本，共享同一套后端 API：
+
+### 🌐 Web 版（主站）
+
+基于原生 HTML/CSS/JavaScript 开发的网页版，无需安装即可使用。
+
+- **访问地址**: https://xuanjian.top
+- **技术栈**: HTML5 + CSS3 + JavaScript
+- **特点**: 无需安装，跨平台访问
+
+### �️ 桌面版（Desktop）
+
+基于 Tauri 构建的跨平台桌面客户端，支持 Windows、macOS 和 Linux。
+
+- **下载地址**: https://xuanjian.top/download/xuanjian-guild.exe
+- **技术栈**: Tauri + TypeScript + Vite
+- **特点**: 原生体验，离线可用，自动更新
+
+<details>
+<summary>📖 桌面版详细说明</summary>
+
+#### 功能特性
+
+- 🎮 直接访问玄剑公会官网
+- 🖥️ 原生桌面应用体验
+- ⌨️ 支持快捷键操作
+- 🔍 页面缩放功能
+- 🔄 自动更新检测
+- 🔔 系统通知支持
+
+#### 开发构建
+
+```bash
+cd apps/desktop
+
+# 安装依赖
+npm install
+
+# 开发模式
+npm run tauri dev
+
+# 构建发布
+npm run tauri build
+```
+
+#### 目录结构
+
+```
+apps/desktop/
+├── src/                    # 前端源码
+│   ├── assets/             # 静态资源
+│   ├── config.ts           # 配置
+│   ├── main.ts             # 主入口
+│   ├── styles.css          # 样式
+│   └── version-check.ts    # 版本检测
+├── src-tauri/              # Tauri 配置
+│   ├── src/                # Rust 源码
+│   ├── icons/              # 应用图标
+│   └── tauri.conf.json     # Tauri 配置
+├── index.html
+├── package.json
+└── vite.config.ts
+```
+
+</details>
+
+### 📲 移动版（Android）
+
+基于 Capacitor 构建的移动端应用，支持 Android 平台。
+
+- **技术栈**: Capacitor + TypeScript + Vite
+- **特点**: 可收起侧边栏，原生相机支持，流畅体验
+
+<details>
+<summary>📖 移动版详细说明</summary>
+
+#### 功能特性
+
+- 📱 原生移动端体验
+- 📷 支持相机拍照上传
+- 🎨 可收起侧边栏导航
+- 🌙 暗色/亮色主题切换
+- 🔔 实时通知推送
+
+#### 开发构建
+
+```bash
+cd apps/android
+
+# 安装依赖
+npm install
+
+# 开发模式
+npm run dev
+
+# 构建
+npm run build
+
+# 添加Android平台
+npm run cap:add
+
+# 同步到Android
+npm run cap:sync
+
+# 打开Android Studio
+npm run cap:open
+```
+
+#### 图片上传处理
+
+移动端使用 Capacitor Camera 插件处理图片上传，将 Base64 转换为 File 对象后上传：
+
+```typescript
+import { Camera, CameraResultType } from '@capacitor/camera';
+
+const photo = await Camera.getPhoto({
+  quality: 90,
+  resultType: CameraResultType.Base64
+});
+
+// 将 Base64 转换为 Blob/File
+const byteCharacters = atob(photo.base64String!);
+const byteNumbers = new Array(byteCharacters.length);
+for (let i = 0; i < byteCharacters.length; i++) {
+    byteNumbers[i] = byteCharacters.charCodeAt(i);
+}
+const byteArray = new Uint8Array(byteNumbers);
+const blob = new Blob([byteArray], { type: 'image/jpeg' });
+
+// 创建 File 对象并上传
+const file = new File([blob], `photo_${Date.now()}.jpg`, { type: 'image/jpeg' });
+const formData = new FormData();
+formData.append('image', file);
+
+await fetch('/api/upload/image', {
+    method: 'POST',
+    body: formData
+});
+```
+
+#### 目录结构
+
+```
+apps/android/
+├── src/
+│   ├── assets/             # 静态资源
+│   ├── config.ts           # 配置和类型定义
+│   ├── main.ts             # 主入口
+│   ├── styles.css          # 样式
+│   └── vite-env.d.ts       # Vite类型
+├── android/                # Android原生项目（cap add后生成）
+├── index.html
+├── package.json
+├── tsconfig.json
+├── vite.config.ts
+└── capacitor.config.ts
+```
+
+</details>
+
+---
+
+## ��️ 技术栈
 
 | 层级 | 技术 | 说明 |
 |:---:|:---|:---|
 | **前端** | HTML5 + CSS3 + JavaScript | 原生开发，无框架依赖 |
 | **后端** | Node.js + Express | 轻量级 Web 框架 |
 | **数据库** | SQLite3 | 本地文件存储，零配置 |
+| **桌面应用** | Tauri 2.0 | Rust + WebView2 |
+| **移动应用** | Capacitor 7 | 跨平台原生运行时 |
 | **进程管理** | PM2 | 生产环境进程守护 |
 | **反向代理** | Nginx | 高性能反向代理 |
 | **容器化** | Docker | 快速部署方案 |
-| **桌面应用** | Electron / WebView2 | 跨平台桌面客户端 |
 
 ---
 
@@ -49,10 +216,14 @@
 
 ```
 xuanjian-guild-website/
-├── 📂 app/                     # 桌面应用源码
-│   ├── 📂 electron/            # Electron 主进程
-│   ├── 📂 src/                 # 前端源码
-│   └── 📂 玄剑公会桌面客户端/   # 打包后的桌面应用
+├── 📂 apps/                    # 多平台应用
+│   ├── 📂 desktop/             # 桌面客户端
+│   │   ├── 📂 src/             # 前端源码
+│   │   ├── 📂 src-tauri/       # Tauri 配置
+│   │   └── 📖 README.md        # 桌面版文档
+│   └── 📂 android/             # 移动端
+│       ├── 📂 src/             # 前端源码
+│       └── � README.md        # 移动版文档
 ├── 📂 data/                    # 数据目录
 │   ├── 📂 uploads/             # 上传文件存储
 │   └── 🗄️ guild.db             # SQLite 数据库
@@ -62,12 +233,14 @@ xuanjian-guild-website/
 │   ├── 📂 css/                 # 样式文件
 │   ├── 📂 js/                  # JavaScript 文件
 │   ├── 📂 pages/               # 页面文件
+│   ├── 📂 download/            # 下载文件
 │   └── 🏠 index.html           # 首页
-├──  routes/                  # API 路由
+├── 📂 routes/                  # API 路由
 │   ├── 🔐 auth.js              # 认证接口
 │   ├── 📝 posts.js             # 内容接口
 │   ├── 👥 admin.js             # 管理接口
-│   └── 📤 upload.js            # 上传接口
+│   ├── 📤 upload.js            # 上传接口
+│   └── 🔔 notifications.js     # 通知接口
 ├── 📂 scripts/                 # 工具脚本
 │   ├── 🗄️ init-db.js           # 数据库初始化
 │   ├── 💾 backup.sh            # 自动备份脚本
@@ -142,6 +315,12 @@ JWT_SECRET=your-super-secret-key-here
 
 # 管理员初始密码（部署后请立即修改）
 ADMIN_PASSWORD=xuanjian123
+
+# 邮箱配置（企业微信邮箱）
+SMTP_HOST=smtp.exmail.qq.com
+SMTP_PORT=465
+SMTP_USER=your-email@domain.com
+SMTP_PASS=your-password
 ```
 
 ---
@@ -168,6 +347,7 @@ ADMIN_PASSWORD=xuanjian123
 | POST | `/api/auth/login` | 用户登录 |
 | GET | `/api/auth/me` | 获取当前用户信息 |
 | PUT | `/api/auth/profile` | 更新用户资料 |
+| POST | `/api/auth/send-code` | 发送邮箱验证码 |
 
 ### 📝 内容接口
 
@@ -180,6 +360,15 @@ ADMIN_PASSWORD=xuanjian123
 | DELETE | `/api/posts/:id` | 删除内容 |
 | POST | `/api/posts/:id/like` | 点赞 |
 | POST | `/api/posts/:id/comments` | 发表评论 |
+
+### 🔔 通知接口
+
+| 方法 | 路径 | 说明 |
+|:---:|:---|:---|
+| GET | `/api/notifications` | 获取通知列表 |
+| PUT | `/api/notifications/:id/read` | 标记已读 |
+| PUT | `/api/notifications/read-all` | 全部已读 |
+| DELETE | `/api/notifications/:id` | 删除通知 |
 
 ### 📤 上传接口
 
@@ -207,30 +396,15 @@ ADMIN_PASSWORD=xuanjian123
 | `/daily` | 公会日报 | 管理员发布，全员浏览 |
 | `/decision` | 决策公告 | 重要决策公示 |
 | `/forum` | 公会贴吧 | 全员可发帖交流 |
+| `/social` | 社交媒体 | 社交账号链接 |
+| `/notifications` | 通知中心 | 查看所有通知 |
 | `/post/:id` | 内容详情 | 查看具体内容 |
 | `/editor` | 内容编辑器 | 发布/编辑内容 |
 | `/profile` | 用户主页 | 个人资料管理 |
+| `/settings` | 账号设置 | 修改资料密码 |
 | `/admin` | 管理后台 | 系统管理 |
 | `/login` | 登录 | 用户登录 |
 | `/register` | 注册 | 用户注册 |
-
----
-
-## �️ 桌面应用
-
-项目提供跨平台桌面客户端，支持 Windows、macOS 和 Linux。
-
-### 功能特性
-
-- 🎮 直接访问玄剑公会官网
-- 🖥️ 原生桌面应用体验
-- ⌨️ 支持快捷键操作
-- 🔍 页面缩放功能
-- 🛠️ 开发者工具支持
-
-### 获取方式
-
-桌面应用位于 `app/玄剑公会桌面客户端/` 目录，双击运行即可。
 
 ---
 
@@ -267,6 +441,11 @@ ADMIN_PASSWORD=xuanjian123
 - 上传文件：`data/uploads/`
 - 系统已配置自动备份，详见 [运维手册](./OPS_GUIDE.md)
 
+### Q: 桌面应用如何更新？
+**A:** 
+- 桌面应用启动时会自动检测更新
+- 也可手动下载最新版本覆盖安装
+
 ---
 
 ## 🌟 社交媒体
@@ -284,6 +463,7 @@ ADMIN_PASSWORD=xuanjian123
 ### v2.0.5 (2026-2-21)
 - 🔔 **通知系统** - 新增通知中心，支持日报/决策更新、评论、点赞通知
 - 📱 **桌面版通知** - 侧边栏添加通知入口，实时显示未读数量
+- 📲 **移动端应用** - 新增 Android 版本，支持可收起侧边栏
 - 🔄 **邮箱状态同步** - 修复桌面版邮箱验证状态不同步问题
 - 🐛 **版本显示修复** - 修复桌面版版本号显示问题
 
