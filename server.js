@@ -1,6 +1,5 @@
 const express = require('express');
 const path = require('path');
-const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 require('dotenv').config();
@@ -10,6 +9,7 @@ const postRoutes = require('./routes/posts');
 const adminRoutes = require('./routes/admin');
 const uploadRoutes = require('./routes/upload');
 const announcementRoutes = require('./routes/announcement');
+const { router: notificationRoutes } = require('./routes/notifications');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -19,13 +19,7 @@ app.use(helmet({
     contentSecurityPolicy: false
 }));
 
-// CORS配置 - 允许桌面应用访问
-app.use(cors({
-    origin: '*',
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-    credentials: true
-}));
+// CORS 由 Nginx 处理，这里不需要
 
 // 请求限制
 const limiter = rateLimit({
@@ -54,6 +48,7 @@ app.use('/api/posts', postRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/announcements', announcementRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // 页面路由
 app.get('/', (req, res) => {
@@ -106,6 +101,10 @@ app.get('/admin', (req, res) => {
 
 app.get('/social', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'pages', 'social.html'));
+});
+
+app.get('/notifications', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'pages', 'notifications.html'));
 });
 
 // 404处理

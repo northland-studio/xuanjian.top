@@ -1,0 +1,41 @@
+/* 打包字体文件说明
+ * 
+ * 由于 PingFang SC 是苹果系统字体无法打包，如需打包字体请：
+ * 
+ * 1. 下载思源黑体 (Noto Sans SC) 字体文件：
+ *    https://fonts.google.com/noto/specimen/Noto+Sans+SC
+ *    或 https://github.com/googlefonts/noto-cjk
+ * 
+ * 2. 将字体文件放入此目录：
+ *    - NotoSansSC-Regular.otf (常规)
+ *    - NotoSansSC-Medium.otf (中等)
+ *    - NotoSansSC-Bold.otf (粗体)
+ * 
+ * 3. 取消下方 CSS 注释并删除上方的 @font-face 规则
+ */
+
+/* 思源黑体 - 打包版本
+@font-face {
+    font-family: 'Noto Sans SC';
+    src: url('./NotoSansSC-Regular.otf') format('opentype');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Noto Sans SC';
+    src: url('./NotoSansSC-Medium.otf') format('opentype');
+    font-weight: 500;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Noto Sans SC';
+    src: url('./NotoSansSC-Bold.otf') format('opentype');
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+}
+*/

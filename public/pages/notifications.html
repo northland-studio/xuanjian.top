@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>通知中心 - 我的世界玄剑公会</title>
+    <link rel="icon" href="/icon.ico" type="image/x-icon">
+    <link rel="stylesheet" href="/css/style.css?v=2.0.5">
+    <style>
+        .notifications-container { max-width: 800px; margin: 0 auto; padding: 20px; }
+        
+        .notifications-header { 
+            background: var(--card-bg, white); 
+            border-radius: 16px; 
+            padding: 30px; 
+            box-shadow: var(--shadow, 0 2px 10px rgba(0,0,0,0.08)); 
+            margin-bottom: 20px; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+        }
+        
+        .notifications-title { 
+            display: flex; 
+            align-items: center; 
+            gap: 12px; 
+            font-size: 24px; 
+            font-weight: 700; 
+            color: var(--text-color, #1e293b);
+        }
+        
+        .notifications-title-icon { 
+            width: 48px; 
+            height: 48px; 
+            background: linear-gradient(135deg, #6366f1, #8b5cf6); 
+            border-radius: 12px; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            color: white; 
+        }
+        
+        .unread-badge { 
+            background: #ef4444; 
+            color: white; 
+            font-size: 12px; 
+            padding: 4px 10px; 
+            border-radius: 20px; 
+            margin-left: 8px; 
+        }
+        
+        .btn { 
+            padding: 10px 20px; 
+            border-radius: 8px; 
+            font-size: 14px; 
+            font-weight: 500; 
+            cursor: pointer; 
+            border: none; 
+            transition: all 0.3s; 
+        }
+        
+        .btn-primary { background: #6366f1; color: white; }
+        .btn-primary:hover { background: #4f46e5; }
+        .btn-secondary { background: var(--bg-color, #f1f5f9); color: var(--text-secondary, #475569); border: 1px solid var(--border-color, #e2e8f0); }
+        .btn-secondary:hover { background: var(--border-color, #e2e8f0); }
+        .btn-danger { background: #fee2e2; color: #dc2626; }
+        .btn-danger:hover { background: #fecaca; }
+        .btn-sm { padding: 6px 12px; font-size: 13px; }
+        
+        .notifications-list { 
+            background: var(--card-bg, white); 
+            border-radius: 16px; 
+            box-shadow: var(--shadow, 0 2px 10px rgba(0,0,0,0.08)); 
+            overflow: hidden; 
+        }
+        
+        .notification-item { 
+            display: flex; 
+            align-items: flex-start; 
+            gap: 16px; 
+            padding: 20px; 
+            border-bottom: 1px solid var(--border-color, #f1f5f9); 
+            cursor: pointer; 
+            transition: background 0.3s; 
+        }
+        
+        .notification-item:last-child { border-bottom: none; }
+        .notification-item:hover { background: var(--bg-color, #f8fafc); }
+        
+        .notification-item.unread { 
+            background: rgba(99, 102, 241, 0.08); 
+            border-left: 3px solid #6366f1; 
+        }
+        
+        .notification-item.unread:hover { background: rgba(99, 102, 241, 0.12); }
+        
+        .notification-icon { 
+            width: 44px; 
+            height: 44px; 
+            border-radius: 12px; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            flex-shrink: 0; 
+        }
+        
+        .notification-icon svg { width: 22px; height: 22px; }
+        
+        .icon-daily { background: rgba(59, 130, 246, 0.15); color: #3b82f6; }
+        .icon-decision { background: rgba(139, 92, 246, 0.15); color: #8b5cf6; }
+        .icon-comment { background: rgba(16, 185, 129, 0.15); color: #10b981; }
+        .icon-like { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
+        
+        .notification-content { flex: 1; min-width: 0; }
+        
+        .notification-title { 
+            font-weight: 600; 
+            color: var(--text-color, #1e293b); 
+            margin-bottom: 4px; 
+            font-size: 15px; 
+        }
+        
+        .notification-text { 
+            color: var(--text-secondary, #64748b); 
+            font-size: 14px; 
+            margin-bottom: 8px; 
+            display: -webkit-box; 
+            -webkit-line-clamp: 2; 
+            -webkit-box-orient: vertical; 
+            overflow: hidden; 
+        }
+        
+        .notification-meta { 
+            display: flex; 
+            gap: 12px; 
+            font-size: 13px; 
+            color: var(--text-muted, #94a3b8); 
+        }
+        
+        .notification-actor { color: #6366f1; font-weight: 500; }
+        
+        .notification-actions { 
+            display: flex; 
+            gap: 8px; 
+            opacity: 0; 
+            transition: opacity 0.3s; 
+            flex-shrink: 0; 
+        }
+        
+        .notification-item:hover .notification-actions { opacity: 1; }
+        
+        .empty-state { 
+            text-align: center; 
+            padding: 60px 20px; 
+            color: var(--text-secondary, #64748b); 
+        }
+        
+        .empty-state-icon { 
+            width: 80px; 
+            height: 80px; 
+            background: var(--bg-color, #f1f5f9); 
+            border-radius: 50%; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            margin: 0 auto 20px; 
+            color: var(--text-muted, #94a3b8);
+        }
+        
+        .empty-state-icon svg { width: 36px; height: 36px; }
+        
+        .empty-state h3 { font-size: 18px; margin-bottom: 8px; color: var(--text-color, #475569); }
+        .empty-state p { font-size: 14px; }
+        
+        .loading { text-align: center; padding: 60px; }
+        .spinner { 
+            width: 40px; 
+            height: 40px; 
+            border: 3px solid var(--border-color, #f1f5f9); 
+            border-top-color: #6366f1; 
+            border-radius: 50%; 
+            animation: spin 1s linear infinite; 
+            margin: 0 auto; 
+        }
+        
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        .pagination { 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            gap: 16px; 
+            margin-top: 20px; 
+        }
+        
+        .page-info { color: var(--text-secondary, #64748b); font-size: 14px; }
+        
+        /* 汉堡菜单 */
+        .hamburger {
+            display: none;
+            flex-direction: column;
+            justify-content: space-around;
+            width: 28px;
+            height: 24px;
+            cursor: pointer;
+            z-index: 1001;
+        }
+        
+        .hamburger span {
+            display: block;
+            width: 100%;
+            height: 3px;
+            background: var(--text-color, #1e293b);
+            border-radius: 2px;
+            transition: all 0.3s;
+        }
+        
+        .hamburger.active span:nth-child(1) {
+            transform: rotate(45deg) translate(6px, 6px);
+        }
+        
+        .hamburger.active span:nth-child(2) {
+            opacity: 0;
+        }
+        
+        .hamburger.active span:nth-child(3) {
+            transform: rotate(-45deg) translate(6px, -6px);
+        }
+        
+        .mobile-menu {
+            display: none;
+            position: fixed;
+            top: 70px;
+            left: 0;
+            right: 0;
+            background: var(--card-bg, white);
+            padding: 20px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            z-index: 1000;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .mobile-menu.active {
+            display: flex;
+        }
+        
+        .mobile-menu a {
+            padding: 12px 16px;
+            color: var(--text-color, #1e293b);
+            text-decoration: none;
+            border-radius: 8px;
+            transition: background 0.3s;
+        }
+        
+        .mobile-menu a:hover {
+            background: var(--bg-color, #f1f5f9);
+        }
+        
+        /* 暗色模式适配 */
+        [data-theme="dark"] .notification-item.unread {
+            background: rgba(99, 102, 241, 0.15);
+        }
+        
+        [data-theme="dark"] .notification-item.unread:hover {
+            background: rgba(99, 102, 241, 0.2);
+        }
+        
+        [data-theme="dark"] .hamburger span {
+            background: #f1f5f9;
+        }
+        
+        [data-theme="dark"] .mobile-menu {
+            background: #1e293b;
+        }
+        
+        [data-theme="dark"] .mobile-menu a {
+            color: #f1f5f9;
+        }
+        
+        [data-theme="dark"] .mobile-menu a:hover {
+            background: #334155;
+        }
+        
+        [data-theme="dark"] .empty-state-icon {
+            background: #334155;
+        }
+        
+        [data-theme="dark"] .btn-secondary {
+            background: #334155;
+            border-color: #475569;
+            color: #e2e8f0;
+        }
+        
+        [data-theme="dark"] .btn-secondary:hover {
+            background: #475569;
+        }
+        
+        [data-theme="dark"] .notification-title {
+            color: #f1f5f9;
+        }
+        
+        [data-theme="dark"] .notification-text {
+            color: #94a3b8;
+        }
+        
+        [data-theme="dark"] .notification-meta {
+            color: #64748b;
+        }
+        
+        [data-theme="dark"] .empty-state h3 {
+            color: #f1f5f9;
+        }
+        
+        [data-theme="dark"] .empty-state p {
+            color: #94a3b8;
+        }
+        
+        @media (max-width: 768px) {
+            .hamburger { display: flex; }
+            .navbar-nav { display: none !important; }
+            .notifications-container { padding: 12px; }
+            .notifications-header { padding: 20px; flex-direction: column; gap: 16px; align-items: flex-start; }
+            .notifications-title { font-size: 20px; }
+            .notification-actions { opacity: 1; }
+            .notification-item { padding: 16px; }
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="navbar-content">
+            <a href="/" class="navbar-brand">
+                <img src="/icon.png" alt="玄剑公会" class="navbar-logo">
+                <div class="navbar-title">
+                    <span class="navbar-title-cn">我的世界玄剑公会</span>
+                    <span class="navbar-title-en">Minecraft Xuanjian Guild</span>
+                </div>
+            </a>
+            <div class="navbar-nav">
+                <a href="/daily" class="nav-link">日报</a>
+                <a href="/decision" class="nav-link">决策</a>
+                <a href="/forum" class="nav-link">贴吧</a>
+                <a href="/social" class="nav-link">社交媒体</a>
+                <div class="nav-user"></div>
+            </div>
+            <div class="hamburger" id="hamburger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+    </nav>
+    
+    <div class="mobile-menu" id="mobile-menu">
+        <a href="/">首页</a>
+        <a href="/daily">日报</a>
+        <a href="/decision">决策</a>
+        <a href="/forum">贴吧</a>
+        <a href="/social">社交媒体</a>
+        <a href="/notifications">通知</a>
+    </div>
+
+    <main class="main-content">
+        <div class="notifications-container" id="app">
+            <div class="loading"><div class="spinner"></div></div>
+        </div>
+    </main>
+
+    <script src="/js/common.js?v=2.0.5"></script>
+    <script>
+        // 汉堡菜单
+        document.getElementById('hamburger').addEventListener('click', function() {
+            this.classList.toggle('active');
+            document.getElementById('mobile-menu').classList.toggle('active');
+        });
+        
+        let currentPage = 1;
+        let unreadCount = 0;
+
+        // SVG图标定义
+        const icons = {
+            bell: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>',
+            daily: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"></path><path d="M18 14h-8"></path><path d="M15 18h-5"></path><path d="M10 6h8v4h-8V6Z"></path></svg>',
+            decision: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"></path><path d="m9 12 2 2 4-4"></path></svg>',
+            comment: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"></path></svg>',
+            like: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"></path></svg>',
+            warning: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>'
+        };
+
+        async function init() {
+            if (!localStorage.getItem('token')) {
+                window.location.href = '/login';
+                return;
+            }
+            await loadNotifications();
+        }
+
+        async function loadNotifications(page = 1) {
+            const app = document.getElementById('app');
+            currentPage = page;
+            
+            try {
+                const response = await fetch(`/api/notifications?page=${page}&limit=20`, {
+                    headers: { 
+                        'Authorization': 'Bearer ' + localStorage.getItem('token'),
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error('请求失败');
+                }
+                
+                const data = await response.json();
+                unreadCount = data.unreadCount || 0;
+                const notifications = data.notifications || [];
+                
+                renderPage(notifications, data);
+            } catch (error) {
+                console.error('加载通知失败:', error);
+                app.innerHTML = `
+                    <div class="notifications-header">
+                        <div class="notifications-title">
+                            <div class="notifications-title-icon">${icons.bell}</div>
+                            通知中心
+                        </div>
+                    </div>
+                    <div class="notifications-list">
+                        <div class="empty-state">
+                            <div class="empty-state-icon">${icons.warning}</div>
+                            <h3>加载失败</h3>
+                            <p>${error.message || '请稍后重试'}</p>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        function renderPage(notifications, data) {
+            const app = document.getElementById('app');
+            
+            let headerActions = '';
+            if (unreadCount > 0) {
+                headerActions = `<button class="btn btn-secondary" onclick="markAllRead()">全部标为已读</button>`;
+            }
+            
+            let listHtml = '';
+            if (!notifications || notifications.length === 0) {
+                listHtml = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">${icons.bell}</div>
+                        <h3>暂无通知</h3>
+                        <p>当有人评论、点赞你的帖子或发布新内容时，你会在这里收到通知</p>
+                    </div>
+                `;
+            } else {
+                listHtml = notifications.map(n => renderNotification(n)).join('');
+            }
+            
+            app.innerHTML = `
+                <div class="notifications-header">
+                    <div class="notifications-title">
+                        <div class="notifications-title-icon">${icons.bell}</div>
+                        <span>通知中心</span>
+                        ${unreadCount > 0 ? `<span class="unread-badge">${unreadCount} 条未读</span>` : ''}
+                    </div>
+                    ${headerActions}
+                </div>
+                <div class="notifications-list">${listHtml}</div>
+                ${notifications && notifications.length > 0 ? renderPagination() : ''}
+            `;
+        }
+
+        function renderNotification(n) {
+            const typeConfig = {
+                'post_daily': { icon: icons.daily, class: 'icon-daily' },
+                'post_decision': { icon: icons.decision, class: 'icon-decision' },
+                'comment': { icon: icons.comment, class: 'icon-comment' },
+                'like': { icon: icons.like, class: 'icon-like' }
+            };
+            
+            const config = typeConfig[n.type] || { icon: icons.bell, class: 'icon-daily' };
+            const isRead = n.is_read === 1 || n.is_read === true;
+            
+            return `
+                <div class="notification-item ${isRead ? '' : 'unread'}" 
+                     data-id="${n.id}" 
+                     data-post-id="${n.post_id || ''}"
+                     onclick="handleNotificationClick(${n.id}, ${n.post_id || 'null'})">
+                    <div class="notification-icon ${config.class}">
+                        ${config.icon}
+                    </div>
+                    <div class="notification-content">
+                        <div class="notification-title">${escapeHtml(n.title || '')}</div>
+                        <div class="notification-text">${escapeHtml(n.content || n.post_title || '')}</div>
+                        <div class="notification-meta">
+                            <span>${formatDate(n.created_at)}</span>
+                            ${n.actor_nickname ? `<span class="notification-actor">来自 ${escapeHtml(n.actor_nickname)}</span>` : ''}
+                        </div>
+                    </div>
+                    <div class="notification-actions">
+                        ${!isRead ? `<button class="btn btn-sm btn-secondary" onclick="event.stopPropagation(); markRead(${n.id})">标为已读</button>` : ''}
+                        <button class="btn btn-sm btn-danger" onclick="event.stopPropagation(); deleteNotification(${n.id})">删除</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderPagination() {
+            return `
+                <div class="pagination">
+                    <button class="btn btn-secondary" onclick="prevPage()" ${currentPage <= 1 ? 'disabled' : ''}>上一页</button>
+                    <span class="page-info">第 ${currentPage} 页</span>
+                    <button class="btn btn-secondary" onclick="nextPage()">下一页</button>
+                </div>
+            `;
+        }
+
+        async function handleNotificationClick(id, postId) {
+            await markRead(id);
+            if (postId) {
+                window.location.href = `/post/${postId}`;
+            }
+        }
+
+        async function markRead(id) {
+            try {
+                await fetch(`/api/notifications/${id}/read`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + localStorage.getItem('token')
+                    }
+                });
+                if (unreadCount > 0) unreadCount--;
+                loadNotifications(currentPage);
+            } catch (error) {
+                console.error('标记已读失败:', error);
+            }
+        }
+
+        async function markAllRead() {
+            try {
+                await fetch('/api/notifications/read-all', {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + localStorage.getItem('token')
+                    }
+                });
+                unreadCount = 0;
+                loadNotifications(currentPage);
+            } catch (error) {
+                console.error('全部标记已读失败:', error);
+            }
+        }
+
+        async function deleteNotification(id) {
+            if (!confirm('确定要删除这条通知吗？')) return;
+            
+            try {
+                await fetch(`/api/notifications/${id}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': 'Bearer ' + localStorage.getItem('token')
+                    }
+                });
+                loadNotifications(currentPage);
+            } catch (error) {
+                console.error('删除通知失败:', error);
+            }
+        }
+
+        function prevPage() {
+            if (currentPage > 1) {
+                loadNotifications(currentPage - 1);
+            }
+        }
+
+        function nextPage() {
+            loadNotifications(currentPage + 1);
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return '';
+            const date = new Date(dateStr);
+            const now = new Date();
+            const diff = now - date;
+            const minutes = Math.floor(diff / 60000);
+            const hours = Math.floor(diff / 3600000);
+            const days = Math.floor(diff / 86400000);
+
+            if (minutes < 1) return '刚刚';
+            if (minutes < 60) return `${minutes}分钟前`;
+            if (hours < 24) return `${hours}小时前`;
+            if (days < 7) return `${days}天前`;
+            return date.toLocaleDateString('zh-CN');
+        }
+
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>

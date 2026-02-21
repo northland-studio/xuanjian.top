@@ -40,6 +40,142 @@ function isSuperAdmin() {
     return user && user.level >= 2;
 }
 
+// 检查邮箱是否已验证
+function isEmailVerified() {
+    const user = getCurrentUser();
+    return user && user.email_verified === 1;
+}
+
+// 显示邮箱验证弹窗
+function showEmailVerificationModal() {
+    const modal = document.createElement('div');
+    modal.className = 'email-verify-modal';
+    modal.innerHTML = `
+        <div class="email-verify-content">
+            <div class="email-verify-header">
+                <svg width="48" height="48" fill="none" stroke="#f59e0b" viewBox="0 0 24 24" style="margin-bottom: 16px;">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                </svg>
+                <h3>请验证您的邮箱</h3>
+            </div>
+            <div class="email-verify-body">
+                <p>您的账号尚未验证邮箱，部分功能将受到限制：</p>
+                <ul style="text-align: left; margin: 16px 0; color: #64748b;">
+                    <li>无法发表评论</li>
+                    <li>无法发布内容</li>
+                    <li>无法点赞</li>
+                </ul>
+                <p style="color: #64748b; font-size: 14px;">请前往设置页面绑定邮箱以解锁全部功能。</p>
+            </div>
+            <div class="email-verify-footer">
+                <button class="btn btn-secondary" onclick="closeEmailVerifyModal()">稍后再说</button>
+                <button class="btn btn-primary" onclick="goToSettings()">去验证</button>
+            </div>
+        </div>
+    `;
+
+    modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,0.6);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+        animation: fadeIn 0.3s ease-out;
+    `;
+
+    const content = modal.querySelector('.email-verify-content');
+    content.style.cssText = `
+        background: white;
+        padding: 32px;
+        border-radius: 16px;
+        max-width: 420px;
+        width: 90%;
+        text-align: center;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    `;
+
+    const header = modal.querySelector('.email-verify-header h3');
+    header.style.cssText = `
+        font-size: 20px;
+        font-weight: 600;
+        margin-bottom: 8px;
+        color: #1e293b;
+    `;
+
+    const body = modal.querySelector('.email-verify-body');
+    body.style.cssText = `
+        margin: 20px 0;
+        color: #334155;
+        line-height: 1.6;
+    `;
+
+    const footer = modal.querySelector('.email-verify-footer');
+    footer.style.cssText = `
+        display: flex;
+        gap: 12px;
+        justify-content: center;
+        margin-top: 24px;
+    `;
+
+    // 添加按钮样式
+    const btnSecondary = modal.querySelector('.btn-secondary');
+    btnSecondary.style.cssText = `
+        padding: 12px 24px;
+        background: #f1f5f9;
+        color: #475569;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 14px;
+        transition: all 0.3s;
+    `;
+
+    const btnPrimary = modal.querySelector('.btn-primary');
+    btnPrimary.style.cssText = `
+        padding: 12px 24px;
+        background: #6366f1;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 14px;
+        transition: all 0.3s;
+    `;
+
+    document.body.appendChild(modal);
+    window.currentEmailVerifyModal = modal;
+}
+
+// 关闭邮箱验证弹窗
+function closeEmailVerifyModal() {
+    if (window.currentEmailVerifyModal) {
+        window.currentEmailVerifyModal.remove();
+        window.currentEmailVerifyModal = null;
+    }
+}
+
+// 跳转到设置页面
+function goToSettings() {
+    closeEmailVerifyModal();
+    window.location.href = '/settings';
+}
+
+// 检查并显示邮箱验证提醒
+function checkEmailVerification() {
+    const user = getCurrentUser();
+    if (user && !user.email_verified) {
+        // 延迟显示，避免页面加载时立即弹出
+        setTimeout(() => {
+            showEmailVerificationModal();
+        }, 1000);
+    }
+}
+
 // API请求封装
 async function apiRequest(url, options = {}) {
     const token = getToken();
@@ -290,9 +426,9 @@ function showConfirm(message) {
 function renderNavbar() {
     const user = getCurrentUser();
     const navUser = document.querySelector('.nav-user');
-    
+
     if (!navUser) return;
-    
+
     const themeBtn = `
         <button class="theme-toggle" onclick="toggleTheme()" title="切换主题">
             <svg class="moon-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -303,15 +439,42 @@ function renderNavbar() {
             </svg>
         </button>
     `;
-    
+
+    const notificationBtn = user ? `
+        <a href="/notifications" class="nav-notification" title="通知">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
+            </svg>
+            <span class="notification-badge" id="nav-notification-badge" style="display: none;">0</span>
+        </a>
+    ` : '';
+
     if (user) {
-        navUser.innerHTML = themeBtn + `
+        navUser.innerHTML = themeBtn + notificationBtn + `
             <a href="/profile">
                 <img src="${user.avatar || '/uploads/default-avatar.png'}" alt="${user.nickname}" class="nav-avatar">
             </a>
         `;
+        // 加载未读通知数
+        loadUnreadNotificationCount();
     } else {
         navUser.innerHTML = themeBtn + `<a href="/login" class="nav-login-btn">登录</a>`;
+    }
+}
+
+// 加载未读通知数量
+async function loadUnreadNotificationCount() {
+    if (!isLoggedIn()) return;
+
+    try {
+        const data = await get('/api/notifications?limit=1');
+        const badge = document.getElementById('nav-notification-badge');
+        if (badge && data.unreadCount > 0) {
+            badge.textContent = data.unreadCount > 99 ? '99+' : data.unreadCount;
+            badge.style.display = 'inline';
+        }
+    } catch (error) {
+        // 静默失败
     }
 }
 
@@ -460,7 +623,8 @@ function initPage() {
     renderNavbar();
     initNavbarScroll();
     checkPopupAnnouncement();
-    
+    checkEmailVerification();
+
     // 绑定移动端菜单按钮
     const mobileMenuBtn = document.querySelector('.mobile-menu-btn');
     if (mobileMenuBtn) {

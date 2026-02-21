@@ -1,0 +1,6 @@
+{
+  "version": "2.0.5",
+  "downloadUrl": "https://ghproxy.net/https://github.com/northland-studio/download/releases/download/3/XuanjianDesktop_v2.0.5_Setup.exe",
+  "releaseNotes": "<ul><li>新增通知系统，支持日报/决策更新、评论、点赞通知</li><li>侧边栏添加通知入口，实时显示未读数量</li><li>修复邮箱验证状态不同步问题</li><li>修复版本号显示问题</li></ul>",
+  "forceUpdate": false
+}

@@ -28,6 +28,7 @@ const initTables = () => {
                     avatar TEXT DEFAULT '/uploads/default-avatar.png',
                     level INTEGER DEFAULT 0,
                     contribution INTEGER DEFAULT 0,
+                    email_verified INTEGER DEFAULT 0,
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
@@ -105,6 +106,39 @@ const initTables = () => {
                     key TEXT UNIQUE NOT NULL,
                     value TEXT NOT NULL,
                     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            `);
+
+            // 邮箱验证码表
+            db.run(`
+                CREATE TABLE IF NOT EXISTS verification_codes (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    email TEXT NOT NULL,
+                    code TEXT NOT NULL,
+                    type TEXT NOT NULL,
+                    expires_at DATETIME NOT NULL,
+                    used INTEGER DEFAULT 0,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            `);
+
+            // 通知表
+            db.run(`
+                CREATE TABLE IF NOT EXISTS notifications (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    type TEXT NOT NULL CHECK(type IN ('post_daily', 'post_decision', 'comment', 'like')),
+                    title TEXT NOT NULL,
+                    content TEXT,
+                    post_id INTEGER,
+                    comment_id INTEGER,
+                    actor_id INTEGER,
+                    is_read INTEGER DEFAULT 0,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users(id),
+                    FOREIGN KEY (post_id) REFERENCES posts(id),
+                    FOREIGN KEY (comment_id) REFERENCES comments(id),
+                    FOREIGN KEY (actor_id) REFERENCES users(id)
                 )
             `);
 

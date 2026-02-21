@@ -95,8 +95,25 @@
                             <input type="text" class="form-input" id="nickname" value="${currentUser.nickname}">
                         </div>
                         <div class="form-group">
-                            <label class="form-label">邮箱</label>
-                            <input type="email" class="form-input" id="email" value="${currentUser.email || ''}">
+                            <label class="form-label">
+                                邮箱
+                                ${currentUser.email_verified ?
+                                    '<span style="color: #10b981; font-size: 13px; margin-left: 8px;">✓ 已验证</span>' :
+                                    '<span style="color: #f59e0b; font-size: 13px; margin-left: 8px;">⚠ 未验证</span>'
+                                }
+                            </label>
+                            <div style="display: flex; gap: 8px;">
+                                <input type="email" class="form-input" id="email" value="${currentUser.email || ''}" ${currentUser.email_verified ? 'disabled style="background: #f8fafc; flex: 1;"' : 'style="flex: 1;"'}>
+                                ${!currentUser.email_verified ? `
+                                    <button type="button" class="avatar-upload-btn" id="send-verify-btn" onclick="sendVerifyCode()" style="white-space: nowrap;">获取验证码</button>
+                                ` : ''}
+                            </div>
+                            ${!currentUser.email_verified ? `
+                                <div class="form-group" style="margin-top: 12px;">
+                                    <input type="text" class="form-input" id="verify-code" placeholder="请输入验证码" maxlength="6" style="width: 200px;">
+                                    <button type="button" class="btn-save" onclick="verifyEmail()" style="width: auto; padding: 10px 20px; margin-top: 8px; font-size: 14px;">验证邮箱</button>
+                                </div>
+                            ` : ''}
                         </div>
                     </div>
                     
@@ -194,6 +211,69 @@
             localStorage.removeItem('token');
             localStorage.removeItem('user');
             window.location.href = '/';
+        }
+
+        // 发送邮箱验证码
+        async function sendVerifyCode() {
+            const email = document.getElementById('email').value.trim();
+            const sendBtn = document.getElementById('send-verify-btn');
+
+            if (!email) {
+                showToast('请先输入邮箱地址', 'error');
+                return;
+            }
+
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(email)) {
+                showToast('邮箱格式不正确', 'error');
+                return;
+            }
+
+            try {
+                sendBtn.disabled = true;
+                await post('/api/auth/send-bind-code', { email });
+
+                // 倒计时
+                let countdown = 60;
+                sendBtn.textContent = `${countdown}秒后重试`;
+                const timer = setInterval(() => {
+                    countdown--;
+                    if (countdown <= 0) {
+                        clearInterval(timer);
+                        sendBtn.disabled = false;
+                        sendBtn.textContent = '获取验证码';
+                    } else {
+                        sendBtn.textContent = `${countdown}秒后重试`;
+                    }
+                }, 1000);
+
+                showToast('验证码已发送，请查收邮件', 'success');
+            } catch (error) {
+                sendBtn.disabled = false;
+                showToast(error.message, 'error');
+            }
+        }
+
+        // 验证邮箱
+        async function verifyEmail() {
+            const email = document.getElementById('email').value.trim();
+            const code = document.getElementById('verify-code').value.trim();
+
+            if (!email || !code) {
+                showToast('请输入邮箱和验证码', 'error');
+                return;
+            }
+
+            try {
+                await post('/api/auth/verify-email', { email, code });
+                showToast('邮箱验证成功', 'success');
+                // 刷新页面
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1000);
+            } catch (error) {
+                showToast(error.message, 'error');
+            }
         }
 
         document.addEventListener('DOMContentLoaded', loadSettings);

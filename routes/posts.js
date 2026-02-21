@@ -1,6 +1,7 @@
 const express = require('express');
 const db = require('../database');
 const { authMiddleware, adminMiddleware } = require('../middleware/auth');
+const { createNotification } = require('./notifications');
 const router = express.Router();
 
 /**
@@ -147,7 +148,39 @@ router.get('/:id', async (req, res) => {
         await db.run('UPDATE posts SET views = views + 1 WHERE id = ?', [id]);
         post.views++;
         
-        // 获取评论
+        // 递归获取评论回复（支持多级嵌套）
+        async function getReplies(parentId, depth = 0) {
+            if (depth > 2) return []; // 限制最大嵌套层级为3层
+            
+            const replies = await db.all(
+                `SELECT c.*, u.nickname as author_nickname, u.avatar as author_avatar, u.username as author_username
+                 FROM comments c
+                 LEFT JOIN users u ON c.author_id = u.id
+                 WHERE c.parent_id = ? AND c.status = 'active'
+                 ORDER BY c.created_at ASC`,
+                [parentId]
+            );
+            
+            for (let reply of replies) {
+                // 获取回复对象信息
+                const parentComment = await db.get(
+                    `SELECT u.nickname, u.username 
+                     FROM comments c 
+                     JOIN users u ON c.author_id = u.id 
+                     WHERE c.id = ?`,
+                    [reply.parent_id]
+                );
+                if (parentComment) {
+                    reply.reply_to = parentComment;
+                }
+                // 递归获取子回复
+                reply.replies = await getReplies(reply.id, depth + 1);
+            }
+            
+            return replies;
+        }
+        
+        // 获取顶级评论
         const comments = await db.all(
             `SELECT c.*, u.nickname as author_nickname, u.avatar as author_avatar, u.username as author_username
              FROM comments c
@@ -157,17 +190,9 @@ router.get('/:id', async (req, res) => {
             [id]
         );
         
-        // 获取回复
+        // 为每个评论获取回复
         for (let comment of comments) {
-            const replies = await db.all(
-                `SELECT c.*, u.nickname as author_nickname, u.avatar as author_avatar, u.username as author_username
-                 FROM comments c
-                 LEFT JOIN users u ON c.author_id = u.id
-                 WHERE c.parent_id = ? AND c.status = 'active'
-                 ORDER BY c.created_at ASC`,
-                [comment.id]
-            );
-            comment.replies = replies;
+            comment.replies = await getReplies(comment.id);
         }
         
         res.json({ post, comments });
@@ -199,10 +224,26 @@ router.post('/', authMiddleware, async (req, res) => {
             'INSERT INTO posts (title, content, type, author_id, tags, images) VALUES (?, ?, ?, ?, ?, ?)',
             [title, content, type, req.userId, tags, JSON.stringify(images || [])]
         );
-        
+
         // 增加用户贡献点
         await db.run('UPDATE users SET contribution = contribution + 5 WHERE id = ?', [req.userId]);
-        
+
+        // 为日报和决策创建通知给所有用户
+        if (type === 'daily' || type === 'decision') {
+            const typeText = type === 'daily' ? '日报' : '决策';
+            const allUsers = await db.all('SELECT id FROM users WHERE id != ?', [req.userId]);
+            for (const u of allUsers) {
+                await createNotification({
+                    userId: u.id,
+                    type: type === 'daily' ? 'post_daily' : 'post_decision',
+                    title: `新的${typeText}发布`,
+                    content: title,
+                    postId: result.id,
+                    actorId: req.userId
+                });
+            }
+        }
+
         res.status(201).json({
             message: '发布成功',
             postId: result.id
@@ -289,6 +330,20 @@ router.post('/:id/like', authMiddleware, async (req, res) => {
             // 点赞
             await db.run('INSERT INTO likes (post_id, user_id) VALUES (?, ?)', [id, req.userId]);
             await db.run('UPDATE posts SET likes = likes + 1 WHERE id = ?', [id]);
+
+            // 创建通知给帖子作者
+            const post = await db.get('SELECT author_id, title FROM posts WHERE id = ?', [id]);
+            if (post && post.author_id !== req.userId) {
+                await createNotification({
+                    userId: post.author_id,
+                    type: 'like',
+                    title: '你的帖子收到新点赞',
+                    content: post.title,
+                    postId: id,
+                    actorId: req.userId
+                });
+            }
+
             res.json({ liked: true });
         }
     } catch (error) {
@@ -311,13 +366,43 @@ router.post('/:id/comments', authMiddleware, async (req, res) => {
             'INSERT INTO comments (post_id, author_id, content, parent_id) VALUES (?, ?, ?, ?)',
             [id, req.userId, content, parentId || null]
         );
-        
+
         // 更新评论数
         await db.run('UPDATE posts SET comments_count = comments_count + 1 WHERE id = ?', [id]);
-        
+
         // 增加用户贡献点
         await db.run('UPDATE users SET contribution = contribution + 1 WHERE id = ?', [req.userId]);
-        
+
+        // 创建通知给帖子作者
+        const post = await db.get('SELECT author_id, title FROM posts WHERE id = ?', [id]);
+        if (post && post.author_id !== req.userId) {
+            await createNotification({
+                userId: post.author_id,
+                type: 'comment',
+                title: '你的帖子收到新评论',
+                content: post.title,
+                postId: id,
+                commentId: result.id,
+                actorId: req.userId
+            });
+        }
+
+        // 如果是回复评论，通知被回复者
+        if (parentId) {
+            const parentComment = await db.get('SELECT author_id FROM comments WHERE id = ?', [parentId]);
+            if (parentComment && parentComment.author_id !== req.userId && parentComment.author_id !== post.author_id) {
+                await createNotification({
+                    userId: parentComment.author_id,
+                    type: 'comment',
+                    title: '有人回复了你的评论',
+                    content: post.title,
+                    postId: id,
+                    commentId: result.id,
+                    actorId: req.userId
+                });
+            }
+        }
+
         res.status(201).json({
             message: '评论成功',
             commentId: result.id
