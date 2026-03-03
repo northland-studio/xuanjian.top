@@ -4,27 +4,66 @@ const { getLocalTimestamp } = require('../database');
 const { authMiddleware, adminMiddleware } = require('../middleware/auth');
 const router = express.Router();
 
-function updateStockPrices() {
-    db.all('SELECT * FROM stocks WHERE is_active = 1').then(stocks => {
-        stocks.forEach(async stock => {
-            const randomFactor = (Math.random() - 0.5) * 2 * stock.volatility;
-            const trendFactor = stock.trend;
-            const priceChange = stock.current_price * (randomFactor + trendFactor * 0.1);
-            let newPrice = stock.current_price + priceChange;
+const PRICE_SENSITIVITY = 0.005;
+const CIRCUIT_BREAKER = 0.10;
+const USER_TRADE_LIMIT_RATIO = 0.05;
+const MARKET_MAKER_BASE_VOLUME = 100;
+const TRADE_WINDOW_MINUTES = 5;
+
+async function updateStockPrices() {
+    try {
+        const stocks = await db.all('SELECT * FROM stocks WHERE is_active = 1');
+        const now = getLocalTimestamp();
+        
+        for (const stock of stocks) {
+            const windowStart = new Date(Date.now() - TRADE_WINDOW_MINUTES * 60 * 1000);
+            const windowStartStr = windowStart.toISOString().slice(0, 19).replace('T', ' ');
             
-            newPrice = Math.max(stock.base_price * 0.1, Math.min(stock.base_price * 5, newPrice));
+            const trades = await db.all(
+                `SELECT type, shares, price, total_cost FROM stock_transactions 
+                 WHERE stock_id = ? AND created_at >= ?`,
+                [stock.id, windowStartStr]
+            );
+            
+            let netBuyVolume = 0;
+            let totalTradeValue = 0;
+            
+            trades.forEach(trade => {
+                const value = trade.total_cost || (trade.shares * trade.price);
+                totalTradeValue += value;
+                
+                if (trade.type === 'buy') {
+                    netBuyVolume += trade.shares;
+                } else {
+                    netBuyVolume -= trade.shares;
+                }
+            });
+            
+            const tradeDrivenFactor = (netBuyVolume * PRICE_SENSITIVITY) / stock.total_shares;
+            
+            const randomFactor = (Math.random() - 0.5) * 2 * stock.volatility * 0.3;
+            const trendFactor = stock.trend * 0.05;
+            
+            const totalChange = tradeDrivenFactor * 0.7 + randomFactor * 0.2 + trendFactor * 0.1;
+            
+            let newPrice = stock.current_price * (1 + totalChange);
+            
+            const maxChange = stock.current_price * CIRCUIT_BREAKER;
+            const minPrice = Math.max(stock.base_price * 0.1, stock.current_price - maxChange);
+            const maxPrice = Math.min(stock.base_price * 5, stock.current_price + maxChange);
+            newPrice = Math.max(minPrice, Math.min(maxPrice, newPrice));
+            
             newPrice = Math.round(newPrice * 100) / 100;
-            
-            const now = getLocalTimestamp();
             
             await db.run(
                 'UPDATE stocks SET current_price = ?, updated_at = ? WHERE id = ?',
                 [newPrice, now, stock.id]
             );
             
+            const marketMakerVolume = Math.floor(MARKET_MAKER_BASE_VOLUME * (0.5 + Math.random()));
             await db.run(
-                'INSERT INTO stock_prices (stock_id, price, recorded_at) VALUES (?, ?, ?)',
-                [stock.id, newPrice, now]
+                'INSERT INTO stock_prices (stock_id, price, volume, recorded_at) VALUES (?, ?, ?, ?)',
+                [stock.id, newPrice, marketMakerVolume, now]
             );
             
             await db.run(
@@ -33,8 +72,10 @@ function updateStockPrices() {
                 )`,
                 [stock.id, stock.id]
             );
-        });
-    }).catch(err => console.error('更新股票价格失败:', err));
+        }
+    } catch (err) {
+        console.error('更新股票价格失败:', err);
+    }
 }
 
 setInterval(updateStockPrices, 60000);
@@ -148,6 +189,11 @@ router.post('/stocks/:id/buy', authMiddleware, async (req, res) => {
             return res.status(404).json({ error: '股票不存在' });
         }
         
+        const maxSharesPerTrade = Math.floor(stock.total_shares * USER_TRADE_LIMIT_RATIO);
+        if (shares > maxSharesPerTrade) {
+            return res.status(400).json({ error: `单次交易上限为 ${maxSharesPerTrade} 股` });
+        }
+        
         if (stock.available_shares < shares) {
             return res.status(400).json({ error: '可用股份不足' });
         }
@@ -226,6 +272,11 @@ router.post('/stocks/:id/sell', authMiddleware, async (req, res) => {
         const stock = await db.get('SELECT * FROM stocks WHERE id = ? AND is_active = 1', [id]);
         if (!stock) {
             return res.status(404).json({ error: '股票不存在' });
+        }
+        
+        const maxSharesPerTrade = Math.floor(stock.total_shares * USER_TRADE_LIMIT_RATIO);
+        if (shares > maxSharesPerTrade) {
+            return res.status(400).json({ error: `单次交易上限为 ${maxSharesPerTrade} 股` });
         }
         
         const holding = await db.get(
@@ -351,7 +402,7 @@ router.put('/stocks/:id', authMiddleware, adminMiddleware, async (req, res) => {
 
 router.post('/trigger-update', authMiddleware, adminMiddleware, async (req, res) => {
     try {
-        updateStockPrices();
+        await updateStockPrices();
         res.json({ message: '股票价格更新触发成功' });
     } catch (error) {
         console.error('触发更新错误:', error);
