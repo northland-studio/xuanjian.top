@@ -23,11 +23,11 @@
         .profile-info-item:last-child { border-bottom: none; }
         .profile-info-label { color: var(--text-secondary, #64748b); }
         .profile-info-value { font-weight: 500; color: var(--text-color, #1e293b); }
-        .profile-actions { display: flex; gap: 12px; justify-content: center; margin-top: 24px; flex-wrap: wrap; }
-        .btn { padding: 12px 24px; border-radius: 8px; font-size: 15px; font-weight: 500; cursor: pointer; border: none; transition: all 0.3s; }
+        .profile-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-top: 24px; }
+        .btn { padding: 12px 20px; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; border: none; transition: all 0.3s; text-align: center; }
         .btn-primary { background: #6366f1; color: white; }
         .btn-primary:hover { background: #4f46e5; }
-        .btn-secondary { background: var(--bg-color, #f1f5f9); color: var(--text-secondary, #475569); }
+        .btn-secondary { background: var(--bg-color, #f1f5f9); color: var(--text-secondary, #475569); border: 1px solid var(--border-color, #e2e8f0); }
         .btn-secondary:hover { background: var(--border-color, #e2e8f0); }
         .btn-danger { background: #fee2e2; color: #dc2626; }
         .btn-danger:hover { background: #fecaca; }
@@ -39,6 +39,68 @@
         .user-post-title { font-weight: 600; margin-bottom: 8px; color: var(--text-color, #1e293b); }
         .user-post-meta { font-size: 13px; color: var(--text-secondary, #64748b); }
         .empty-state { text-align: center; padding: 40px; color: var(--text-secondary, #64748b); }
+        
+        .checkin-status-card {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: linear-gradient(135deg, #f59e0b 0%, #f97316 100%);
+            border-radius: 12px;
+            padding: 16px 20px;
+            margin-bottom: 16px;
+            color: white;
+            transition: all 0.3s;
+        }
+        .checkin-status-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+        }
+        .checkin-status-card.checked {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        }
+        .checkin-status-icon {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 16px;
+        }
+        .checkin-status-info {
+            flex: 1;
+        }
+        .checkin-status-title {
+            font-size: 16px;
+            font-weight: 600;
+        }
+        .checkin-status-detail {
+            font-size: 13px;
+            opacity: 0.9;
+            margin-top: 4px;
+        }
+        .checkin-status-arrow {
+            font-size: 20px;
+            opacity: 0.7;
+        }
+        
+        .btn-stock {
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            color: white;
+            min-width: 120px;
+        }
+        .btn-stock:hover {
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            transform: translateY(-1px);
+        }
+        .btn-checkin {
+            background: linear-gradient(135deg, #f59e0b 0%, #f97316 100%);
+            color: white;
+            min-width: 120px;
+        }
+        .btn-checkin:hover {
+            background: linear-gradient(135deg, #d97706 0%, #ea580c 100%);
+            transform: translateY(-1px);
+        }
         
         /* 汉堡菜单 */
         .hamburger {
@@ -164,6 +226,7 @@
         let isOwnProfile = false;
         let currentUser = null;
         let profileUser = null;
+        let checkinStatus = null;
 
         async function loadProfile() {
             try {
@@ -172,6 +235,15 @@
                     currentUser = await get('/api/auth/me');
                 } catch (e) {
                     currentUser = null;
+                }
+                
+                // 获取签到状态
+                if (currentUser) {
+                    try {
+                        checkinStatus = await get('/api/checkin/status');
+                    } catch (e) {
+                        checkinStatus = null;
+                    }
                 }
 
                 // 从 URL 获取用户名
@@ -224,6 +296,29 @@
             // 构建操作按钮
             let actionButtons = '';
             if (isOwnProfile) {
+                // 签到状态卡片
+                if (checkinStatus) {
+                    actionButtons += `
+                        <div class="checkin-status-card ${checkinStatus.todayCheckedIn ? 'checked' : ''}" onclick="window.location.href='/checkin'" style="cursor: pointer;">
+                            <div class="checkin-status-icon">
+                                <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    ${checkinStatus.todayCheckedIn 
+                                        ? '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>'
+                                        : '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>'
+                                    }
+                                </svg>
+                            </div>
+                            <div class="checkin-status-info">
+                                <div class="checkin-status-title">${checkinStatus.todayCheckedIn ? '今日已签到' : '今日未签到'}</div>
+                                <div class="checkin-status-detail">连续 ${checkinStatus.continuousDays} 天 · 贡献点 ${profileUser.contribution || 0}</div>
+                            </div>
+                            <div class="checkin-status-arrow">›</div>
+                        </div>
+                    `;
+                }
+                
+                actionButtons += `<button class="btn btn-stock" onclick="window.location.href='/stock'">虚拟股票</button>`;
+                actionButtons += `<button class="btn btn-checkin" onclick="window.location.href='/checkin'">每日签到</button>`;
                 actionButtons += `<button class="btn btn-secondary" onclick="openSettings()">账号设置</button>
                    <button class="btn btn-danger" onclick="logout()">退出登录</button>`;
                 // 管理员显示管理按钮

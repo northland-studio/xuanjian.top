@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>每日签到 - 我的世界玄剑公会</title>
+    <link rel="icon" href="/icon.ico" type="image/x-icon">
+    <link rel="stylesheet" href="/css/style.css?v=2.0.5">
+    <style>
+        .checkin-container { max-width: 800px; margin: 0 auto; padding: 20px; }
+        
+        .checkin-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 16px; }
+        
+        .checkin-card { background: linear-gradient(135deg, #f59e0b 0%, #f97316 100%); border-radius: 16px; padding: 32px; color: white; text-align: center; margin-bottom: 24px; }
+        .checkin-card.checked-in { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
+        .checkin-icon { font-size: 48px; margin-bottom: 16px; }
+        .checkin-title { font-size: 24px; font-weight: 700; margin-bottom: 8px; }
+        .checkin-subtitle { opacity: 0.9; font-size: 14px; }
+        .checkin-btn { margin-top: 20px; padding: 14px 40px; background: white; color: #f59e0b; border: none; border-radius: 30px; font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.3s; }
+        .checkin-btn:hover { transform: scale(1.05); box-shadow: 0 4px 20px rgba(0,0,0,0.2); }
+        .checkin-btn:disabled { background: #e5e7eb; color: #9ca3af; cursor: not-allowed; transform: none; }
+        
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px; margin-bottom: 24px; }
+        .stat-card { background: var(--card-bg, white); border-radius: 12px; padding: 20px; text-align: center; box-shadow: var(--shadow, 0 2px 10px rgba(0,0,0,0.08)); }
+        .stat-value { font-size: 28px; font-weight: 700; color: #f59e0b; }
+        .stat-label { font-size: 13px; color: var(--text-secondary, #64748b); margin-top: 4px; }
+        
+        .rewards-section { background: var(--card-bg, white); border-radius: 16px; padding: 24px; margin-bottom: 24px; box-shadow: var(--shadow, 0 2px 10px rgba(0,0,0,0.08)); }
+        .section-title { font-size: 18px; font-weight: 600; margin-bottom: 16px; color: var(--text-color, #1e293b); }
+        .rewards-list { display: grid; gap: 12px; }
+        .reward-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: var(--bg-color, #f8fafc); border-radius: 8px; }
+        .reward-days { font-weight: 600; color: var(--text-color, #1e293b); }
+        .reward-points { color: #f59e0b; font-weight: 600; }
+        .reward-item.achieved { background: #fef3c7; }
+        .reward-item.current { background: #dbeafe; border: 2px solid #3b82f6; }
+        
+        .calendar-section { background: var(--card-bg, white); border-radius: 16px; padding: 24px; margin-bottom: 24px; box-shadow: var(--shadow, 0 2px 10px rgba(0,0,0,0.08)); }
+        .calendar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+        .calendar-nav { display: flex; gap: 8px; }
+        .calendar-nav-btn { padding: 8px 12px; background: var(--bg-color, #f1f5f9); border: none; border-radius: 8px; cursor: pointer; transition: all 0.3s; }
+        .calendar-nav-btn:hover { background: var(--border-color, #e2e8f0); }
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
+        .calendar-day-header { text-align: center; font-size: 12px; color: var(--text-secondary, #64748b); padding: 8px; }
+        .calendar-day { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; border-radius: 8px; font-size: 14px; cursor: pointer; transition: all 0.3s; }
+        .calendar-day:hover { background: var(--bg-color, #f1f5f9); }
+        .calendar-day.other-month { color: var(--text-secondary, #64748b); opacity: 0.5; }
+        .calendar-day.today { background: #dbeafe; font-weight: 600; }
+        .calendar-day.checked { background: #10b981; color: white; }
+        .calendar-day.makeup { background: #f59e0b; color: white; }
+        
+        .makeup-section { background: var(--card-bg, white); border-radius: 16px; padding: 24px; margin-bottom: 24px; box-shadow: var(--shadow, 0 2px 10px rgba(0,0,0,0.08)); }
+        .makeup-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+        .makeup-cards { display: flex; align-items: center; gap: 8px; }
+        .makeup-count { font-size: 24px; font-weight: 700; color: #f59e0b; }
+        .makeup-dates { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+        .makeup-date-btn { padding: 8px 16px; background: var(--bg-color, #f1f5f9); border: 1px solid var(--border-color, #e2e8f0); border-radius: 8px; cursor: pointer; transition: all 0.3s; font-size: 14px; }
+        .makeup-date-btn:hover { background: #fef3c7; border-color: #f59e0b; }
+        .makeup-date-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        
+        .leaderboard-section { background: var(--card-bg, white); border-radius: 16px; padding: 24px; box-shadow: var(--shadow, 0 2px 10px rgba(0,0,0,0.08)); }
+        .leaderboard-tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+        .leaderboard-tab { padding: 8px 16px; background: var(--bg-color, #f1f5f9); border: none; border-radius: 8px; cursor: pointer; transition: all 0.3s; }
+        .leaderboard-tab.active { background: #6366f1; color: white; }
+        .leaderboard-list { }
+        .leaderboard-item { display: flex; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border-color, #e2e8f0); }
+        .leaderboard-item:last-child { border-bottom: none; }
+        .leaderboard-rank { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-weight: 600; margin-right: 12px; }
+        .leaderboard-rank.gold { background: #fef3c7; color: #f59e0b; }
+        .leaderboard-rank.silver { background: #e5e7eb; color: #6b7280; }
+        .leaderboard-rank.bronze { background: #fed7aa; color: #ea580c; }
+        .leaderboard-avatar { width: 36px; height: 36px; border-radius: 50%; margin-right: 12px; }
+        .leaderboard-info { flex: 1; }
+        .leaderboard-name { font-weight: 500; }
+        .leaderboard-value { font-size: 14px; color: var(--text-secondary, #64748b); }
+        
+        .btn { padding: 10px 20px; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; border: none; transition: all 0.3s; }
+        .btn-primary { background: #6366f1; color: white; }
+        .btn-primary:hover { background: #4f46e5; }
+        .btn-secondary { background: var(--bg-color, #f1f5f9); color: var(--text-secondary, #475569); }
+        .btn-secondary:hover { background: var(--border-color, #e2e8f0); }
+        .btn-warning { background: #f59e0b; color: white; }
+        .btn-warning:hover { background: #d97706; }
+        
+        .modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; padding: 20px; }
+        .modal.active { display: flex; }
+        .modal-content { background: var(--card-bg, white); border-radius: 16px; max-width: 400px; width: 100%; }
+        .modal-header { padding: 20px; border-bottom: 1px solid var(--border-color, #e2e8f0); display: flex; justify-content: space-between; align-items: center; }
+        .modal-title { font-size: 18px; font-weight: 600; }
+        .modal-close { background: none; border: none; font-size: 24px; cursor: pointer; color: var(--text-secondary, #64748b); }
+        .modal-body { padding: 20px; }
+        .modal-footer { padding: 20px; border-top: 1px solid var(--border-color, #e2e8f0); display: flex; gap: 12px; justify-content: flex-end; }
+        
+        .empty-state { text-align: center; padding: 40px; color: var(--text-secondary, #64748b); }
+        
+        @media (max-width: 768px) {
+            .checkin-container { padding: 12px; }
+            .stat-value { font-size: 24px; }
+            .calendar-day { font-size: 12px; }
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="navbar-content">
+            <a href="/" class="navbar-brand">
+                <img src="/icon.png" alt="玄剑公会" class="navbar-logo">
+                <div class="navbar-title">
+                    <span class="navbar-title-cn">我的世界玄剑公会</span>
+                    <span class="navbar-title-en">Minecraft Xuanjian Guild</span>
+                </div>
+            </a>
+            <div class="navbar-nav">
+                <a href="/daily" class="nav-link">日报</a>
+                <a href="/decision" class="nav-link">决策</a>
+                <a href="/forum" class="nav-link">贴吧</a>
+                <a href="/social" class="nav-link">社交媒体</a>
+                <div class="nav-user"></div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        <div class="checkin-container">
+            <div class="loading"><div class="spinner"></div></div>
+        </div>
+    </main>
+
+    <div class="modal" id="makeup-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">补签确认</h3>
+                <button class="modal-close" onclick="closeMakeupModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>确定要补签 <strong id="makeup-target-date"></strong> 吗？</p>
+                <p style="font-size: 13px; color: var(--text-secondary); margin-top: 8px;">补签将消耗1张补签卡</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeMakeupModal()">取消</button>
+                <button class="btn btn-warning" onclick="confirmMakeup()">确认补签</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="buy-card-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">购买补签卡</h3>
+                <button class="modal-close" onclick="closeBuyCardModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>每张补签卡需要 <strong>50 贡献点</strong></p>
+                <p style="font-size: 13px; color: var(--text-secondary); margin-top: 8px;">当前贡献点: <span id="current-contribution"></span></p>
+                <div style="margin-top: 16px;">
+                    <label style="display: block; margin-bottom: 8px;">购买数量</label>
+                    <input type="number" id="buy-card-quantity" value="1" min="1" max="10" style="width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 8px;">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeBuyCardModal()">取消</button>
+                <button class="btn btn-warning" onclick="buyMakeupCards()">购买</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/common.js?v=2.0.5"></script>
+    <script>
+        let currentUser = null;
+        let checkinStatus = null;
+        let currentMonth = new Date();
+        let makeupTargetDate = null;
+
+        async function init() {
+            try {
+                currentUser = await get('/api/auth/me');
+            } catch (e) {
+                window.location.href = '/login';
+                return;
+            }
+            
+            renderNavbar();
+            await loadStatus();
+            renderPage();
+        }
+
+        async function loadStatus() {
+            try {
+                checkinStatus = await get('/api/checkin/status');
+            } catch (e) {
+                console.error('加载签到状态失败:', e);
+            }
+        }
+
+        function renderPage() {
+            const container = document.querySelector('.checkin-container');
+            
+            container.innerHTML = `
+                <div class="checkin-header">
+                    <h1 style="font-size: 24px; font-weight: 700;">每日签到</h1>
+                    <a href="/profile" class="btn btn-secondary">返回个人主页</a>
+                </div>
+                
+                <div class="checkin-card ${checkinStatus.todayCheckedIn ? 'checked-in' : ''}">
+                    <div class="checkin-icon">
+                        <svg width="48" height="48" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            ${checkinStatus.todayCheckedIn 
+                                ? '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path><circle cx="12" cy="12" r="10" stroke-width="2"></circle>'
+                                : '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>'
+                            }
+                        </svg>
+                    </div>
+                    <div class="checkin-title">${checkinStatus.todayCheckedIn ? '今日已签到' : '今日未签到'}</div>
+                    <div class="checkin-subtitle">
+                        ${checkinStatus.todayCheckedIn 
+                            ? `已连续签到 ${checkinStatus.continuousDays} 天，明日签到可获得 ${checkinStatus.todayReward} 贡献点`
+                            : `签到可获得 ${checkinStatus.todayReward} 贡献点`
+                        }
+                    </div>
+                    <button class="checkin-btn" onclick="doCheckin()" ${checkinStatus.todayCheckedIn ? 'disabled' : ''}>
+                        ${checkinStatus.todayCheckedIn ? '已签到' : '立即签到'}
+                    </button>
+                </div>
+                
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-value">${checkinStatus.continuousDays}</div>
+                        <div class="stat-label">连续签到</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${checkinStatus.totalCheckins}</div>
+                        <div class="stat-label">累计签到</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${checkinStatus.maxContinuousDays}</div>
+                        <div class="stat-label">最长连续</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${checkinStatus.makeupCards}</div>
+                        <div class="stat-label">补签卡</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${checkinStatus.totalContribution}</div>
+                        <div class="stat-label">贡献点</div>
+                    </div>
+                </div>
+                
+                <div class="rewards-section">
+                    <h3 class="section-title">连续签到奖励</h3>
+                    <div class="rewards-list">
+                        ${checkinStatus.rewards.map(r => `
+                            <div class="reward-item ${checkinStatus.continuousDays >= r.continuous_days ? 'achieved' : ''} ${checkinStatus.continuousDays + 1 === r.continuous_days ? 'current' : ''}">
+                                <span class="reward-days">连续 ${r.continuous_days} 天</span>
+                                <span class="reward-points">+${r.reward_points} 贡献点</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+                
+                <div class="calendar-section">
+                    <div class="calendar-header">
+                        <h3 class="section-title" style="margin-bottom: 0;">签到日历</h3>
+                        <div class="calendar-nav">
+                            <button class="calendar-nav-btn" onclick="prevMonth()">‹ 上月</button>
+                            <span style="padding: 0 16px; font-weight: 500;">${currentMonth.getFullYear()}年${currentMonth.getMonth() + 1}月</span>
+                            <button class="calendar-nav-btn" onclick="nextMonth()">下月 ›</button>
+                        </div>
+                    </div>
+                    <div class="calendar-grid" id="calendar-grid"></div>
+                </div>
+                
+                <div class="makeup-section">
+                    <div class="makeup-header">
+                        <h3 class="section-title" style="margin-bottom: 0;">补签功能</h3>
+                        <div class="makeup-cards">
+                            <span>补签卡:</span>
+                            <span class="makeup-count">${checkinStatus.makeupCards}</span>
+                            <button class="btn btn-warning btn-sm" onclick="openBuyCardModal()">购买</button>
+                        </div>
+                    </div>
+                    <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 12px;">
+                        可补签最近7天内未签到的日期，每次补签消耗1张补签卡
+                    </p>
+                    <div class="makeup-dates" id="makeup-dates"></div>
+                </div>
+                
+                <div class="leaderboard-section">
+                    <h3 class="section-title">签到排行榜</h3>
+                    <div class="leaderboard-tabs">
+                        <button class="leaderboard-tab active" onclick="loadLeaderboard('continuous')">连续签到</button>
+                        <button class="leaderboard-tab" onclick="loadLeaderboard('total')">累计签到</button>
+                    </div>
+                    <div class="leaderboard-list" id="leaderboard-list"></div>
+                </div>
+            `;
+            
+            renderCalendar();
+            renderMakeupDates();
+            loadLeaderboard('continuous');
+        }
+
+        function renderCalendar() {
+            const grid = document.getElementById('calendar-grid');
+            const year = currentMonth.getFullYear();
+            const month = currentMonth.getMonth();
+            
+            const firstDay = new Date(year, month, 1);
+            const lastDay = new Date(year, month + 1, 0);
+            const startDay = firstDay.getDay();
+            
+            const headers = ['日', '一', '二', '三', '四', '五', '六'];
+            let html = headers.map(h => `<div class="calendar-day-header">${h}</div>`).join('');
+            
+            const prevMonth = new Date(year, month, 0);
+            for (let i = startDay - 1; i >= 0; i--) {
+                const day = prevMonth.getDate() - i;
+                html += `<div class="calendar-day other-month">${day}</div>`;
+            }
+            
+            const today = new Date();
+            const todayStr = today.toISOString().split('T')[0];
+            const checkedDates = new Set(checkinStatus.recentCheckins.map(c => c.checkin_date));
+            
+            for (let day = 1; day <= lastDay.getDate(); day++) {
+                const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                const isToday = dateStr === todayStr;
+                const isChecked = checkedDates.has(dateStr);
+                
+                let classes = 'calendar-day';
+                if (isToday) classes += ' today';
+                if (isChecked) classes += ' checked';
+                
+                html += `<div class="${classes}">${day}</div>`;
+            }
+            
+            const remaining = 42 - (startDay + lastDay.getDate());
+            for (let i = 1; i <= remaining; i++) {
+                html += `<div class="calendar-day other-month">${i}</div>`;
+            }
+            
+            grid.innerHTML = html;
+        }
+
+        function prevMonth() {
+            currentMonth.setMonth(currentMonth.getMonth() - 1);
+            renderCalendar();
+        }
+
+        function nextMonth() {
+            currentMonth.setMonth(currentMonth.getMonth() + 1);
+            renderCalendar();
+        }
+
+        function renderMakeupDates() {
+            const container = document.getElementById('makeup-dates');
+            const today = new Date();
+            const checkedDates = new Set(checkinStatus.recentCheckins.map(c => c.checkin_date));
+            
+            let html = '';
+            for (let i = 1; i <= 7; i++) {
+                const date = new Date(today);
+                date.setDate(date.getDate() - i);
+                const dateStr = date.toISOString().split('T')[0];
+                const displayStr = `${date.getMonth() + 1}月${date.getDate()}日`;
+                
+                if (!checkedDates.has(dateStr)) {
+                    html += `<button class="makeup-date-btn" onclick="openMakeupModal('${dateStr}')">${displayStr}</button>`;
+                }
+            }
+            
+            if (!html) {
+                html = '<span style="color: var(--text-secondary);">最近7天已全部签到，无需补签</span>';
+            }
+            
+            container.innerHTML = html;
+        }
+
+        async function doCheckin() {
+            try {
+                const result = await post('/api/checkin/checkin');
+                alert(`签到成功！获得 ${result.rewardPoints} 贡献点\n已连续签到 ${result.continuousDays} 天`);
+                await loadStatus();
+                renderPage();
+            } catch (e) {
+                alert(e.error || '签到失败');
+            }
+        }
+
+        function openMakeupModal(dateStr) {
+            makeupTargetDate = dateStr;
+            document.getElementById('makeup-target-date').textContent = dateStr;
+            document.getElementById('makeup-modal').classList.add('active');
+        }
+
+        function closeMakeupModal() {
+            document.getElementById('makeup-modal').classList.remove('active');
+        }
+
+        async function confirmMakeup() {
+            try {
+                const result = await post('/api/checkin/makeup', { targetDate: makeupTargetDate });
+                alert(`补签成功！获得 ${result.rewardPoints} 贡献点\n剩余补签卡: ${result.remainingCards}`);
+                closeMakeupModal();
+                await loadStatus();
+                renderPage();
+            } catch (e) {
+                alert(e.error || '补签失败');
+            }
+        }
+
+        function openBuyCardModal() {
+            document.getElementById('current-contribution').textContent = checkinStatus.totalContribution;
+            document.getElementById('buy-card-quantity').value = 1;
+            document.getElementById('buy-card-modal').classList.add('active');
+        }
+
+        function closeBuyCardModal() {
+            document.getElementById('buy-card-modal').classList.remove('active');
+        }
+
+        async function buyMakeupCards() {
+            const quantity = parseInt(document.getElementById('buy-card-quantity').value) || 1;
+            
+            try {
+                const result = await post('/api/checkin/buy-makeup-card', { quantity });
+                alert(`购买成功！获得 ${quantity} 张补签卡\n消耗 ${result.cost} 贡献点`);
+                closeBuyCardModal();
+                await loadStatus();
+                renderPage();
+            } catch (e) {
+                alert(e.error || '购买失败');
+            }
+        }
+
+        async function loadLeaderboard(type) {
+            document.querySelectorAll('.leaderboard-tab').forEach(tab => {
+                tab.classList.toggle('active', tab.textContent.includes(type === 'continuous' ? '连续' : '累计'));
+            });
+            
+            try {
+                const data = await get(`/api/checkin/leaderboard?type=${type}&limit=10`);
+                const list = document.getElementById('leaderboard-list');
+                
+                if (data.leaderboard.length === 0) {
+                    list.innerHTML = '<div class="empty-state"><p>暂无数据</p></div>';
+                    return;
+                }
+                
+                list.innerHTML = data.leaderboard.map((item, index) => {
+                    let rankClass = '';
+                    if (index === 0) rankClass = 'gold';
+                    else if (index === 1) rankClass = 'silver';
+                    else if (index === 2) rankClass = 'bronze';
+                    
+                    const value = type === 'continuous' ? item.continuous_days : item.total_checkins;
+                    const label = type === 'continuous' ? '天' : '次';
+                    
+                    return `
+                        <div class="leaderboard-item">
+                            <div class="leaderboard-rank ${rankClass}">${index + 1}</div>
+                            <img src="${item.avatar || '/uploads/default-avatar.png'}" class="leaderboard-avatar" alt="">
+                            <div class="leaderboard-info">
+                                <div class="leaderboard-name">${item.nickname || item.username}</div>
+                            </div>
+                            <div class="leaderboard-value">${value} ${label}</div>
+                        </div>
+                    `;
+                }).join('');
+            } catch (e) {
+                console.error('加载排行榜失败:', e);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>

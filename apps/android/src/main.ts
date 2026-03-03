@@ -1,4 +1,4 @@
-import { state, API_BASE_URL, User, Post, Comment, Notification } from './config';
+import { state, API_BASE_URL, User, Post, Comment, Notification, Stock, StockHolding, CheckinStatus } from './config';
 import './styles.css';
 
 const STATIC_BASE = 'https://xuanjian.top';
@@ -108,6 +108,8 @@ async function navigateTo(page: string) {
         case 'forum': await loadPosts('forum'); break;
         case 'social': showSocialPage(); break;
         case 'notifications': await showNotificationsPage(); break;
+        case 'stock': await showStockPage(); break;
+        case 'checkin': await showCheckinPage(); break;
     }
 }
 
@@ -1356,3 +1358,250 @@ async function selectAndUploadImage(): Promise<string | null> {
 (window as any).selectAvatar = selectAvatar;
 (window as any).saveProfile = saveProfile;
 (window as any).changePassword = changePassword;
+
+// 股票页面
+async function showStockPage() {
+    const content = $('content-body');
+    if (!content) return;
+    
+    content.innerHTML = '<div class="loading-spinner"><div class="spinner"></div></div>';
+    
+    try {
+        const [stocksRes, portfolioRes] = await Promise.all([
+            fetchAPI<{ stocks: Stock[] }>('/stock/stocks'),
+            fetchAPI<{ availablePoints: number; holdings: StockHolding[]; totalValue: number; totalProfit: number }>('/stock/portfolio')
+        ]);
+        
+        const stocks = stocksRes.stocks || [];
+        const portfolio = portfolioRes;
+        
+        content.innerHTML = `
+            <button class="btn btn-secondary" onclick="goBack()" style="margin-bottom: 16px;">返回</button>
+            
+            <div class="card" style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); color: white;">
+                <div style="font-size: 14px; opacity: 0.8;">总资产</div>
+                <div style="font-size: 28px; font-weight: bold; margin: 8px 0;">${(portfolio.totalValue || 0).toFixed(2)}</div>
+                <div style="display: flex; gap: 24px; margin-top: 16px;">
+                    <div>
+                        <div style="font-size: 18px; font-weight: 600;">${(portfolio.availablePoints || 0).toFixed(2)}</div>
+                        <div style="font-size: 12px; opacity: 0.8;">可用贡献点</div>
+                    </div>
+                    <div>
+                        <div style="font-size: 18px; font-weight: 600; color: ${(portfolio.totalProfit || 0) >= 0 ? '#86efac' : '#fca5a5'};">${(portfolio.totalProfit || 0) >= 0 ? '+' : ''}${(portfolio.totalProfit || 0).toFixed(2)}</div>
+                        <div style="font-size: 12px; opacity: 0.8;">浮动盈亏</div>
+                    </div>
+                </div>
+            </div>
+            
+            <h3 class="section-title" style="margin-top: 20px;">股票市场</h3>
+            ${stocks.map(stock => {
+                const change = stock.current_price - stock.base_price;
+                const changePercent = (change / stock.base_price * 100).toFixed(2);
+                const isUp = change >= 0;
+                return `
+                    <div class="card" onclick="showStockDetail(${stock.id})" style="cursor: pointer;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <div style="font-weight: 600;">${stock.symbol}</div>
+                                <div style="font-size: 12px; color: var(--text-muted);">${stock.name}</div>
+                            </div>
+                            <div style="text-align: right;">
+                                <div style="font-size: 20px; font-weight: 700;">${stock.current_price.toFixed(2)}</div>
+                                <div style="font-size: 12px; color: ${isUp ? 'var(--success)' : 'var(--danger)'};">
+                                    ${isUp ? '+' : ''}${change.toFixed(2)} (${isUp ? '+' : ''}${changePercent}%)
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('')}
+            
+            <h3 class="section-title" style="margin-top: 20px;">我的持仓</h3>
+            ${(portfolio.holdings || []).length === 0 ? '<div class="empty-state"><p>暂无持仓</p></div>' :
+                portfolio.holdings.map(h => `
+                    <div class="card">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <div style="font-weight: 600;">${h.symbol}</div>
+                                <div style="font-size: 12px; color: var(--text-muted);">${h.name} · ${h.shares}股</div>
+                            </div>
+                            <div style="text-align: right;">
+                                <div style="font-size: 18px; font-weight: 700;">${(h.current_value || 0).toFixed(2)}</div>
+                                <div style="font-size: 12px; color: ${(h.profit_loss || 0) >= 0 ? 'var(--success)' : 'var(--danger)'};">
+                                    ${(h.profit_loss || 0) >= 0 ? '+' : ''}${(h.profit_loss || 0).toFixed(2)}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `).join('')
+            }
+        `;
+    } catch (e) {
+        content.innerHTML = `
+            <button class="btn btn-secondary" onclick="goBack()" style="margin-bottom: 16px;">返回</button>
+            <div class="empty-state"><h3>加载失败</h3></div>
+        `;
+    }
+}
+
+let currentStockId: number | null = null;
+
+async function showStockDetail(stockId: number) {
+    const content = $('content-body');
+    if (!content) return;
+    
+    currentStockId = stockId;
+    content.innerHTML = '<div class="loading-spinner"><div class="spinner"></div></div>';
+    
+    try {
+        const data = await fetchAPI<{ stock: Stock; prices: Array<{ price: number; recorded_at: string }> }>(`/stock/stocks/${stockId}`);
+        const stock = data.stock;
+        
+        const change = stock.current_price - stock.base_price;
+        const changePercent = (change / stock.base_price * 100).toFixed(2);
+        
+        content.innerHTML = `
+            <button class="btn btn-secondary" onclick="showStockPage()" style="margin-bottom: 16px;">返回</button>
+            
+            <div class="card">
+                <h2 style="margin-bottom: 8px;">${stock.symbol} - ${stock.name}</h2>
+                <div style="font-size: 32px; font-weight: 700; margin: 16px 0;">${stock.current_price.toFixed(2)}</div>
+                <div style="font-size: 14px; color: ${change >= 0 ? 'var(--success)' : 'var(--danger)'};">
+                    ${change >= 0 ? '+' : ''}${change.toFixed(2)} (${change >= 0 ? '+' : ''}${changePercent}%)
+                </div>
+            </div>
+            
+            <div class="card">
+                <h3 class="card-title">交易</h3>
+                <div class="form-group">
+                    <label>数量</label>
+                    <input type="number" id="stock-shares" value="1" min="1" style="width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-secondary); color: var(--text-primary);">
+                </div>
+                <div style="display: flex; gap: 12px;">
+                    <button class="btn btn-success" style="flex: 1;" onclick="executeStockTrade('buy')">买入</button>
+                    <button class="btn btn-danger" style="flex: 1;" onclick="executeStockTrade('sell')">卖出</button>
+                </div>
+            </div>
+        `;
+    } catch (e) {
+        showToast('加载失败', 'error');
+        showStockPage();
+    }
+}
+
+async function executeStockTrade(type: 'buy' | 'sell') {
+    const shares = parseInt(($('stock-shares') as HTMLInputElement)?.value || '0');
+    
+    if (!shares || shares <= 0) {
+        showToast('请输入有效数量', 'error');
+        return;
+    }
+    
+    try {
+        await fetchAPI(`/stock/stocks/${currentStockId}/${type}`, {
+            method: 'POST',
+            body: JSON.stringify({ shares })
+        });
+        showToast(type === 'buy' ? '买入成功' : '卖出成功');
+        showStockPage();
+    } catch (e: any) {
+        showToast(e.message || '交易失败', 'error');
+    }
+}
+
+// 签到页面
+async function showCheckinPage() {
+    const content = $('content-body');
+    if (!content) return;
+    
+    content.innerHTML = '<div class="loading-spinner"><div class="spinner"></div></div>';
+    
+    try {
+        const status = await fetchAPI<CheckinStatus>('/checkin/status');
+        
+        content.innerHTML = `
+            <button class="btn btn-secondary" onclick="goBack()" style="margin-bottom: 16px;">返回</button>
+            
+            <div class="card" style="background: ${status.todayCheckedIn ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 'linear-gradient(135deg, #f59e0b 0%, #f97316 100%)'}; color: white; text-align: center;">
+                <div style="font-size: 48px; margin-bottom: 16px;">${status.todayCheckedIn ? '✅' : '📅'}</div>
+                <div style="font-size: 20px; font-weight: 600;">${status.todayCheckedIn ? '今日已签到' : '今日未签到'}</div>
+                <div style="font-size: 14px; opacity: 0.9; margin-top: 8px;">
+                    ${status.todayCheckedIn ? `已连续签到 ${status.continuousDays} 天` : `签到可获得 ${status.todayReward} 贡献点`}
+                </div>
+                ${!status.todayCheckedIn ? `<button class="btn" style="margin-top: 16px; background: white; color: #f59e0b;" onclick="doCheckin()">立即签到</button>` : ''}
+            </div>
+            
+            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-top: 16px;">
+                <div class="card" style="text-align: center;">
+                    <div style="font-size: 24px; font-weight: 700; color: #f59e0b;">${status.continuousDays}</div>
+                    <div style="font-size: 12px; color: var(--text-muted);">连续签到</div>
+                </div>
+                <div class="card" style="text-align: center;">
+                    <div style="font-size: 24px; font-weight: 700; color: #f59e0b;">${status.totalCheckins}</div>
+                    <div style="font-size: 12px; color: var(--text-muted);">累计签到</div>
+                </div>
+                <div class="card" style="text-align: center;">
+                    <div style="font-size: 24px; font-weight: 700; color: #f59e0b;">${status.makeupCards}</div>
+                    <div style="font-size: 12px; color: var(--text-muted);">补签卡</div>
+                </div>
+                <div class="card" style="text-align: center;">
+                    <div style="font-size: 24px; font-weight: 700; color: #f59e0b;">${status.totalContribution}</div>
+                    <div style="font-size: 12px; color: var(--text-muted);">贡献点</div>
+                </div>
+            </div>
+            
+            <div class="card" style="margin-top: 16px;">
+                <h3 class="card-title">补签功能</h3>
+                <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px;">
+                    可补签最近7天内未签到的日期，每次消耗1张补签卡
+                </p>
+                <button class="btn btn-warning btn-block" onclick="buyMakeupCard()">购买补签卡 (50贡献点)</button>
+            </div>
+            
+            <div class="card" style="margin-top: 16px;">
+                <h3 class="card-title">连续签到奖励</h3>
+                ${(status.rewards || []).slice(0, 7).map(r => `
+                    <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border);">
+                        <span>连续 ${r.continuous_days} 天</span>
+                        <span style="color: #f59e0b; font-weight: 600;">+${r.reward_points}</span>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    } catch (e) {
+        content.innerHTML = `
+            <button class="btn btn-secondary" onclick="goBack()" style="margin-bottom: 16px;">返回</button>
+            <div class="empty-state"><h3>加载失败</h3></div>
+        `;
+    }
+}
+
+async function doCheckin() {
+    try {
+        const result = await fetchAPI<{ rewardPoints: number; continuousDays: number }>('/checkin/checkin', { method: 'POST' });
+        showToast(`签到成功！获得 ${result.rewardPoints} 贡献点`);
+        showCheckinPage();
+    } catch (e: any) {
+        showToast(e.message || '签到失败', 'error');
+    }
+}
+
+async function buyMakeupCard() {
+    try {
+        await fetchAPI('/checkin/buy-makeup-card', {
+            method: 'POST',
+            body: JSON.stringify({ quantity: 1 })
+        });
+        showToast('购买成功');
+        showCheckinPage();
+    } catch (e: any) {
+        showToast(e.message || '购买失败', 'error');
+    }
+}
+
+(window as any).showStockPage = showStockPage;
+(window as any).showStockDetail = showStockDetail;
+(window as any).executeStockTrade = executeStockTrade;
+(window as any).showCheckinPage = showCheckinPage;
+(window as any).doCheckin = doCheckin;
+(window as any).buyMakeupCard = buyMakeupCard;

@@ -61,6 +61,56 @@ export interface Notification {
     created_at: string;
 }
 
+export interface Stock {
+    id: number;
+    symbol: string;
+    name: string;
+    description?: string;
+    base_price: number;
+    current_price: number;
+    total_shares: number;
+    available_shares: number;
+    volatility: number;
+    trend: number;
+    is_active: number;
+    updated_at: string;
+}
+
+export interface StockHolding {
+    stock_id: number;
+    symbol: string;
+    name: string;
+    shares: number;
+    avg_cost: number;
+    current_price: number;
+    current_value: number;
+    profit_loss: number;
+}
+
+export interface StockTransaction {
+    id: number;
+    stock_id: number;
+    symbol: string;
+    name: string;
+    type: 'buy' | 'sell';
+    shares: number;
+    price: number;
+    total_cost: number;
+    created_at: string;
+}
+
+export interface CheckinStatus {
+    todayCheckedIn: boolean;
+    continuousDays: number;
+    totalCheckins: number;
+    maxContinuousDays: number;
+    makeupCards: number;
+    totalContribution: number;
+    todayReward: number;
+    rewards: Array<{ continuous_days: number; reward_points: number; description: string }>;
+    recentCheckins: Array<{ checkin_date: string; continuous_days: number; reward_points: number }>;
+}
+
 export interface AppState {
     token: string | null;
     currentUser: User | null;

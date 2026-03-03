@@ -385,6 +385,31 @@ SMTP_PASS=your-password
 | GET | `/api/admin/users` | 获取用户列表 |
 | PUT | `/api/admin/users/:id` | 更新用户信息 |
 | GET | `/api/admin/posts` | 获取所有内容 |
+| POST | `/api/admin/announcements` | 创建公告 |
+| PUT | `/api/admin/announcements/:id` | 更新公告 |
+| DELETE | `/api/admin/announcements/:id` | 删除公告 |
+
+### 📈 股票接口
+
+| 方法 | 路径 | 说明 |
+|:---:|:---|:---|
+| GET | `/api/stock/stocks` | 获取股票列表 |
+| GET | `/api/stock/stocks/:id` | 获取股票详情 |
+| POST | `/api/stock/stocks/:id/buy` | 买入股票 |
+| POST | `/api/stock/stocks/:id/sell` | 卖出股票 |
+| GET | `/api/stock/portfolio` | 获取投资组合 |
+| GET | `/api/stock/transactions` | 获取交易记录 |
+
+### 📅 签到接口
+
+| 方法 | 路径 | 说明 |
+|:---:|:---|:---|
+| GET | `/api/checkin/status` | 获取签到状态 |
+| POST | `/api/checkin/checkin` | 执行签到 |
+| POST | `/api/checkin/makeup` | 补签 |
+| POST | `/api/checkin/buy-makeup-card` | 购买补签卡 |
+| GET | `/api/checkin/rewards` | 获取签到奖励配置 |
+| GET | `/api/checkin/ranking` | 获取签到排行榜 |
 
 ---
 
@@ -397,10 +422,13 @@ SMTP_PASS=your-password
 | `/decision` | 决策公告 | 重要决策公示 |
 | `/forum` | 公会贴吧 | 全员可发帖交流 |
 | `/social` | 社交媒体 | 社交账号链接 |
+| `/stock` | 虚拟股票 | 股票市场、买卖交易 |
+| `/checkin` | 每日签到 | 签到、补签、排行榜 |
 | `/notifications` | 通知中心 | 查看所有通知 |
 | `/post/:id` | 内容详情 | 查看具体内容 |
 | `/editor` | 内容编辑器 | 发布/编辑内容 |
 | `/profile` | 用户主页 | 个人资料管理 |
+| `/profile/:username` | 用户档案 | 查看他人资料 |
 | `/settings` | 账号设置 | 修改资料密码 |
 | `/admin` | 管理后台 | 系统管理 |
 | `/login` | 登录 | 用户登录 |
@@ -459,6 +487,15 @@ SMTP_PASS=your-password
 ---
 
 ## 📝 更新日志
+
+### v2.0.7 (2026-3-3)
+- 📈 **虚拟股票系统** - 股票市场、买卖交易、走势图、持仓管理
+- 📅 **每日签到** - 连续签到奖励递增、补签卡购买、签到排行榜
+- 🎛️ **管理后台扩展** - 新增股票管理、签到奖励配置
+- ⏰ **时区修复** - 修复数据库时间比北京时间慢8小时的问题
+- 🎨 **UI优化** - 移除网页emoji改用SVG图标、优化按钮布局
+- 🌙 **深色模式修复** - 修复股票页面深色模式下颜色不明显
+- 🐛 **桌面版修复** - 修复Windows桌面版图片上传后未正确使用的问题
 
 ### v2.0.5 (2026-2-21)
 - 🔔 **通知系统** - 新增通知中心，支持日报/决策更新、评论、点赞通知

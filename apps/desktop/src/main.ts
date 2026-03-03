@@ -1218,6 +1218,175 @@ async function showAdminPage() {
     }
 }
 
+async function showStockPage() {
+    const contentBody = $('content-body');
+    const titleEl = $('page-title') as HTMLElement;
+    
+    if (!contentBody) return;
+    if (titleEl) titleEl.textContent = '虚拟股票';
+    
+    contentBody.innerHTML = '<div class="loading-spinner"></div>';
+    
+    try {
+        const [stocksRes, portfolioRes] = await Promise.all([
+            fetchAPI<{ stocks: any[] }>('/stock/stocks'),
+            fetchAPI<{ availablePoints: number; holdings: any[]; totalValue: number; totalProfit: number }>('/stock/portfolio')
+        ]);
+        
+        const stocks = stocksRes.stocks || [];
+        const portfolio = portfolioRes;
+        
+        contentBody.innerHTML = `
+            <div class="card" style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); color: white; margin-bottom: 16px;">
+                <div style="font-size: 14px; opacity: 0.8;">总资产</div>
+                <div style="font-size: 28px; font-weight: bold; margin: 8px 0;">${(portfolio.totalValue || 0).toFixed(2)}</div>
+                <div style="display: flex; gap: 24px; margin-top: 16px;">
+                    <div>
+                        <div style="font-size: 18px; font-weight: 600;">${(portfolio.availablePoints || 0).toFixed(2)}</div>
+                        <div style="font-size: 12px; opacity: 0.8;">可用贡献点</div>
+                    </div>
+                    <div>
+                        <div style="font-size: 18px; font-weight: 600; color: ${(portfolio.totalProfit || 0) >= 0 ? '#86efac' : '#fca5a5'};">${(portfolio.totalProfit || 0) >= 0 ? '+' : ''}${(portfolio.totalProfit || 0).toFixed(2)}</div>
+                        <div style="font-size: 12px; opacity: 0.8;">浮动盈亏</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="section-title" style="margin-top: 20px;">股票市场</div>
+            ${stocks.map(stock => {
+                const change = stock.current_price - stock.base_price;
+                const changePercent = (change / stock.base_price * 100).toFixed(2);
+                const isUp = change >= 0;
+                return `
+                    <div class="card" onclick="showStockDetail(${stock.id})" style="cursor: pointer;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <div style="font-weight: 600;">${stock.symbol}</div>
+                                <div style="font-size: 12px; color: var(--text-muted);">${stock.name}</div>
+                            </div>
+                            <div style="text-align: right;">
+                                <div style="font-size: 20px; font-weight: 700;">${stock.current_price.toFixed(2)}</div>
+                                <div style="font-size: 12px; color: ${isUp ? 'var(--success)' : 'var(--danger)'};">
+                                    ${isUp ? '+' : ''}${change.toFixed(2)} (${isUp ? '+' : ''}${changePercent}%)
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('')}
+            
+            <div class="section-title" style="margin-top: 20px;">我的持仓</div>
+            ${(portfolio.holdings || []).length === 0 ? '<div class="empty-state"><p>暂无持仓</p></div>' :
+                portfolio.holdings.map((h: any) => `
+                    <div class="card">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <div style="font-weight: 600;">${h.symbol}</div>
+                                <div style="font-size: 12px; color: var(--text-muted);">${h.name} · ${h.shares}股</div>
+                            </div>
+                            <div style="text-align: right;">
+                                <div style="font-size: 18px; font-weight: 700;">${(h.current_value || 0).toFixed(2)}</div>
+                                <div style="font-size: 12px; color: ${(h.profit_loss || 0) >= 0 ? 'var(--success)' : 'var(--danger)'};">
+                                    ${(h.profit_loss || 0) >= 0 ? '+' : ''}${(h.profit_loss || 0).toFixed(2)}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `).join('')
+            }
+        `;
+    } catch (e) {
+        contentBody.innerHTML = `<div class="empty-state"><h3>加载失败</h3></div>`;
+    }
+}
+
+async function showCheckinPage() {
+    const contentBody = $('content-body');
+    const titleEl = $('page-title') as HTMLElement;
+    
+    if (!contentBody) return;
+    if (titleEl) titleEl.textContent = '每日签到';
+    
+    contentBody.innerHTML = '<div class="loading-spinner"></div>';
+    
+    try {
+        const status = await fetchAPI<any>('/checkin/status');
+        
+        contentBody.innerHTML = `
+            <div class="card" style="background: ${status.todayCheckedIn ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 'linear-gradient(135deg, #f59e0b 0%, #f97316 100%)'}; color: white; text-align: center;">
+                <div style="font-size: 48px; margin-bottom: 16px;">${status.todayCheckedIn ? '✓' : '📅'}</div>
+                <div style="font-size: 20px; font-weight: 600;">${status.todayCheckedIn ? '今日已签到' : '今日未签到'}</div>
+                <div style="font-size: 14px; opacity: 0.9; margin-top: 8px;">
+                    ${status.todayCheckedIn ? `已连续签到 ${status.continuousDays} 天` : `签到可获得 ${status.todayReward} 贡献点`}
+                </div>
+                ${!status.todayCheckedIn ? `<button class="btn btn-primary" style="margin-top: 16px; background: white; color: #f59e0b;" onclick="doCheckin()">立即签到</button>` : ''}
+            </div>
+            
+            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-top: 16px;">
+                <div class="card" style="text-align: center;">
+                    <div style="font-size: 24px; font-weight: 700; color: #f59e0b;">${status.continuousDays}</div>
+                    <div style="font-size: 12px; color: var(--text-muted);">连续签到</div>
+                </div>
+                <div class="card" style="text-align: center;">
+                    <div style="font-size: 24px; font-weight: 700; color: #f59e0b;">${status.totalCheckins}</div>
+                    <div style="font-size: 12px; color: var(--text-muted);">累计签到</div>
+                </div>
+                <div class="card" style="text-align: center;">
+                    <div style="font-size: 24px; font-weight: 700; color: #f59e0b;">${status.makeupCards}</div>
+                    <div style="font-size: 12px; color: var(--text-muted);">补签卡</div>
+                </div>
+                <div class="card" style="text-align: center;">
+                    <div style="font-size: 24px; font-weight: 700; color: #f59e0b;">${status.totalContribution}</div>
+                    <div style="font-size: 12px; color: var(--text-muted);">贡献点</div>
+                </div>
+            </div>
+            
+            <div class="card" style="margin-top: 16px;">
+                <div class="section-title">补签功能</div>
+                <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px;">
+                    可补签最近7天内未签到的日期，每次消耗1张补签卡
+                </p>
+                <button class="btn btn-warning btn-block" onclick="buyMakeupCard()">购买补签卡 (50贡献点)</button>
+            </div>
+            
+            <div class="card" style="margin-top: 16px;">
+                <div class="section-title">连续签到奖励</div>
+                ${(status.rewards || []).slice(0, 7).map((r: any) => `
+                    <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border);">
+                        <span>连续 ${r.continuous_days} 天</span>
+                        <span style="color: #f59e0b; font-weight: 600;">+${r.reward_points}</span>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    } catch (e) {
+        contentBody.innerHTML = `<div class="empty-state"><h3>加载失败</h3></div>`;
+    }
+}
+
+async function doCheckin() {
+    try {
+        const result = await fetchAPI<{ rewardPoints: number; continuousDays: number }>('/checkin/checkin', { method: 'POST' });
+        showToast(`签到成功！获得 ${result.rewardPoints} 贡献点`);
+        showCheckinPage();
+    } catch (e: any) {
+        showToast(e.message || '签到失败', 'error');
+    }
+}
+
+async function buyMakeupCard() {
+    try {
+        await fetchAPI('/checkin/buy-makeup-card', {
+            method: 'POST',
+            body: JSON.stringify({ quantity: 1 })
+        });
+        showToast('购买成功');
+        showCheckinPage();
+    } catch (e: any) {
+        showToast(e.message || '购买失败', 'error');
+    }
+}
+
 async function togglePinPost(postId: number, isPinned: number) {
     try {
         await fetchAPI(`/admin/posts/${postId}/pin`, {
@@ -1628,7 +1797,8 @@ async function handleImageUpload(files: FileList) {
             throw new Error(data.error || '上传失败');
         }
         
-        state.uploadedImages.push(...(data.paths || []));
+        const imageUrls = data.urls || data.paths || [];
+        state.uploadedImages.push(...imageUrls);
         renderImagePreviews();
         showToast('图片上传成功', 'success');
     } catch (error) {
@@ -1761,7 +1931,9 @@ async function navigateTo(page: string) {
             forum: '贴吧',
             search: '搜索',
             notifications: '通知中心',
-            admin: '管理后台'
+            admin: '管理后台',
+            stock: '虚拟股票',
+            checkin: '每日签到'
         };
         titleEl.textContent = titles[page] || '首页';
     }
@@ -1787,6 +1959,12 @@ async function navigateTo(page: string) {
             break;
         case 'admin':
             await showAdminPage();
+            break;
+        case 'stock':
+            await showStockPage();
+            break;
+        case 'checkin':
+            await showCheckinPage();
             break;
         default:
             await loadPosts();
@@ -2342,6 +2520,10 @@ function initApp() {
     (window as any).setUserLevel = setUserLevel;
     (window as any).removeImage = removeImage;
     (window as any).insertFormat = insertFormat;
+    (window as any).showStockPage = showStockPage;
+    (window as any).showCheckinPage = showCheckinPage;
+    (window as any).doCheckin = doCheckin;
+    (window as any).buyMakeupCard = buyMakeupCard;
 
     // 定时刷新未读通知数（每30秒）
     setInterval(loadUnreadNotificationCount, 30000);

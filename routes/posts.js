@@ -1,5 +1,6 @@
 const express = require('express');
 const db = require('../database');
+const { getLocalTimestamp } = require('../database');
 const { authMiddleware, adminMiddleware } = require('../middleware/auth');
 const { createNotification } = require('./notifications');
 const router = express.Router();
@@ -221,8 +222,8 @@ router.post('/', authMiddleware, async (req, res) => {
         }
         
         const result = await db.run(
-            'INSERT INTO posts (title, content, type, author_id, tags, images) VALUES (?, ?, ?, ?, ?, ?)',
-            [title, content, type, req.userId, tags, JSON.stringify(images || [])]
+            'INSERT INTO posts (title, content, type, author_id, tags, images, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            [title, content, type, req.userId, tags, JSON.stringify(images || []), getLocalTimestamp(), getLocalTimestamp()]
         );
 
         // 增加用户贡献点
@@ -273,8 +274,8 @@ router.put('/:id', authMiddleware, async (req, res) => {
         }
         
         await db.run(
-            'UPDATE posts SET title = ?, content = ?, tags = ?, images = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-            [title, content, tags, JSON.stringify(images || []), id]
+            'UPDATE posts SET title = ?, content = ?, tags = ?, images = ?, updated_at = ? WHERE id = ?',
+            [title, content, tags, JSON.stringify(images || []), getLocalTimestamp(), id]
         );
         
         res.json({ message: '更新成功' });

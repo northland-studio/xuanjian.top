@@ -2,6 +2,7 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const db = require('../database');
+const { getLocalTimestamp } = require('../database');
 const { JWT_SECRET, authMiddleware } = require('../middleware/auth');
 const { sendVerificationCode } = require('../config/mail');
 const router = express.Router();
@@ -205,13 +206,13 @@ router.put('/profile', authMiddleware, async (req, res) => {
             }
             const hashedPassword = await bcrypt.hash(newPassword, 10);
             await db.run(
-                'UPDATE users SET nickname = ?, email = ?, avatar = ?, password = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-                [nickname, email, avatar, hashedPassword, req.userId]
+                'UPDATE users SET nickname = ?, email = ?, avatar = ?, password = ?, updated_at = ? WHERE id = ?',
+                [nickname, email, avatar, hashedPassword, getLocalTimestamp(), req.userId]
             );
         } else {
             await db.run(
-                'UPDATE users SET nickname = ?, email = ?, avatar = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-                [nickname, email, avatar, req.userId]
+                'UPDATE users SET nickname = ?, email = ?, avatar = ?, updated_at = ? WHERE id = ?',
+                [nickname, email, avatar, getLocalTimestamp(), req.userId]
             );
         }
         
@@ -240,8 +241,8 @@ router.put('/password', authMiddleware, async (req, res) => {
         const hashedPassword = await bcrypt.hash(newPassword, 10);
 
         await db.run(
-            'UPDATE users SET password = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-            [hashedPassword, req.userId]
+            'UPDATE users SET password = ?, updated_at = ? WHERE id = ?',
+            [hashedPassword, getLocalTimestamp(), req.userId]
         );
 
         res.json({ message: '密码修改成功' });

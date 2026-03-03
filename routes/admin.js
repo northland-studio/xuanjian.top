@@ -1,6 +1,7 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const db = require('../database');
+const { getLocalTimestamp } = require('../database');
 const { authMiddleware, adminMiddleware, superAdminMiddleware } = require('../middleware/auth');
 const router = express.Router();
 
@@ -72,10 +73,10 @@ router.put('/users/:id', authMiddleware, adminMiddleware, async (req, res) => {
             return res.status(400).json({ error: '没有要更新的字段' });
         }
         
-        params.push(id);
+        params.push(getLocalTimestamp(), id);
         
         await db.run(
-            `UPDATE users SET ${updates.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+            `UPDATE users SET ${updates.join(', ')}, updated_at = ? WHERE id = ?`,
             params
         );
         
@@ -97,8 +98,8 @@ router.put('/users/:id/level', authMiddleware, superAdminMiddleware, async (req,
         }
         
         await db.run(
-            'UPDATE users SET level = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-            [level, id]
+            'UPDATE users SET level = ?, updated_at = ? WHERE id = ?',
+            [level, getLocalTimestamp(), id]
         );
         
         res.json({ message: '用户等级设置成功' });
@@ -220,8 +221,8 @@ router.put('/announcements/:id', authMiddleware, adminMiddleware, async (req, re
         const { title, content, isPopup, isActive } = req.body;
         
         await db.run(
-            'UPDATE announcements SET title = ?, content = ?, is_popup = ?, is_active = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-            [title, content, isPopup ? 1 : 0, isActive ? 1 : 0, id]
+            'UPDATE announcements SET title = ?, content = ?, is_popup = ?, is_active = ?, updated_at = ? WHERE id = ?',
+            [title, content, isPopup ? 1 : 0, isActive ? 1 : 0, getLocalTimestamp(), id]
         );
         
         res.json({ message: '公告更新成功' });

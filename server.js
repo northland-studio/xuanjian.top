@@ -10,6 +10,8 @@ const adminRoutes = require('./routes/admin');
 const uploadRoutes = require('./routes/upload');
 const announcementRoutes = require('./routes/announcement');
 const { router: notificationRoutes } = require('./routes/notifications');
+const stockRoutes = require('./routes/stock');
+const checkinRoutes = require('./routes/checkin');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -54,6 +56,8 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/announcements', announcementRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/stock', stockRoutes);
+app.use('/api/checkin', checkinRoutes);
 
 // 页面路由
 app.get('/', (req, res) => {
@@ -110,6 +114,14 @@ app.get('/social', (req, res) => {
 
 app.get('/notifications', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'pages', 'notifications.html'));
+});
+
+app.get('/stock', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'pages', 'stock.html'));
+});
+
+app.get('/checkin', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'pages', 'checkin.html'));
 });
 
 // 404处理
