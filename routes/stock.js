@@ -10,6 +10,29 @@ const USER_TRADE_LIMIT_RATIO = 0.05;
 const MARKET_MAKER_BASE_VOLUME = 100;
 const TRADE_WINDOW_MINUTES = 5;
 
+const TRADE_COOLDOWN_MINUTES = 60;
+
+function getLocalTimeStr(date) {
+    const offset = date.getTimezoneOffset() * 60000;
+    const localTime = new Date(date - offset);
+    return localTime.toISOString().slice(0, 19).replace('T', ' ');
+}
+
+async function checkTradeCooldown(userId, stockId, tradeType) {
+    const oppositeType = tradeType === 'buy' ? 'sell' : 'buy';
+    const cooldownStart = new Date(Date.now() - TRADE_COOLDOWN_MINUTES * 60 * 1000);
+    const cooldownStartStr = getLocalTimeStr(cooldownStart);
+    
+    const lastTrade = await db.get(
+        `SELECT created_at FROM stock_transactions 
+         WHERE user_id = ? AND stock_id = ? AND type = ? AND created_at >= ?
+         ORDER BY created_at DESC LIMIT 1`,
+        [userId, stockId, oppositeType, cooldownStartStr]
+    );
+    
+    return lastTrade;
+}
+
 async function updateStockPrices() {
     try {
         const stocks = await db.all('SELECT * FROM stocks WHERE is_active = 1');
@@ -17,7 +40,7 @@ async function updateStockPrices() {
         
         for (const stock of stocks) {
             const windowStart = new Date(Date.now() - TRADE_WINDOW_MINUTES * 60 * 1000);
-            const windowStartStr = windowStart.toISOString().slice(0, 19).replace('T', ' ');
+            const windowStartStr = getLocalTimeStr(windowStart);
             
             const trades = await db.all(
                 `SELECT type, shares, price, total_cost FROM stock_transactions 
@@ -41,10 +64,10 @@ async function updateStockPrices() {
             
             const tradeDrivenFactor = (netBuyVolume * PRICE_SENSITIVITY) / stock.total_shares;
             
-            const randomFactor = (Math.random() - 0.5) * 2 * stock.volatility * 0.3;
+            const randomFactor = (Math.random() - 0.5) * 2 * stock.volatility * 0.5;
             const trendFactor = stock.trend * 0.05;
             
-            const totalChange = tradeDrivenFactor * 0.7 + randomFactor * 0.2 + trendFactor * 0.1;
+            const totalChange = tradeDrivenFactor * 0.6 + randomFactor * 0.3 + trendFactor * 0.1;
             
             let newPrice = stock.current_price * (1 + totalChange);
             
@@ -84,6 +107,19 @@ router.get('/stocks', async (req, res) => {
     try {
         const stocks = await db.all(
             'SELECT id, symbol, name, description, base_price, current_price, total_shares, available_shares, volatility, trend, is_active, updated_at FROM stocks WHERE is_active = 1 ORDER BY symbol'
+        );
+        
+        res.json({ stocks });
+    } catch (error) {
+        console.error('获取股票列表错误:', error);
+        res.status(500).json({ error: '获取股票列表失败' });
+    }
+});
+
+router.get('/stocks/all', authMiddleware, adminMiddleware, async (req, res) => {
+    try {
+        const stocks = await db.all(
+            'SELECT id, symbol, name, description, base_price, current_price, total_shares, available_shares, volatility, trend, is_active, updated_at FROM stocks ORDER BY symbol'
         );
         
         res.json({ stocks });
@@ -184,6 +220,11 @@ router.post('/stocks/:id/buy', authMiddleware, async (req, res) => {
             return res.status(400).json({ error: '购买数量必须大于0' });
         }
         
+        const cooldownTrade = await checkTradeCooldown(req.userId, parseInt(id), 'buy');
+        if (cooldownTrade) {
+            return res.status(400).json({ error: '卖出后需等待1小时才能买入该股票' });
+        }
+        
         const stock = await db.get('SELECT * FROM stocks WHERE id = ? AND is_active = 1', [id]);
         if (!stock) {
             return res.status(404).json({ error: '股票不存在' });
@@ -267,6 +308,11 @@ router.post('/stocks/:id/sell', authMiddleware, async (req, res) => {
         
         if (!shares || shares <= 0) {
             return res.status(400).json({ error: '卖出数量必须大于0' });
+        }
+        
+        const cooldownTrade = await checkTradeCooldown(req.userId, parseInt(id), 'sell');
+        if (cooldownTrade) {
+            return res.status(400).json({ error: '买入后需等待1小时才能卖出该股票' });
         }
         
         const stock = await db.get('SELECT * FROM stocks WHERE id = ? AND is_active = 1', [id]);
@@ -407,6 +453,53 @@ router.post('/trigger-update', authMiddleware, adminMiddleware, async (req, res)
     } catch (error) {
         console.error('触发更新错误:', error);
         res.status(500).json({ error: '触发更新失败' });
+    }
+});
+
+router.post('/stocks/:id/restore', authMiddleware, adminMiddleware, async (req, res) => {
+    try {
+        const { id } = req.params;
+        
+        const stock = await db.get('SELECT * FROM stocks WHERE id = ?', [id]);
+        if (!stock) {
+            return res.status(404).json({ error: '股票不存在' });
+        }
+        
+        await db.run(
+            'UPDATE stocks SET is_active = 1, updated_at = ? WHERE id = ?',
+            [getLocalTimestamp(), id]
+        );
+        
+        res.json({ message: '股票已恢复', stockId: id });
+    } catch (error) {
+        console.error('恢复股票错误:', error);
+        res.status(500).json({ error: '恢复股票失败' });
+    }
+});
+
+router.delete('/stocks/:id', authMiddleware, adminMiddleware, async (req, res) => {
+    try {
+        const { id } = req.params;
+        
+        const holdings = await db.all(
+            'SELECT COUNT(*) as count FROM user_stocks WHERE stock_id = ? AND shares > 0',
+            [id]
+        );
+        
+        if (holdings[0].count > 0) {
+            return res.status(400).json({ 
+                error: `无法删除：仍有 ${holdings[0].count} 位用户持有该股票，请先恢复股票让用户卖出` 
+            });
+        }
+        
+        await db.run('DELETE FROM stocks WHERE id = ?', [id]);
+        await db.run('DELETE FROM stock_prices WHERE stock_id = ?', [id]);
+        await db.run('DELETE FROM stock_transactions WHERE stock_id = ?', [id]);
+        
+        res.json({ message: '股票已删除' });
+    } catch (error) {
+        console.error('删除股票错误:', error);
+        res.status(500).json({ error: '删除股票失败' });
     }
 });
 

@@ -236,7 +236,7 @@
 
         async function loadStocks() {
             try {
-                const data = await get('/api/stock/stocks');
+                const data = await get('/api/stock/stocks/all');
                 const stocks = data.stocks || [];
                 document.getElementById('stocks-table').innerHTML = stocks.map(s => `
                     <tr>
@@ -248,9 +248,10 @@
                         <td>${s.available_shares}</td>
                         <td>${(s.volatility * 100).toFixed(0)}%</td>
                         <td>${(s.trend * 100).toFixed(1)}%</td>
-                        <td>${s.is_active ? '活跃' : '停用'}</td>
+                        <td style="color: ${s.is_active ? 'var(--success)' : 'var(--danger)'}">${s.is_active ? '活跃' : '停用'}</td>
                         <td>
                             <button class="admin-btn admin-btn-primary" onclick="editStock(${s.id}, '${s.symbol}', '${s.name}', ${s.volatility}, ${s.trend}, ${s.is_active})">编辑</button>
+                            ${!s.is_active ? `<button class="admin-btn admin-btn-success" onclick="restoreStock(${s.id})" style="background:#10b981;color:white;margin-left:4px;">恢复</button>` : ''}
                         </td>
                     </tr>
                 `).join('');
@@ -288,23 +289,36 @@
 
         async function editStock(id, symbol, name, volatility, trend, isActive) {
             const newName = prompt('股票名称:', name);
-            if (!newName) return;
+            if (newName === null) return;
             const newVolatility = prompt('波动率:', volatility);
+            if (newVolatility === null) return;
             const newTrend = prompt('趋势:', trend);
-            const newStatus = confirm('是否启用？') ? 1 : 0;
+            if (newTrend === null) return;
+            const statusChoice = confirm('是否启用？\n确定=启用，取消=停用');
             
             try {
                 await put(`/api/stock/stocks/${id}`, {
-                    name: newName,
+                    name: newName || name,
                     description: '',
-                    volatility: parseFloat(newVolatility),
-                    trend: parseFloat(newTrend),
-                    is_active: newStatus
+                    volatility: parseFloat(newVolatility) || volatility,
+                    trend: parseFloat(newTrend) || trend,
+                    is_active: statusChoice ? 1 : 0
                 });
                 loadStocks();
                 showToast('更新成功', 'success');
             } catch (e) {
                 showToast(e.message || '更新失败', 'error');
+            }
+        }
+
+        async function restoreStock(id) {
+            if (!await showConfirm('确定恢复该股票？')) return;
+            try {
+                await post(`/api/stock/stocks/${id}/restore`, {});
+                loadStocks();
+                showToast('恢复成功', 'success');
+            } catch (e) {
+                showToast(e.message || '恢复失败', 'error');
             }
         }
 
