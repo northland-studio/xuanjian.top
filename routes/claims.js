@@ -188,12 +188,12 @@ router.put('/:id/review', authMiddleware, adminMiddleware, async (req, res) => {
         }
         
         try {
-            await createNotification(
-                claim.user_id,
-                'claim_result',
-                `贡献点申报${statusText}`,
-                `您申报的 ${claim.amount} 贡献点${statusText}${reviewNote ? `，原因：${reviewNote}` : ''}`
-            );
+            await createNotification({
+                userId: claim.user_id,
+                type: 'claim_result',
+                title: `贡献点申报${statusText}`,
+                content: `您申报的 ${claim.amount} 贡献点${statusText}${reviewNote ? `，原因：${reviewNote}` : ''}`
+            });
         } catch (notifErr) {
             console.error('创建通知失败:', notifErr.message);
         }
