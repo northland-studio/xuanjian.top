@@ -12,6 +12,11 @@ const announcementRoutes = require('./routes/announcement');
 const { router: notificationRoutes } = require('./routes/notifications');
 const stockRoutes = require('./routes/stock');
 const checkinRoutes = require('./routes/checkin');
+const titleRoutes = require('./routes/titles');
+const passwordRoutes = require('./routes/password');
+const claimRoutes = require('./routes/claims');
+const shopRoutes = require('./routes/shop');
+const rankingRoutes = require('./routes/rankings');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -24,7 +29,6 @@ app.use(helmet({
     contentSecurityPolicy: false
 }));
 
-// CORS 由 Nginx 处理，这里不需要
 
 // 请求限制
 const limiter = rateLimit({
@@ -58,6 +62,11 @@ app.use('/api/announcements', announcementRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/stock', stockRoutes);
 app.use('/api/checkin', checkinRoutes);
+app.use('/api/titles', titleRoutes);
+app.use('/api/password', passwordRoutes);
+app.use('/api/claims', claimRoutes);
+app.use('/api/shop', shopRoutes);
+app.use('/api/rankings', rankingRoutes);
 
 // 页面路由
 app.get('/', (req, res) => {
@@ -124,7 +133,37 @@ app.get('/checkin', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'pages', 'checkin.html'));
 });
 
-// 404处理
+app.get('/shop', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'pages', 'shop.html'));
+});
+
+app.get('/rankings', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'pages', 'rankings.html'));
+});
+
+app.get('/forgot-password', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'pages', 'forgot-password.html'));
+});
+
+app.get('/reset-password', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'pages', 'reset-password.html'));
+});
+
+app.get('/claims', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'pages', 'claims.html'));
+});
+
+app.get('/inventory', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'pages', 'inventory.html'));
+});
+
+app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api/') || req.path.startsWith('/uploads/') || req.path.includes('.')) {
+        return next();
+    }
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
 app.use((req, res) => {
     res.status(404).json({ error: '请求的资源不存在' });
 });

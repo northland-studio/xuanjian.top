@@ -338,7 +338,11 @@ router.get('/user/:username', async (req, res) => {
         const { username } = req.params;
         
         const user = await db.get(
-            'SELECT id, username, nickname, email, avatar, level, contribution, created_at FROM users WHERE username = ?',
+            `SELECT u.id, u.username, u.nickname, u.email, u.avatar, u.level, u.contribution, u.created_at,
+                    t.name as title_name, t.color as title_color
+             FROM users u
+             LEFT JOIN titles t ON u.equipped_title = t.id
+             WHERE u.username = ?`,
             [username]
         );
         

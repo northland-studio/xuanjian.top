@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>排行榜 - 玄剑公会</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        .rankings-container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        .rankings-header { text-align: center; margin-bottom: 40px; }
+        .rankings-header h1 { font-size: 32px; color: var(--text-primary); margin-bottom: 10px; }
+        .rankings-tabs { display: flex; gap: 12px; margin-bottom: 30px; justify-content: center; flex-wrap: wrap; }
+        .rankings-tab { padding: 10px 24px; border-radius: 20px; background: var(--card-bg); border: 1px solid var(--border-color); cursor: pointer; transition: all 0.3s; color: var(--text-primary); }
+        .rankings-tab.active { background: var(--primary); color: white; border-color: var(--primary); }
+        .rankings-list { background: var(--card-bg); border-radius: 16px; overflow: hidden; border: 1px solid var(--border-color); }
+        .rankings-item { display: flex; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--border-color); transition: background 0.2s; }
+        .rankings-item:last-child { border-bottom: none; }
+        .rankings-item:hover { background: var(--bg-color); }
+        .rankings-rank { width: 50px; text-align: center; font-weight: 700; font-size: 18px; color: var(--text-primary); }
+        .rankings-rank.gold { color: #f59e0b; }
+        .rankings-rank.silver { color: #9ca3af; }
+        .rankings-rank.bronze { color: #d97706; }
+        .rankings-avatar { width: 48px; height: 48px; border-radius: 50%; margin: 0 16px; object-fit: cover; }
+        .rankings-info { flex: 1; }
+        .rankings-name { font-weight: 600; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; color: var(--text-primary); }
+        .rankings-title { font-size: 12px; padding: 2px 8px; border-radius: 4px; }
+        .rankings-value { font-size: 20px; font-weight: 700; color: var(--primary); }
+        .rankings-post { flex: 1; cursor: pointer; }
+        .rankings-post-title { font-weight: 600; margin-bottom: 4px; color: var(--text-primary); }
+        .rankings-post-meta { font-size: 13px; color: var(--text-secondary); }
+        .rankings-post-stats { display: flex; gap: 16px; margin-top: 8px; }
+        .rankings-post-stat { font-size: 13px; color: var(--text-secondary); }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="navbar-content">
+            <a href="/" class="navbar-brand">
+                <img src="/icon.png" alt="玄剑公会" class="navbar-logo">
+                <div class="navbar-title">
+                    <span class="navbar-title-cn">我的世界玄剑公会</span>
+                    <span class="navbar-title-en">Minecraft Xuanjian Guild</span>
+                </div>
+            </a>
+            <div class="navbar-nav">
+                <a href="/daily" class="nav-link">日报</a>
+                <a href="/decision" class="nav-link">决策</a>
+                <a href="/forum" class="nav-link">贴吧</a>
+                <a href="/stock" class="nav-link">股市</a>
+                <a href="/shop" class="nav-link">商城</a>
+                <a href="/rankings" class="nav-link active">排行榜</a>
+                <a href="/social" class="nav-link">社交媒体</a>
+                <div class="nav-user">
+                    <button class="theme-toggle" onclick="toggleTheme()" title="切换主题">
+                        <svg class="moon-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path>
+                        </svg>
+                        <svg class="sun-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path>
+                        </svg>
+                    </button>
+                    <a href="/notifications" class="nav-notification" title="通知">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
+                        </svg>
+                        <span class="notification-badge" id="nav-notification-badge" style="display: none;">0</span>
+                    </a>
+                    <a href="/login" class="nav-login-btn">登录</a>
+                </div>
+            </div>
+            <button class="mobile-menu-btn">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        <div class="rankings-container">
+            <div class="rankings-header">
+                <h1>排行榜</h1>
+            </div>
+
+            <div class="rankings-tabs">
+                <div class="rankings-tab active" data-type="contribution">贡献点</div>
+                <div class="rankings-tab" data-type="posts-views">帖子阅读</div>
+                <div class="rankings-tab" data-type="posts-likes">帖子点赞</div>
+                <div class="rankings-tab" data-type="checkin">签到</div>
+                <div class="rankings-tab" data-type="stock">股票盈亏</div>
+            </div>
+
+            <div class="rankings-list" id="rankingsList">
+                <div class="loading-spinner"></div>
+            </div>
+        </div>
+    </main>
+
+    <script src="/js/common.js"></script>
+    <script>
+        const token = localStorage.getItem('token');
+        let currentType = 'contribution';
+
+        async function loadRankings() {
+            try {
+                const data = await get(`/api/rankings/${currentType}`);
+                const rankings = data.rankings || [];
+                
+                const list = document.getElementById('rankingsList');
+                if (rankings.length === 0) {
+                    list.innerHTML = '<div class="empty-state" style="padding:40px;text-align:center;color:var(--text-secondary);">暂无数据</div>';
+                    return;
+                }
+                
+                if (currentType === 'contribution' || currentType === 'checkin' || currentType === 'stock') {
+                    list.innerHTML = rankings.map((item, i) => `
+                        <div class="rankings-item">
+                            <div class="rankings-rank ${i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze' : ''}">${item.rank}</div>
+                            <img src="${item.avatar || '/uploads/default-avatar.png'}" class="rankings-avatar" alt="">
+                            <div class="rankings-info">
+                                <div class="rankings-name">
+                                    ${item.nickname || item.username}
+                                    ${item.title_name ? `<span class="rankings-title" style="background:${item.title_color};color:white;">${item.title_name}</span>` : ''}
+                                </div>
+                            </div>
+                            <div class="rankings-value">${currentType === 'checkin' ? `${item.max_continuous_days}天` : (currentType === 'stock' ? `${item.profit_loss >= 0 ? '+' : ''}${item.profit_loss.toFixed(2)}` : item.contribution.toFixed(2))}</div>
+                        </div>
+                    `).join('');
+                } else {
+                    list.innerHTML = rankings.map((item, i) => `
+                        <div class="rankings-item" style="cursor:pointer;" onclick="window.location.href='/post/${item.id}'">
+                            <div class="rankings-rank ${i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze' : ''}">${item.rank}</div>
+                            <div class="rankings-post">
+                                <div class="rankings-post-title">${item.title}</div>
+                                <div class="rankings-post-meta">
+                                    作者：${item.nickname || item.username}
+                                    ${item.title_name ? `<span class="rankings-title" style="background:${item.title_color};color:white;font-size:11px;padding:1px 6px;margin-left:8px;">${item.title_name}</span>` : ''}
+                                </div>
+                                <div class="rankings-post-stats">
+                                    <span class="rankings-post-stat">👁 ${item.views || 0}</span>
+                                    <span class="rankings-post-stat">❤️ ${item.likes || 0}</span>
+                                    <span class="rankings-post-stat">💬 ${item.comments_count || 0}</span>
+                                </div>
+                            </div>
+                            <div class="rankings-value">${currentType === 'posts-views' ? item.views : item.likes}</div>
+                        </div>
+                    `).join('');
+                }
+            } catch (e) {
+                showToast('加载排行榜失败', 'error');
+            }
+        }
+
+        document.querySelectorAll('.rankings-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.rankings-tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                currentType = tab.dataset.type;
+                loadRankings();
+            });
+        });
+
+        loadRankings();
+    </script>
+</body>
+</html>

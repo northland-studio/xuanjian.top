@@ -423,6 +423,58 @@ SMTP_PASS=your-password
 | GET | `/api/checkin/rewards` | 获取签到奖励配置 |
 | GET | `/api/checkin/ranking` | 获取签到排行榜 |
 
+### 🏷️ 称号接口
+
+| 方法 | 路径 | 说明 |
+|:---:|:---|:---|
+| GET | `/api/titles` | 获取称号列表 |
+| GET | `/api/titles/all` | 获取所有称号（管理） |
+| GET | `/api/titles/my` | 获取我的称号 |
+| POST | `/api/titles/:id/buy` | 购买称号 |
+| PUT | `/api/titles/equip` | 装备称号 |
+| POST | `/api/titles` | 创建称号（管理） |
+| PUT | `/api/titles/:id` | 更新称号（管理） |
+| DELETE | `/api/titles/:id` | 删除称号（管理） |
+
+### 🛒 商城接口
+
+| 方法 | 路径 | 说明 |
+|:---:|:---|:---|
+| GET | `/api/shop/items` | 获取商品列表 |
+| GET | `/api/shop/items/:id` | 获取商品详情 |
+| POST | `/api/shop/items/:id/buy` | 购买商品 |
+| GET | `/api/shop/my-items` | 获取我的商品 |
+| POST | `/api/shop/items` | 创建商品（管理） |
+| PUT | `/api/shop/items/:id` | 更新商品（管理） |
+| DELETE | `/api/shop/items/:id` | 删除商品（管理） |
+
+### 📝 申报接口
+
+| 方法 | 路径 | 说明 |
+|:---:|:---|:---|
+| GET | `/api/claims` | 获取申报列表 |
+| GET | `/api/claims/:id` | 获取申报详情 |
+| POST | `/api/claims` | 提交申报 |
+| PUT | `/api/claims/:id/review` | 审核申报（管理） |
+
+### 📊 排行榜接口
+
+| 方法 | 路径 | 说明 |
+|:---:|:---|:---|
+| GET | `/api/rankings/contribution` | 贡献点排行榜 |
+| GET | `/api/rankings/posts-views` | 帖子阅读排行榜 |
+| GET | `/api/rankings/posts-likes` | 帖子点赞排行榜 |
+| GET | `/api/rankings/checkin` | 签到排行榜 |
+| GET | `/api/rankings/stock` | 股票盈亏排行榜 |
+
+### 🔐 密码重置接口
+
+| 方法 | 路径 | 说明 |
+|:---:|:---|:---|
+| POST | `/api/password/forgot-password` | 发送重置邮件 |
+| POST | `/api/password/reset-password` | 重置密码 |
+| GET | `/api/password/verify-reset-token/:token` | 验证重置链接 |
+
 ---
 
 ## 🌐 页面路由
@@ -436,6 +488,9 @@ SMTP_PASS=your-password
 | `/social` | 社交媒体 | 社交账号链接 |
 | `/stock` | 虚拟股票 | 股票市场、买卖交易 |
 | `/checkin` | 每日签到 | 签到、补签、排行榜 |
+| `/shop` | 商城 | 购买称号和道具 |
+| `/rankings` | 排行榜 | 贡献点、帖子、签到排行 |
+| `/claims` | 贡献点申报 | 提交和审核申报 |
 | `/notifications` | 通知中心 | 查看所有通知 |
 | `/post/:id` | 内容详情 | 查看具体内容 |
 | `/editor` | 内容编辑器 | 发布/编辑内容 |
@@ -445,6 +500,8 @@ SMTP_PASS=your-password
 | `/admin` | 管理后台 | 系统管理 |
 | `/login` | 登录 | 用户登录 |
 | `/register` | 注册 | 用户注册 |
+| `/forgot-password` | 忘记密码 | 发送重置邮件 |
+| `/reset-password` | 重置密码 | 设置新密码 |
 
 ---
 
@@ -534,6 +591,44 @@ SMTP_PASS=your-password
 ---
 
 ## 📝 更新日志
+
+### v2.0.8 (2026-3-9)
+- 🏷️ **称号系统**
+  - 支持购买和装备称号，显示在用户名后
+  - 称号显示在帖子和评论作者名后
+  - 个人主页用户级别旁显示佩戴的称号
+  - 自定义称号支持在仓库中编辑名称和颜色
+  - 称号管理支持预设/自定义类型设置
+  - 称号管理直接上架商城功能
+- 🛒 **商城系统**
+  - 贡献点商城，可购买称号和其他道具
+  - 商城称号从称号管理中获取，无需重复添加
+  - 购买商品自动生成核销码
+- 📦 **用户仓库**
+  - 显示用户购买的商品和称号
+  - 称号装备/卸下功能
+  - 自定义称号编辑功能
+- ✅ **核销功能**
+  - 商品核销码生成
+  - 管理员核销验证
+- 📊 **排行榜系统** - 贡献点、帖子阅读/点赞、签到、股票盈亏排行榜
+- 📝 **贡献点申报** - 用户可申报贡献点，管理员审核后发放
+- 🔐 **密码重置** - 支持通过邮箱验证重置忘记的密码
+- 📧 **邮件系统修复**
+  - 统一邮件发送配置
+  - 申报审核邮件提醒
+  - 密码重置邮件
+- 🎨 **导航栏统一**
+  - 所有页面导航栏同步
+  - 添加股市、商城、排行榜入口
+  - 添加主题切换和通知按钮
+- 🎨 **管理后台优化** - 新增称号管理、商城管理、申报审核、核销模块
+- 🐛 **Bug修复**
+  - 修复申报提交提示问题
+  - 修复管理页面审核显示失败
+  - 修复我的申报显示别人申报
+  - 修复时间显示时区问题
+  - 移除个人主页虚拟股票入口
 
 ### v2.0.7 (2026-3-4)
 #### 下设Alpha & Beta两个测试版

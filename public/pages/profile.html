@@ -12,7 +12,7 @@
         .profile-avatar { width: 120px; height: 120px; border-radius: 50%; object-fit: cover; border: 4px solid #6366f1; margin-bottom: 20px; }
         .profile-name { font-size: 28px; font-weight: 700; margin-bottom: 8px; color: var(--text-color, #1e293b); }
         .profile-username { font-size: 16px; color: var(--text-secondary, #64748b); margin-bottom: 8px; }
-        .profile-level { display: inline-block; padding: 6px 16px; background: #6366f1; color: white; border-radius: 20px; font-size: 14px; font-weight: 500; }
+        .profile-level { display: inline-block; padding: 4px 12px; background: #6366f1; color: white; border-radius: 16px; font-size: 14px; font-weight: 500; }
         .profile-stats { display: flex; justify-content: center; gap: 40px; margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--border-color, #e2e8f0); }
         .profile-stat { text-align: center; }
         .profile-stat-value { font-size: 24px; font-weight: 700; color: #6366f1; }
@@ -23,14 +23,16 @@
         .profile-info-item:last-child { border-bottom: none; }
         .profile-info-label { color: var(--text-secondary, #64748b); }
         .profile-info-value { font-weight: 500; color: var(--text-color, #1e293b); }
-        .profile-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-top: 24px; }
-        .btn { padding: 12px 20px; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; border: none; transition: all 0.3s; text-align: center; }
+        .profile-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 24px; }
+        .btn { padding: 4px 12px; border-radius: 6px; font-size: 12px; font-weight: 500; cursor: pointer; border: none; transition: all 0.3s; text-align: center; min-width: 80px; }
         .btn-primary { background: #6366f1; color: white; }
         .btn-primary:hover { background: #4f46e5; }
         .btn-secondary { background: var(--bg-color, #f1f5f9); color: var(--text-secondary, #475569); border: 1px solid var(--border-color, #e2e8f0); }
         .btn-secondary:hover { background: var(--border-color, #e2e8f0); }
         .btn-danger { background: #fee2e2; color: #dc2626; }
         .btn-danger:hover { background: #fecaca; }
+        .btn-checkin { background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.3); }
+        .btn-checkin:hover { background: rgba(255,255,255,0.3); }
         .user-posts { background: var(--card-bg, white); border-radius: 16px; padding: 30px; box-shadow: var(--shadow, 0 2px 10px rgba(0,0,0,0.08)); }
         .user-posts-title { font-size: 18px; font-weight: 600; margin-bottom: 20px; color: var(--text-color, #1e293b); }
         .user-post-item { padding: 16px; border-bottom: 1px solid var(--border-color, #e2e8f0); cursor: pointer; transition: background 0.3s; }
@@ -45,11 +47,12 @@
             align-items: center;
             justify-content: space-between;
             background: linear-gradient(135deg, #f59e0b 0%, #f97316 100%);
-            border-radius: 12px;
-            padding: 16px 20px;
+            border-radius: 6px;
+            padding: 8px 12px;
             margin-bottom: 16px;
             color: white;
             transition: all 0.3s;
+            min-width: 80px;
         }
         .checkin-status-card:hover {
             transform: translateY(-2px);
@@ -59,27 +62,31 @@
             background: linear-gradient(135deg, #10b981 0%, #059669 100%);
         }
         .checkin-status-icon {
-            width: 40px;
-            height: 40px;
+            width: 24px;
+            height: 24px;
             display: flex;
             align-items: center;
             justify-content: center;
-            margin-right: 16px;
+            margin-right: 8px;
+        }
+        .checkin-status-icon svg {
+            width: 14px;
+            height: 14px;
         }
         .checkin-status-info {
             flex: 1;
         }
         .checkin-status-title {
-            font-size: 16px;
-            font-weight: 600;
+            font-size: 12px;
+            font-weight: 500;
         }
         .checkin-status-detail {
-            font-size: 13px;
+            font-size: 10px;
             opacity: 0.9;
-            margin-top: 4px;
+            margin-top: 2px;
         }
         .checkin-status-arrow {
-            font-size: 20px;
+            font-size: 14px;
             opacity: 0.7;
         }
         
@@ -189,8 +196,27 @@
                 <a href="/daily" class="nav-link">日报</a>
                 <a href="/decision" class="nav-link">决策</a>
                 <a href="/forum" class="nav-link">贴吧</a>
+                <a href="/stock" class="nav-link">股市</a>
+                <a href="/shop" class="nav-link">商城</a>
+                <a href="/rankings" class="nav-link">排行榜</a>
                 <a href="/social" class="nav-link">社交媒体</a>
-                <div class="nav-user"></div>
+                <div class="nav-user">
+                    <button class="theme-toggle" onclick="toggleTheme()" title="切换主题">
+                        <svg class="moon-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path>
+                        </svg>
+                        <svg class="sun-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path>
+                        </svg>
+                    </button>
+                    <a href="/notifications" class="nav-notification" title="通知">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
+                        </svg>
+                        <span class="notification-badge" id="nav-notification-badge" style="display: none;">0</span>
+                    </a>
+                    <a href="/login" class="nav-login-btn">登录</a>
+                </div>
             </div>
             <div class="hamburger" id="hamburger">
                 <span></span>
@@ -205,6 +231,9 @@
         <a href="/daily">日报</a>
         <a href="/decision">决策</a>
         <a href="/forum">贴吧</a>
+        <a href="/stock">股市</a>
+        <a href="/shop">商城</a>
+        <a href="/rankings">排行榜</a>
         <a href="/social">社交媒体</a>
         <a href="/notifications">通知</a>
     </div>
@@ -310,32 +339,35 @@
                             </div>
                             <div class="checkin-status-info">
                                 <div class="checkin-status-title">${checkinStatus.todayCheckedIn ? '今日已签到' : '今日未签到'}</div>
-                                <div class="checkin-status-detail">连续 ${checkinStatus.continuousDays} 天 · 贡献点 ${profileUser.contribution || 0}</div>
+                                <div class="checkin-status-detail">连续 ${checkinStatus.continuousDays} 天 · 贡献点 ${(profileUser.contribution || 0).toFixed(2)}</div>
                             </div>
                             <div class="checkin-status-arrow">›</div>
                         </div>
                     `;
                 }
                 
-                actionButtons += `<button class="btn btn-stock" onclick="window.location.href='/stock'">虚拟股票</button>`;
-                actionButtons += `<button class="btn btn-checkin" onclick="window.location.href='/checkin'">每日签到</button>`;
                 actionButtons += `<button class="btn btn-secondary" onclick="openSettings()">账号设置</button>
                    <button class="btn btn-danger" onclick="logout()">退出登录</button>`;
-                // 管理员显示管理按钮
                 if (profileUser.level >= 1) {
                     actionButtons += `<button class="btn btn-primary" onclick="window.location.href='/admin'">管理系统</button>`;
                 }
             }
+
+            const titleHtml = profileUser.title_name ? 
+                `<span class="user-title" style="background:${profileUser.title_color || '#6366f1'};color:white;padding:4px 12px;border-radius:16px;font-size:14px;margin-left:8px;">${profileUser.title_name}</span>` : '';
 
             container.innerHTML = `
                 <div class="profile-header">
                     <img src="${profileUser.avatar || '/uploads/default-avatar.png'}" class="profile-avatar" id="avatar-preview">
                     <h1 class="profile-name">${profileUser.nickname}</h1>
                     <div class="profile-username">@${profileUser.username}</div>
-                    <span class="profile-level">${levelText}</span>
+                    <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin:8px 0;">
+                        <span class="profile-level">${levelText}</span>
+                        ${titleHtml}
+                    </div>
                     <div class="profile-stats">
                         <div class="profile-stat">
-                            <div class="profile-stat-value">${profileUser.contribution || 0}</div>
+                            <div class="profile-stat-value">${(profileUser.contribution || 0).toFixed(2)}</div>
                             <div class="profile-stat-label">贡献值</div>
                         </div>
                         <div class="profile-stat">

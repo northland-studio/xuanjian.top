@@ -79,6 +79,10 @@
                 <div class="admin-tab" onclick="switchTab('announcements')">公告管理</div>
                 <div class="admin-tab" onclick="switchTab('stocks')">股票管理</div>
                 <div class="admin-tab" onclick="switchTab('checkin')">签到管理</div>
+                <div class="admin-tab" onclick="switchTab('titles')">称号管理</div>
+                <div class="admin-tab" onclick="switchTab('shop')">商城管理</div>
+                <div class="admin-tab" onclick="switchTab('claims')">申报审核</div>
+                <div class="admin-tab" onclick="switchTab('verify')">核销商品</div>
             </div>
 
             <div class="admin-content">
@@ -117,6 +121,34 @@
                         <tbody id="checkin-rewards-table"></tbody>
                     </table>
                 </div>
+                <div id="tab-titles" class="tab-content">
+                    <button class="bt bt-primary" onclick="createTitle()" style="margin-bottom:20px;">创建称号</button>
+                    <table class="admin-table">
+                        <thead><tr><th>ID</th><th>名称</th><th>颜色</th><th>价格</th><th>类型</th><th>状态</th><th>商城</th><th>操作</th></tr></thead>
+                        <tbody id="titles-table"></tbody>
+                    </table>
+                </div>
+                <div id="tab-shop" class="tab-content">
+                    <button class="bt bt-primary" onclick="createShopItem()" style="margin-bottom:20px;">添加商品</button>
+                    <table class="admin-table">
+                        <thead><tr><th>ID</th><th>名称</th><th>类型</th><th>价格</th><th>库存</th><th>状态</th><th>操作</th></tr></thead>
+                        <tbody id="shop-table"></tbody>
+                    </table>
+                </div>
+                <div id="tab-claims" class="tab-content">
+                    <h3 style="margin-bottom:16px;">待审核申报</h3>
+                    <div id="claims-list"></div>
+                </div>
+                <div id="tab-verify" class="tab-content">
+                    <h3 style="margin-bottom:16px;">核销商品</h3>
+                    <div style="display:flex;gap:12px;margin-bottom:20px;">
+                        <input type="text" id="verify-code-input" placeholder="请输入核销码" style="flex:1;padding:10px 16px;border:1px solid var(--border-color);border-radius:8px;background:var(--bg-color);color:var(--text-primary);">
+                        <button class="bt bt-primary" onclick="verifyCode()">验证</button>
+                    </div>
+                    <div id="verify-result" style="display:none;background:var(--card-bg);border-radius:12px;padding:20px;border:1px solid var(--border-color);">
+                        <div id="verify-info"></div>
+                    </div>
+                </div>
             </div>
         </div>
     </main>
@@ -136,6 +168,10 @@
             if (tab === 'announcements') loadAnnouncements();
             if (tab === 'stocks') loadStocks();
             if (tab === 'checkin') loadCheckinRewards();
+            if (tab === 'titles') loadTitles();
+            if (tab === 'shop') loadShopItems();
+            if (tab === 'claims') loadClaims();
+            if (tab === 'verify') loadVerify();
         }
 
         async function loadStats() {
@@ -374,6 +410,277 @@
         async function deleteCheckinReward(days) {
             if (!await showConfirm('确定删除此奖励档位？')) return;
             showToast('删除功能暂未实现', 'warning');
+        }
+
+        async function loadTitles() {
+            try {
+                const data = await get('/api/titles/all');
+                const titles = data.titles || [];
+                document.getElementById('titles-table').innerHTML = titles.map(t => `
+                    <tr>
+                        <td>${t.id}</td>
+                        <td><span style="color:${t.color};font-weight:600;">${t.name}</span></td>
+                        <td><span style="background:${t.color};color:white;padding:2px 8px;border-radius:4px;">${t.color}</span></td>
+                        <td>${t.price}</td>
+                        <td>${t.is_preset ? '预设' : '自定义'}</td>
+                        <td style="color: ${t.is_active ? 'var(--success)' : 'var(--danger)'}">${t.is_active ? '启用' : '停用'}</td>
+                        <td style="color: ${t.in_shop ? 'var(--success)' : 'var(--text-secondary)'}">${t.in_shop ? '已上架' : '未上架'}</td>
+                        <td>
+                            <button class="admin-btn admin-btn-primary" onclick="editTitle(${t.id}, '${t.name}', '${t.color}', ${t.price}, ${t.is_active}, ${t.in_shop || 0})">编辑</button>
+                            <button class="admin-btn admin-btn-danger" onclick="deleteTitle(${t.id})">删除</button>
+                        </td>
+                    </tr>
+                `).join('');
+            } catch (e) {
+                showToast('加载称号失败', 'error');
+            }
+        }
+
+        async function createTitle() {
+            const name = prompt('称号名称:');
+            if (!name) return;
+            const description = prompt('称号描述（可选）:', '');
+            const color = prompt('颜色 (如 #6366f1):', '#6366f1');
+            if (!color) return;
+            const price = prompt('价格 (贡献点):', '0');
+            const isPreset = confirm('是否为预设称号？');
+            const inShop = confirm('是否上架商城？');
+            
+            try {
+                await post('/api/titles', {
+                    name,
+                    description: description || '',
+                    color,
+                    price: parseInt(price) || 0,
+                    is_preset: isPreset ? 1 : 0,
+                    in_shop: inShop ? 1 : 0
+                });
+                loadTitles();
+                showToast('创建成功', 'success');
+            } catch (e) {
+                showToast(e.message || '创建失败', 'error');
+            }
+        }
+
+        async function editTitle(id, name, color, price, isActive, inShop) {
+            const newName = prompt('称号名称:', name);
+            if (newName === null) return;
+            const newColor = prompt('颜色:', color);
+            if (newColor === null) return;
+            const newPrice = prompt('价格:', price.toString());
+            if (newPrice === null) return;
+            const statusChoice = confirm('是否启用？\n确定=启用，取消=停用');
+            const shopChoice = confirm('是否上架商城？\n确定=上架，取消=不上架');
+            
+            try {
+                await put(`/api/titles/${id}`, {
+                    name: newName || name,
+                    color: newColor || color,
+                    price: parseInt(newPrice) || price,
+                    is_active: statusChoice ? 1 : 0,
+                    in_shop: shopChoice ? 1 : 0
+                });
+                loadTitles();
+                showToast('更新成功', 'success');
+            } catch (e) {
+                showToast(e.message || '更新失败', 'error');
+            }
+        }
+
+        async function deleteTitle(id) {
+            if (!await showConfirm('确定删除此称号？已购买的用户将保留称号。')) return;
+            try {
+                await del(`/api/titles/${id}`);
+                loadTitles();
+                showToast('删除成功', 'success');
+            } catch (e) {
+                showToast(e.message || '删除失败', 'error');
+            }
+        }
+
+        async function loadShopItems() {
+            try {
+                const data = await get('/api/shop/items');
+                const items = data.items || [];
+                document.getElementById('shop-table').innerHTML = items.map(item => `
+                    <tr>
+                        <td>${item.id}</td>
+                        <td>${item.name}</td>
+                        <td>${item.type === 'title' ? '称号' : '其他'}</td>
+                        <td>${item.price}</td>
+                        <td>${item.stock === -1 ? '无限' : item.stock}</td>
+                        <td style="color: ${item.is_active ? 'var(--success)' : 'var(--danger)'}">${item.is_active ? '上架' : '下架'}</td>
+                        <td>
+                            <button class="admin-btn admin-btn-primary" onclick="editShopItem(${item.id}, '${item.name}', ${item.price}, ${item.stock}, ${item.is_active})">编辑</button>
+                            <button class="admin-btn admin-btn-danger" onclick="deleteShopItem(${item.id})">删除</button>
+                        </td>
+                    </tr>
+                `).join('');
+            } catch (e) {
+                showToast('加载商品失败', 'error');
+            }
+        }
+
+        async function createShopItem() {
+            const name = prompt('商品名称:');
+            if (!name) return;
+            const type = confirm('是否为称号商品？') ? 'title' : 'other';
+            const price = prompt('价格 (贡献点):');
+            if (!price) return;
+            const stock = prompt('库存 (-1为无限):', '-1');
+            
+            try {
+                await post('/api/shop/items', {
+                    name,
+                    type,
+                    price: parseInt(price),
+                    stock: parseInt(stock)
+                });
+                loadShopItems();
+                showToast('创建成功', 'success');
+            } catch (e) {
+                showToast(e.message || '创建失败', 'error');
+            }
+        }
+
+        async function editShopItem(id, name, price, stock, isActive) {
+            const newName = prompt('商品名称:', name);
+            if (newName === null) return;
+            const newPrice = prompt('价格:', price.toString());
+            if (newPrice === null) return;
+            const newStock = prompt('库存:', stock.toString());
+            if (newStock === null) return;
+            const statusChoice = confirm('是否上架？\n确定=上架，取消=下架');
+            
+            try {
+                await put(`/api/shop/items/${id}`, {
+                    name: newName || name,
+                    price: parseInt(newPrice) || price,
+                    stock: parseInt(newStock) || stock,
+                    is_active: statusChoice ? 1 : 0
+                });
+                loadShopItems();
+                showToast('更新成功', 'success');
+            } catch (e) {
+                showToast(e.message || '更新失败', 'error');
+            }
+        }
+
+        async function deleteShopItem(id) {
+            if (!await showConfirm('确定删除此商品？')) return;
+            try {
+                await del(`/api/shop/items/${id}`);
+                loadShopItems();
+                showToast('删除成功', 'success');
+            } catch (e) {
+                showToast(e.message || '删除失败', 'error');
+            }
+        }
+
+        async function loadClaims() {
+            try {
+                const data = await get('/api/claims?status=pending&limit=50');
+                const claims = data.claims || [];
+                const list = document.getElementById('claims-list');
+                
+                if (claims.length === 0) {
+                    list.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-secondary);">暂无待审核申报</div>';
+                    return;
+                }
+                
+                list.innerHTML = claims.map(c => `
+                    <div style="padding:20px;border-bottom:1px solid var(--border-color);">
+                        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;">
+                            <div>
+                                <div style="font-size:20px;font-weight:700;color:#f59e0b;">+${c.amount} 贡献点</div>
+                                <div style="font-size:14px;color:var(--text-secondary);margin-top:4px;">申请人：${c.nickname || c.username}</div>
+                            </div>
+                            <span style="padding:4px 12px;border-radius:12px;font-size:12px;background:#fef3c7;color:#92400e;">待审核</span>
+                        </div>
+                        <div style="margin-bottom:8px;line-height:1.6;">${c.reason}</div>
+                        ${c.evidence ? `<div style="margin-bottom:8px;color:var(--text-secondary);font-size:14px;"><strong>证明：</strong>${c.evidence}</div>` : ''}
+                        <div style="font-size:12px;color:var(--text-secondary);margin-bottom:12px;">提交于 ${new Date(c.created_at).toLocaleString('zh-CN')}</div>
+                        <div style="display:flex;gap:12px;">
+                            <button class="admin-btn" style="background:#10b981;color:white;" onclick="reviewClaim(${c.id}, 'approved')">通过</button>
+                            <button class="admin-btn admin-btn-danger" onclick="reviewClaim(${c.id}, 'rejected')">拒绝</button>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (e) {
+                showToast('加载申报失败', 'error');
+            }
+        }
+
+        async function reviewClaim(id, status) {
+            const note = status === 'rejected' ? prompt('请输入拒绝理由（可选）：') : prompt('请输入审核备注（可选）：');
+            if (status === 'rejected' && note === null) return;
+            
+            try {
+                const res = await fetch(`/api/claims/${id}/review`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    },
+                    body: JSON.stringify({ status, reviewNote: note || '' })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    loadClaims();
+                    showToast('审核完成', 'success');
+                } else {
+                    showToast(data.error || '审核失败', 'error');
+                }
+            } catch (e) {
+                showToast(e.message || '审核失败', 'error');
+            }
+        }
+
+        async function verifyCode() {
+            const code = document.getElementById('verify-code-input').value.trim();
+            if (!code) {
+                showToast('请输入核销码', 'error');
+                return;
+            }
+            
+            try {
+                const data = await post('/api/shop/verify', { code });
+                const resultDiv = document.getElementById('verify-result');
+                const infoDiv = document.getElementById('verify-info');
+                
+                resultDiv.style.display = 'block';
+                infoDiv.innerHTML = `
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                        <h4 style="color:#10b981;">✓ 核销码有效</h4>
+                        <button class="bt bt-primary" onclick="confirmVerify('${code}')">确认核销</button>
+                    </div>
+                    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;">
+                        <div><strong>商品名称：</strong>${data.item.name}</div>
+                        <div><strong>商品类型：</strong>${data.item.type === 'title' ? '称号' : '其他'}</div>
+                        <div><strong>购买者：</strong>${data.item.buyer}</div>
+                        <div><strong>购买时间：</strong>${new Date(data.item.purchasedAt).toLocaleString('zh-CN')}</div>
+                    </div>
+                    ${data.item.description ? `<div style="margin-top:12px;"><strong>描述：</strong>${data.item.description}</div>` : ''}
+                `;
+            } catch (e) {
+                const resultDiv = document.getElementById('verify-result');
+                const infoDiv = document.getElementById('verify-info');
+                resultDiv.style.display = 'block';
+                infoDiv.innerHTML = `<div style="color:#ef4444;text-align:center;padding:20px;">✗ ${e.message || '核销码无效'}</div>`;
+            }
+        }
+
+        async function confirmVerify(code) {
+            if (!confirm('确认核销此商品？')) return;
+            
+            try {
+                const data = await post('/api/shop/confirm', { code });
+                showToast(data.message || '核销成功', 'success');
+                document.getElementById('verify-result').style.display = 'none';
+                document.getElementById('verify-code-input').value = '';
+            } catch (e) {
+                showToast(e.message || '核销失败', 'error');
+            }
         }
 
         document.addEventListener('DOMContentLoaded', loadStats);

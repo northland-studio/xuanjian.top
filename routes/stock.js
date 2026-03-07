@@ -101,7 +101,7 @@ async function updateStockPrices() {
     }
 }
 
-setInterval(updateStockPrices, 60000);
+setInterval(() => updateStockPrices().catch(err => console.error('股票价格更新定时任务错误:', err)), 60000);
 
 router.get('/stocks', async (req, res) => {
     try {

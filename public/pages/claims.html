@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>贡献点申报 - 玄剑公会</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        .claims-container { max-width: 800px; margin: 0 auto; padding: 20px; }
+        .claims-header { text-align: center; margin-bottom: 30px; }
+        .claims-header h1 { font-size: 28px; margin-bottom: 8px; color: var(--text-primary); }
+        .claims-header p { color: var(--text-secondary); }
+        .claims-tabs { display: flex; gap: 12px; margin-bottom: 24px; }
+        .claims-tab { padding: 10px 20px; border-radius: 20px; background: var(--card-bg); border: 1px solid var(--border-color); cursor: pointer; transition: all 0.3s; color: var(--text-primary); }
+        .claims-tab.active { background: var(--primary); color: white; border-color: var(--primary); }
+        .claim-form-card { background: var(--card-bg); border-radius: 16px; padding: 30px; margin-bottom: 24px; border: 1px solid var(--border-color); }
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; margin-bottom: 8px; font-weight: 500; color: var(--text-primary); }
+        .form-group input, .form-group textarea, .form-group select { width: 100%; padding: 12px 16px; border: 1px solid var(--border-color); border-radius: 8px; font-size: 14px; background: var(--bg-color); color: var(--text-primary); }
+        .form-group textarea { min-height: 100px; resize: vertical; }
+        .form-group input:focus, .form-group textarea:focus { outline: none; border-color: var(--primary); }
+        .submit-btn { padding: 14px 32px; background: var(--primary); color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: 500; cursor: pointer; transition: all 0.3s; }
+        .submit-btn:hover { background: #4f46e5; }
+        .submit-btn:disabled { background: #9ca3af; cursor: not-allowed; }
+        .claims-list { background: var(--card-bg); border-radius: 16px; overflow: hidden; border: 1px solid var(--border-color); }
+        .claim-item { padding: 20px; border-bottom: 1px solid var(--border-color); }
+        .claim-item:last-child { border-bottom: none; }
+        .claim-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
+        .claim-amount { font-size: 24px; font-weight: 700; color: #f59e0b; }
+        .claim-status { padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 500; }
+        .claim-status.pending { background: #fef3c7; color: #92400e; }
+        .claim-status.approved { background: #d1fae5; color: #065f46; }
+        .claim-status.rejected { background: #fee2e2; color: #991b1b; }
+        .claim-reason { color: var(--text-primary); margin-bottom: 8px; line-height: 1.6; }
+        .claim-meta { font-size: 12px; color: var(--text-secondary); }
+        .claim-review { margin-top: 12px; padding: 12px; background: var(--bg-color); border-radius: 8px; }
+        .review-actions { display: flex; gap: 12px; margin-top: 12px; }
+        .review-btn { padding: 8px 16px; border-radius: 6px; font-size: 14px; cursor: pointer; border: none; transition: all 0.3s; }
+        .approve-btn { background: #10b981; color: white; }
+        .reject-btn { background: #ef4444; color: white; }
+        .empty-state { text-align: center; padding: 40px; color: var(--text-secondary); }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="navbar-content">
+            <a href="/" class="navbar-brand">
+                <img src="/icon.png" alt="玄剑公会" class="navbar-logo">
+                <div class="navbar-title">
+                    <span class="navbar-title-cn">我的世界玄剑公会</span>
+                    <span class="navbar-title-en">Minecraft Xuanjian Guild</span>
+                </div>
+            </a>
+            <div class="navbar-nav">
+                <a href="/daily" class="nav-link">日报</a>
+                <a href="/decision" class="nav-link">决策</a>
+                <a href="/forum" class="nav-link">贴吧</a>
+                <a href="/stock" class="nav-link">股市</a>
+                <a href="/shop" class="nav-link">商城</a>
+                <a href="/rankings" class="nav-link">排行榜</a>
+                <a href="/social" class="nav-link">社交媒体</a>
+                <div class="nav-user">
+                    <button class="theme-toggle" onclick="toggleTheme()" title="切换主题">
+                        <svg class="moon-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path>
+                        </svg>
+                        <svg class="sun-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path>
+                        </svg>
+                    </button>
+                    <a href="/notifications" class="nav-notification" title="通知">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
+                        </svg>
+                        <span class="notification-badge" id="nav-notification-badge" style="display: none;">0</span>
+                    </a>
+                    <a href="/login" class="nav-login-btn">登录</a>
+                </div>
+            </div>
+            <button class="mobile-menu-btn">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        <div class="claims-container">
+            <div class="claims-header">
+                <h1>贡献点申报</h1>
+                <p>申请贡献点奖励，管理员审核后发放</p>
+            </div>
+
+            <div class="claims-tabs">
+                <div class="claims-tab active" data-tab="submit">提交申报</div>
+                <div class="claims-tab" data-tab="my">我的申报</div>
+                <div class="claims-tab" data-tab="pending" id="pendingTab" style="display: none;">待审核</div>
+            </div>
+
+            <div id="submitTab" class="tab-content">
+                <div class="claim-form-card">
+                    <form id="claimForm">
+                        <div class="form-group">
+                            <label for="amount">申报贡献点数量</label>
+                            <input type="number" id="amount" name="amount" min="1" required placeholder="请输入数量">
+                        </div>
+                        <div class="form-group">
+                            <label for="reason">申报原因</label>
+                            <textarea id="reason" name="reason" required placeholder="请详细说明申报原因（至少10个字符）"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="evidence">证明资料（选填）</label>
+                            <input type="text" id="evidence" name="evidence" placeholder="可填写链接或说明">
+                        </div>
+                        <button type="submit" class="submit-btn" id="submitBtn">提交申报</button>
+                    </form>
+                </div>
+            </div>
+
+            <div id="myTab" class="tab-content" style="display: none;">
+                <div class="claims-list" id="myClaimsList">
+                    <div class="loading-spinner"></div>
+                </div>
+            </div>
+
+            <div id="pendingTabContent" class="tab-content" style="display: none;">
+                <div class="claims-list" id="pendingClaimsList">
+                    <div class="loading-spinner"></div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="/js/common.js"></script>
+    <script>
+        const token = localStorage.getItem('token');
+        let currentUser = null;
+
+        async function init() {
+            if (!token) {
+                window.location.href = '/login';
+                return;
+            }
+            
+            try {
+                currentUser = await get('/api/auth/me');
+                if (currentUser.level >= 1) {
+                    document.getElementById('pendingTab').style.display = 'block';
+                }
+            } catch (e) {
+                console.error('获取用户信息失败:', e);
+            }
+        }
+
+        document.querySelectorAll('.claims-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.claims-tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                
+                document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
+                
+                const tabId = tab.dataset.tab;
+                if (tabId === 'pending') {
+                    document.getElementById('pendingTabContent').style.display = 'block';
+                } else {
+                    document.getElementById(tabId + 'Tab').style.display = 'block';
+                }
+                
+                if (tabId === 'my') loadMyClaims();
+                if (tabId === 'pending') loadPendingClaims();
+            });
+        });
+
+        document.getElementById('claimForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const amount = parseInt(document.getElementById('amount').value);
+            const reason = document.getElementById('reason').value;
+            const evidence = document.getElementById('evidence').value;
+            
+            const submitBtn = document.getElementById('submitBtn');
+            submitBtn.disabled = true;
+            submitBtn.textContent = '提交中...';
+            
+            try {
+                const res = await fetch('/api/claims', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ amount, reason, evidence })
+                });
+                
+                const data = await res.json();
+                
+                if (res.ok) {
+                    showToast(data.message || '申报提交成功');
+                    document.getElementById('claimForm').reset();
+                } else {
+                    showToast(data.error || '提交失败', 'error');
+                }
+            } catch (err) {
+                console.error('提交申报错误:', err);
+                showToast('网络错误', 'error');
+            }
+            
+            submitBtn.disabled = false;
+            submitBtn.textContent = '提交申报';
+        });
+
+        async function loadMyClaims() {
+            try {
+                const data = await get('/api/claims');
+                const claims = data.claims || [];
+                const list = document.getElementById('myClaimsList');
+                
+                if (claims.length === 0) {
+                    list.innerHTML = '<div class="empty-state">暂无申报记录</div>';
+                    return;
+                }
+                
+                list.innerHTML = claims.map(c => `
+                    <div class="claim-item">
+                        <div class="claim-header">
+                            <div class="claim-amount">+${c.amount}</div>
+                            <span class="claim-status ${c.status}">${getStatusText(c.status)}</span>
+                        </div>
+                        <div class="claim-reason">${c.reason}</div>
+                        ${c.review_note ? `<div class="claim-review"><strong>审核备注：</strong>${c.review_note}</div>` : ''}
+                        <div class="claim-meta">提交于 ${formatDate(c.created_at)}</div>
+                    </div>
+                `).join('');
+            } catch (e) {
+                console.error('加载申报列表错误:', e);
+                showToast('加载失败', 'error');
+            }
+        }
+
+        async function loadPendingClaims() {
+            try {
+                const data = await get('/api/claims?status=pending');
+                const claims = data.claims || [];
+                const list = document.getElementById('pendingClaimsList');
+                
+                if (claims.length === 0) {
+                    list.innerHTML = '<div class="empty-state">暂无待审核申报</div>';
+                    return;
+                }
+                
+                list.innerHTML = claims.map(c => `
+                    <div class="claim-item">
+                        <div class="claim-header">
+                            <div>
+                                <div class="claim-amount">+${c.amount}</div>
+                                <div style="font-size: 14px; color: var(--text-secondary);">申请人：${c.nickname || c.username}</div>
+                            </div>
+                            <span class="claim-status pending">待审核</span>
+                        </div>
+                        <div class="claim-reason">${c.reason}</div>
+                        ${c.evidence ? `<div style="margin: 8px 0; color: var(--text-secondary);"><strong>证明：</strong>${c.evidence}</div>` : ''}
+                        <div class="claim-meta">提交于 ${formatDate(c.created_at)}</div>
+                        <div class="review-actions">
+                            <button class="review-btn approve-btn" onclick="reviewClaim(${c.id}, 'approved')">通过</button>
+                            <button class="review-btn reject-btn" onclick="reviewClaim(${c.id}, 'rejected')">拒绝</button>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (e) {
+                console.error('加载待审核申报错误:', e);
+                showToast('加载失败', 'error');
+            }
+        }
+
+        async function reviewClaim(id, status) {
+            const note = status === 'rejected' ? prompt('请输入拒绝理由（可选）：') : prompt('请输入审核备注（可选）：');
+            if (status === 'rejected' && note === null) return;
+            
+            try {
+                const res = await fetch(`/api/claims/${id}/review`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ status, reviewNote: note || '' })
+                });
+                
+                const data = await res.json();
+                
+                if (res.ok) {
+                    showToast(data.message || '审核完成');
+                    loadPendingClaims();
+                } else {
+                    showToast(data.error || '审核失败', 'error');
+                }
+            } catch (e) {
+                console.error('审核申报错误:', e);
+                showToast('网络错误', 'error');
+            }
+        }
+
+        function getStatusText(status) {
+            const map = { pending: '待审核', approved: '已通过', rejected: '已拒绝' };
+            return map[status] || status;
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return '未知时间';
+            const date = new Date(dateStr);
+            if (isNaN(date.getTime())) return dateStr;
+            return date.toLocaleString('zh-CN', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        init();
+    </script>
+</body>
+</html>

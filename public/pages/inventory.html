@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的仓库 - 玄剑公会</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        .inventory-container { max-width: 1000px; margin: 0 auto; padding: 20px; }
+        .inventory-header { text-align: center; margin-bottom: 30px; }
+        .inventory-header h1 { font-size: 28px; margin-bottom: 8px; color: var(--text-primary); }
+        .inventory-tabs { display: flex; gap: 12px; margin-bottom: 24px; }
+        .inventory-tab { padding: 10px 20px; border-radius: 20px; background: var(--card-bg); border: 1px solid var(--border-color); cursor: pointer; transition: all 0.3s; color: var(--text-primary); }
+        .inventory-tab.active { background: var(--primary); color: white; border-color: var(--primary); }
+        .items-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
+        .item-card { background: var(--card-bg); border-radius: 16px; overflow: hidden; border: 1px solid var(--border-color); }
+        .item-image { height: 120px; background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); display: flex; align-items: center; justify-content: center; }
+        .item-image img { max-width: 80%; max-height: 80%; }
+        .item-content { padding: 16px; }
+        .item-name { font-size: 16px; font-weight: 600; margin-bottom: 8px; color: var(--text-primary); }
+        .item-type { font-size: 12px; color: var(--text-secondary); margin-bottom: 8px; }
+        .item-code { background: var(--bg-color); padding: 8px 12px; border-radius: 8px; font-family: monospace; font-size: 14px; color: var(--primary); text-align: center; margin-top: 8px; }
+        .item-status { font-size: 12px; margin-top: 8px; }
+        .item-status.verified { color: #10b981; }
+        .item-status.pending { color: #f59e0b; }
+        .title-item { display: flex; align-items: center; gap: 12px; padding: 16px; background: var(--card-bg); border-radius: 12px; border: 1px solid var(--border-color); margin-bottom: 12px; }
+        .title-badge { padding: 4px 12px; border-radius: 8px; font-size: 14px; font-weight: 600; }
+        .title-info { flex: 1; }
+        .title-name { font-weight: 600; color: var(--text-primary); }
+        .title-desc { font-size: 12px; color: var(--text-secondary); }
+        .title-actions { display: flex; gap: 8px; }
+        .equip-btn { padding: 6px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; border: none; transition: all 0.3s; }
+        .equip-btn.equipped { background: #10b981; color: white; }
+        .equip-btn:not(.equipped) { background: var(--primary); color: white; }
+        .empty-state { text-align: center; padding: 40px; color: var(--text-secondary); }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="navbar-content">
+            <a href="/" class="navbar-brand">
+                <img src="/icon.png" alt="玄剑公会" class="navbar-logo">
+                <div class="navbar-title">
+                    <span class="navbar-title-cn">我的世界玄剑公会</span>
+                    <span class="navbar-title-en">Minecraft Xuanjian Guild</span>
+                </div>
+            </a>
+            <div class="navbar-nav">
+                <a href="/daily" class="nav-link">日报</a>
+                <a href="/decision" class="nav-link">决策</a>
+                <a href="/forum" class="nav-link">贴吧</a>
+                <a href="/stock" class="nav-link">股市</a>
+                <a href="/shop" class="nav-link">商城</a>
+                <a href="/rankings" class="nav-link">排行榜</a>
+                <a href="/social" class="nav-link">社交媒体</a>
+                <div class="nav-user">
+                    <button class="theme-toggle" onclick="toggleTheme()" title="切换主题">
+                        <svg class="moon-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path>
+                        </svg>
+                        <svg class="sun-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path>
+                        </svg>
+                    </button>
+                    <a href="/notifications" class="nav-notification" title="通知">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
+                        </svg>
+                        <span class="notification-badge" id="nav-notification-badge" style="display: none;">0</span>
+                    </a>
+                    <a href="/login" class="nav-login-btn">登录</a>
+                </div>
+            </div>
+            <button class="mobile-menu-btn">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        <div class="inventory-container">
+            <div class="inventory-header">
+                <h1>我的仓库</h1>
+            </div>
+
+            <div class="inventory-tabs">
+                <div class="inventory-tab active" data-tab="items">商品</div>
+                <div class="inventory-tab" data-tab="titles">称号</div>
+            </div>
+
+            <div id="itemsTab" class="tab-content">
+                <div class="items-grid" id="itemsGrid">
+                    <div class="loading-spinner"></div>
+                </div>
+            </div>
+
+            <div id="titlesTab" class="tab-content" style="display: none;">
+                <div id="titlesList">
+                    <div class="loading-spinner"></div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="/js/common.js"></script>
+    <script>
+        const token = localStorage.getItem('token');
+        let equippedTitle = null;
+
+        async function init() {
+            if (!token) {
+                window.location.href = '/login';
+                return;
+            }
+        }
+
+        document.querySelectorAll('.inventory-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.inventory-tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                
+                document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
+                document.getElementById(tab.dataset.tab + 'Tab').style.display = 'block';
+                
+                if (tab.dataset.tab === 'items') loadItems();
+                if (tab.dataset.tab === 'titles') loadTitles();
+            });
+        });
+
+        async function loadItems() {
+            try {
+                const data = await get('/api/shop/my-items');
+                const items = data.items || [];
+                const grid = document.getElementById('itemsGrid');
+                
+                if (items.length === 0) {
+                    grid.innerHTML = '<div class="empty-state">暂无商品</div>';
+                    return;
+                }
+                
+                grid.innerHTML = items.map(item => `
+                    <div class="item-card">
+                        <div class="item-image">
+                            ${item.image ? `<img src="${item.image}" alt="${item.name}">` : `<span style="font-size: 36px; color: white;">📦</span>`}
+                        </div>
+                        <div class="item-content">
+                            <div class="item-name">${item.name}</div>
+                            <div class="item-type">类型: ${item.type === 'title' ? '称号' : '其他'}</div>
+                            ${item.verification_code ? `
+                                <div class="item-code">核销码: ${item.verification_code}</div>
+                                <div class="item-status ${item.verified_at ? 'verified' : 'pending'}">
+                                    ${item.verified_at ? `已核销 (${formatDate(item.verified_at)})` : '待核销'}
+                                </div>
+                            ` : ''}
+                            <div style="font-size: 12px; color: var(--text-secondary); margin-top: 8px;">
+                                购买于 ${formatDate(item.purchased_at)}
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (e) {
+                console.error('加载商品错误:', e);
+                showToast('加载失败', 'error');
+            }
+        }
+
+        async function loadTitles() {
+            try {
+                const data = await get('/api/shop/my-titles');
+                const titles = data.titles || [];
+                equippedTitle = data.equippedTitle;
+                const list = document.getElementById('titlesList');
+                
+                if (titles.length === 0) {
+                    list.innerHTML = '<div class="empty-state">暂无称号</div>';
+                    return;
+                }
+                
+                list.innerHTML = titles.map(title => {
+                    const isCustom = !title.is_preset;
+                    const editBtn = isCustom ? `<button class="edit-title-btn" onclick="editCustomTitle(${title.id}, '${title.name}', '${title.color}')">编辑</button>` : '';
+                    return `
+                    <div class="title-item">
+                        <div class="title-badge" style="background: ${title.color}; color: white;">${title.name}</div>
+                        <div class="title-info">
+                            <div class="title-name">${title.name}</div>
+                            <div class="title-desc">${title.description || ''}</div>
+                        </div>
+                        <div class="title-actions">
+                            ${editBtn}
+                            <button class="equip-btn ${equippedTitle === title.id ? 'equipped' : ''}" 
+                                    onclick="equipTitle(${title.id}, this)">
+                                ${equippedTitle === title.id ? '已装备' : '装备'}
+                            </button>
+                        </div>
+                    </div>
+                `}).join('');
+            } catch (e) {
+                console.error('加载称号错误:', e);
+                showToast('加载失败', 'error');
+            }
+        }
+
+        async function equipTitle(titleId, btn) {
+            try {
+                await put('/api/titles/equip', { titleId });
+                
+                document.querySelectorAll('.equip-btn').forEach(b => {
+                    b.classList.remove('equipped');
+                    b.textContent = '装备';
+                });
+                
+                btn.classList.add('equipped');
+                btn.textContent = '已装备';
+                equippedTitle = titleId;
+                
+                showToast('装备成功');
+            } catch (e) {
+                console.error('装备称号错误:', e);
+                showToast(e.message || '装备失败', 'error');
+            }
+        }
+
+        async function editCustomTitle(titleId, currentName, currentColor) {
+            const newName = prompt('请输入新的称号名称:', currentName);
+            if (newName === null || newName.trim() === '') return;
+            
+            const newColor = prompt('请输入新的颜色 (如 #6366f1):', currentColor);
+            if (newColor === null) return;
+            
+            try {
+                const res = await fetch(`/api/titles/${titleId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ 
+                        name: newName.trim(), 
+                        color: newColor || currentColor,
+                        is_active: 1
+                    })
+                });
+                
+                const data = await res.json();
+                
+                if (res.ok) {
+                    showToast('称号修改成功');
+                    loadTitles();
+                } else {
+                    showToast(data.error || '修改失败', 'error');
+                }
+            } catch (e) {
+                console.error('修改称号错误:', e);
+                showToast('修改失败', 'error');
+            }
+        }
+
+        init();
+        loadItems();
+    </script>
+</body>
+</html>
