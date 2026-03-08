@@ -1,6 +1,7 @@
 {
-  "version": "2.0.5",
-  "downloadUrl": "https://ghproxy.net/https://github.com/northland-studio/download/releases/download/3/XuanjianDesktop_v2.0.5_Setup.exe",
-  "releaseNotes": "<ul><li>新增通知系统，支持日报/决策更新、评论、点赞通知</li><li>侧边栏添加通知入口，实时显示未读数量</li><li>修复邮箱验证状态不同步问题</li><li>修复版本号显示问题</li></ul>",
+  "version": "2.0.8",
+  "downloadUrl": "https://ghproxy.net/https://github.com/northland-studio/download/releases/download/3/XuanjianDesktop_v2.0.8_Setup.exe",
+  "androidDownloadUrl": "https://xuanjian.top/downloads/app-release.apk",
+  "releaseNotes": "<ul><li>新增商城、排行榜、仓库、申报页面</li><li>新增股票详情页曲线图和买入卖出功能</li><li>顶部工具栏新增通知按钮和帖子搜索框</li><li>优化侧边栏导航布局，支持滚动</li><li>修复排行榜API调用错误</li><li>修复股票卖出按钮样式</li><li>移除侧边栏搜索和通知入口</li></ul>",
   "forceUpdate": false
 }

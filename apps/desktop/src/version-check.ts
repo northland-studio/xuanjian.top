@@ -2,7 +2,7 @@
 import { API_BASE, STATIC_BASE } from './config';
 
 // 当前应用版本（从 package.json 或 tauri.conf.json 同步）
-export const APP_VERSION = '2.0.5';
+export const APP_VERSION = '2.0.8';
 
 export interface VersionInfo {
     version: string;

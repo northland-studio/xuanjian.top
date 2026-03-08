@@ -75,6 +75,8 @@ interface User {
     posts_count?: number;
     comments_count?: number;
     likes_count?: number;
+    title_name?: string;
+    title_color?: string;
 }
 
 interface Post {
@@ -87,6 +89,8 @@ interface Post {
     author_username: string;
     author_avatar?: string;
     author_contribution?: number;
+    author_title_name?: string;
+    author_title_color?: string;
     created_at: string;
     updated_at?: string;
     likes: number;
@@ -129,6 +133,7 @@ interface AppState {
     isLoading: boolean;
     editingPostId: number | null;
     uploadedImages: string[];
+    searchQuery: string;
 }
 
 const state: AppState = {
@@ -138,7 +143,8 @@ const state: AppState = {
     token: null,
     isLoading: false,
     editingPostId: null,
-    uploadedImages: []
+    uploadedImages: [],
+    searchQuery: ''
 };
 
 const $ = (id: string) => document.getElementById(id);
@@ -236,7 +242,9 @@ function renderPostCard(post: Post, canEdit: boolean = false): string {
     const firstImage = post.images?.[0];
     const avatarHtml = renderAvatar(post.author_avatar, post.author_nickname);
     
-    // 置顶标识
+    const titleHtml = post.author_title_name ? 
+        `<span class="user-title" style="background:${post.author_title_color || '#6366f1'};color:white;padding:2px 6px;border-radius:4px;font-size:11px;margin-left:6px;">${post.author_title_name}</span>` : '';
+    
     const pinnedBadge = post.is_pinned ? `
         <span class="pinned-badge">
             <svg viewBox="0 0 24 24" width="14" height="14">
@@ -276,7 +284,7 @@ function renderPostCard(post: Post, canEdit: boolean = false): string {
             <div class="post-header">
                 ${avatarHtml}
                 <div class="post-meta">
-                    <span class="post-author">${post.author_nickname || '未知用户'}</span>
+                    <span class="post-author">${post.author_nickname || '未知用户'}${titleHtml}</span>
                     <span class="post-time">${formatDate(post.created_at)}</span>
                 </div>
                 <div class="post-badges">
@@ -948,10 +956,12 @@ function showSearchPage() {
     if (!contentBody) return;
     if (titleEl) titleEl.textContent = '搜索';
     
+    const initialQuery = state.searchQuery || '';
+    
     contentBody.innerHTML = `
         <div class="search-container">
             <div class="search-box">
-                <input type="text" class="search-input" id="search-input" placeholder="搜索帖子标题、内容或标签...">
+                <input type="text" class="search-input" id="search-input" placeholder="搜索帖子标题、内容或标签..." value="${initialQuery}">
                 <button class="search-btn" id="search-btn" type="button">搜索</button>
             </div>
         </div>
@@ -966,6 +976,10 @@ function showSearchPage() {
         searchInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') performSearch(searchInput.value);
         });
+        
+        if (initialQuery) {
+            performSearch(initialQuery);
+        }
     }
 }
 
@@ -1237,66 +1251,270 @@ async function showStockPage() {
         const portfolio = portfolioRes;
         
         contentBody.innerHTML = `
-            <div class="card" style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); color: white; margin-bottom: 16px;">
-                <div style="font-size: 14px; opacity: 0.8;">总资产</div>
-                <div style="font-size: 28px; font-weight: bold; margin: 8px 0;">${(portfolio.totalValue || 0).toFixed(2)}</div>
-                <div style="display: flex; gap: 24px; margin-top: 16px;">
-                    <div>
-                        <div style="font-size: 18px; font-weight: 600;">${(portfolio.availablePoints || 0).toFixed(2)}</div>
-                        <div style="font-size: 12px; opacity: 0.8;">可用贡献点</div>
-                    </div>
-                    <div>
-                        <div style="font-size: 18px; font-weight: 600; color: ${(portfolio.totalProfit || 0) >= 0 ? '#86efac' : '#fca5a5'};">${(portfolio.totalProfit || 0) >= 0 ? '+' : ''}${(portfolio.totalProfit || 0).toFixed(2)}</div>
-                        <div style="font-size: 12px; opacity: 0.8;">浮动盈亏</div>
+            <div class="stock-overview">
+                <div class="stock-overview-card">
+                    <div class="stock-overview-label">总资产</div>
+                    <div class="stock-overview-value">${(portfolio.totalValue || 0).toFixed(2)}</div>
+                </div>
+                <div class="stock-overview-card">
+                    <div class="stock-overview-label">可用贡献点</div>
+                    <div class="stock-overview-value">${(portfolio.availablePoints || 0).toFixed(2)}</div>
+                </div>
+                <div class="stock-overview-card">
+                    <div class="stock-overview-label">浮动盈亏</div>
+                    <div class="stock-overview-value ${((portfolio.totalProfit || 0) >= 0 ? 'positive' : 'negative')}">${(portfolio.totalProfit || 0) >= 0 ? '+' : ''}${(portfolio.totalProfit || 0).toFixed(2)}</div>
+                </div>
+            </div>
+            
+            <div class="stock-section">
+                <div class="section-title">股票市场</div>
+                <div class="stock-list">
+                    ${stocks.map(stock => {
+                        const change = stock.current_price - stock.base_price;
+                        const changePercent = (change / stock.base_price * 100).toFixed(2);
+                        const isUp = change >= 0;
+                        return `
+                            <div class="stock-card" onclick="window.showStockDetail(${stock.id})">
+                                <div class="stock-info">
+                                    <div class="stock-symbol">${stock.symbol}</div>
+                                    <div class="stock-name">${stock.name}</div>
+                                </div>
+                                <div class="stock-price">
+                                    <div class="stock-current-price">${stock.current_price.toFixed(2)}</div>
+                                    <div class="stock-change ${isUp ? 'up' : 'down'}">
+                                        ${isUp ? '+' : ''}${change.toFixed(2)} (${isUp ? '+' : ''}${changePercent}%)
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            </div>
+            
+            <div class="stock-section">
+                <div class="section-title">我的持仓</div>
+                <div class="stock-list">
+                    ${(portfolio.holdings || []).length === 0 ? '<div class="empty-state"><p>暂无持仓</p></div>' :
+                        portfolio.holdings.map((h: any) => `
+                            <div class="stock-card" onclick="window.showStockDetail(${h.stock_id})">
+                                <div class="stock-info">
+                                    <div class="stock-symbol">${h.symbol}</div>
+                                    <div class="stock-name">${h.name} · ${h.shares}股</div>
+                                </div>
+                                <div class="stock-price">
+                                    <div class="stock-current-price">${(h.current_value || 0).toFixed(2)}</div>
+                                    <div class="stock-change ${(h.profit_loss || 0) >= 0 ? 'up' : 'down'}">
+                                        ${(h.profit_loss || 0) >= 0 ? '+' : ''}${(h.profit_loss || 0).toFixed(2)}
+                                    </div>
+                                </div>
+                            </div>
+                        `).join('')
+                    }
+                </div>
+            </div>
+        `;
+    } catch (e) {
+        contentBody.innerHTML = `<div class="empty-state"><h3>加载失败</h3></div>`;
+    }
+}
+
+async function showStockDetail(stockId: number) {
+    const contentBody = $('content-body');
+    if (!contentBody) return;
+    
+    contentBody.innerHTML = '<div class="loading-spinner"></div>';
+    
+    try {
+        const [stockRes, historyRes, portfolioRes] = await Promise.all([
+            fetchAPI<{ stock: any }>(`/stock/stocks/${stockId}`),
+            fetchAPI<{ history: any[] }>(`/stock/stocks/${stockId}/history?days=30`),
+            fetchAPI<{ availablePoints: number; holdings: any[] }>('/stock/portfolio')
+        ]);
+        
+        const stock = stockRes.stock;
+        const history = historyRes.history || [];
+        const portfolio = portfolioRes;
+        const holding = (portfolio.holdings || []).find((h: any) => h.stock_id === stockId);
+        
+        const change = stock.current_price - stock.base_price;
+        const changePercent = (change / stock.base_price * 100).toFixed(2);
+        const isUp = change >= 0;
+        
+        const chartData = history.map((h: any) => ({
+            date: new Date(h.recorded_at).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' }),
+            price: h.price
+        }));
+        
+        const maxPrice = Math.max(...chartData.map(d => d.price));
+        const minPrice = Math.min(...chartData.map(d => d.price));
+        const priceRange = maxPrice - minPrice || 1;
+        
+        let chartHtml = '';
+        if (chartData.length > 1) {
+            const chartWidth = 600;
+            const chartHeight = 200;
+            const padding = 40;
+            const graphWidth = chartWidth - padding * 2;
+            const graphHeight = chartHeight - padding * 2;
+            
+            const points = chartData.map((d, i) => {
+                const x = padding + (i / (chartData.length - 1)) * graphWidth;
+                const y = padding + graphHeight - ((d.price - minPrice) / priceRange) * graphHeight;
+                return `${x},${y}`;
+            }).join(' ');
+            
+            const pathD = `M ${points.split(' ').map(p => {
+                const [x, y] = p.split(',');
+                return `L ${x} ${y}`;
+            }).join(' ').replace('L', 'M')}`;
+            
+            chartHtml = `
+                <div class="stock-chart-container">
+                    <svg viewBox="0 0 ${chartWidth} ${chartHeight}" class="stock-chart">
+                        <defs>
+                            <linearGradient id="chartGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                                <stop offset="0%" style="stop-color:#6366f1;stop-opacity:0.3" />
+                                <stop offset="100%" style="stop-color:#6366f1;stop-opacity:0" />
+                            </linearGradient>
+                        </defs>
+                        <path d="${pathD.replace(/M ([\d.]+),([\d.]+)/, `M $1 ${chartHeight - padding} L $1 $2`)} L ${chartWidth - padding} ${chartHeight - padding} Z" fill="url(#chartGradient)" />
+                        <polyline points="${points}" fill="none" stroke="#6366f1" stroke-width="2" />
+                        ${chartData.filter((_, i) => i % 5 === 0).map((d, i) => {
+                            const x = padding + ((i * 5) / (chartData.length - 1)) * graphWidth;
+                            const y = padding + graphHeight - ((d.price - minPrice) / priceRange) * graphHeight;
+                            return `
+                                <circle cx="${x}" cy="${y}" r="3" fill="#6366f1" />
+                                <text x="${x}" y="${chartHeight - 10}" text-anchor="middle" class="chart-label">${d.date}</text>
+                            `;
+                        }).join('')}
+                    </svg>
+                </div>
+            `;
+        }
+        
+        contentBody.innerHTML = `
+            <div class="stock-detail-header">
+                <button class="back-btn" onclick="window.showStockPage()">← 返回</button>
+                <div class="stock-detail-info">
+                    <div class="stock-detail-symbol">${stock.symbol}</div>
+                    <div class="stock-detail-name">${stock.name}</div>
+                </div>
+                <div class="stock-detail-price">
+                    <div class="stock-detail-current">${stock.current_price.toFixed(2)}</div>
+                    <div class="stock-detail-change ${isUp ? 'up' : 'down'}">
+                        ${isUp ? '+' : ''}${change.toFixed(2)} (${isUp ? '+' : ''}${changePercent}%)
                     </div>
                 </div>
             </div>
             
-            <div class="section-title" style="margin-top: 20px;">股票市场</div>
-            ${stocks.map(stock => {
-                const change = stock.current_price - stock.base_price;
-                const changePercent = (change / stock.base_price * 100).toFixed(2);
-                const isUp = change >= 0;
-                return `
-                    <div class="card" onclick="showStockDetail(${stock.id})" style="cursor: pointer;">
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <div>
-                                <div style="font-weight: 600;">${stock.symbol}</div>
-                                <div style="font-size: 12px; color: var(--text-muted);">${stock.name}</div>
-                            </div>
-                            <div style="text-align: right;">
-                                <div style="font-size: 20px; font-weight: 700;">${stock.current_price.toFixed(2)}</div>
-                                <div style="font-size: 12px; color: ${isUp ? 'var(--success)' : 'var(--danger)'};">
-                                    ${isUp ? '+' : ''}${change.toFixed(2)} (${isUp ? '+' : ''}${changePercent}%)
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            }).join('')}
+            ${chartHtml}
             
-            <div class="section-title" style="margin-top: 20px;">我的持仓</div>
-            ${(portfolio.holdings || []).length === 0 ? '<div class="empty-state"><p>暂无持仓</p></div>' :
-                portfolio.holdings.map((h: any) => `
-                    <div class="card">
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <div>
-                                <div style="font-weight: 600;">${h.symbol}</div>
-                                <div style="font-size: 12px; color: var(--text-muted);">${h.name} · ${h.shares}股</div>
-                            </div>
-                            <div style="text-align: right;">
-                                <div style="font-size: 18px; font-weight: 700;">${(h.current_value || 0).toFixed(2)}</div>
-                                <div style="font-size: 12px; color: ${(h.profit_loss || 0) >= 0 ? 'var(--success)' : 'var(--danger)'};">
-                                    ${(h.profit_loss || 0) >= 0 ? '+' : ''}${(h.profit_loss || 0).toFixed(2)}
-                                </div>
-                            </div>
-                        </div>
+            <div class="stock-detail-stats">
+                <div class="stock-stat-card">
+                    <div class="stock-stat-label">基准价</div>
+                    <div class="stock-stat-value">${stock.base_price.toFixed(2)}</div>
+                </div>
+                <div class="stock-stat-card">
+                    <div class="stock-stat-label">当前价</div>
+                    <div class="stock-stat-value">${stock.current_price.toFixed(2)}</div>
+                </div>
+                <div class="stock-stat-card">
+                    <div class="stock-stat-label">总股数</div>
+                    <div class="stock-stat-value">${stock.total_shares}</div>
+                </div>
+                <div class="stock-stat-card">
+                    <div class="stock-stat-label">我的持仓</div>
+                    <div class="stock-stat-value">${holding ? holding.shares : 0}股</div>
+                </div>
+            </div>
+            
+            <div class="stock-trade-section">
+                <div class="stock-trade-tabs">
+                    <button class="stock-trade-tab active" data-type="buy" onclick="window.switchTradeTab('buy')">买入</button>
+                    <button class="stock-trade-tab" data-type="sell" onclick="window.switchTradeTab('sell')">卖出</button>
+                </div>
+                
+                <div class="stock-trade-form">
+                    <div class="form-group">
+                        <label>数量（股）</label>
+                        <input type="number" id="trade-shares" min="1" placeholder="请输入股数" value="1">
                     </div>
-                `).join('')
-            }
+                    <div class="form-group">
+                        <label>预估金额</label>
+                        <div class="trade-amount" id="trade-amount">${stock.current_price.toFixed(2)} 贡献点</div>
+                    </div>
+                    <div class="form-group">
+                        <label>可用贡献点：<span id="available-points">${(portfolio.availablePoints || 0).toFixed(2)}</span></label>
+                    </div>
+                    <div class="trade-buttons">
+                        <button class="btn btn-primary btn-block" id="buy-btn" onclick="window.executeTrade(${stockId}, 'buy')">买入</button>
+                        <button class="btn btn-danger btn-block" id="sell-btn" onclick="window.executeTrade(${stockId}, 'sell')" style="display: none;">卖出</button>
+                    </div>
+                </div>
+            </div>
         `;
-    } catch (e) {
-        contentBody.innerHTML = `<div class="empty-state"><h3>加载失败</h3></div>`;
+        
+        const sharesInput = $('trade-shares') as HTMLInputElement;
+        if (sharesInput) {
+            sharesInput.addEventListener('input', () => {
+                const shares = parseInt(sharesInput.value) || 0;
+                const amount = shares * stock.current_price;
+                const amountEl = $('trade-amount');
+                if (amountEl) {
+                    amountEl.textContent = `${amount.toFixed(2)} 贡献点`;
+                }
+            });
+        }
+        
+    } catch (e: any) {
+        contentBody.innerHTML = `<div class="empty-state"><h3>加载失败</h3><p>${e.message}</p></div>`;
+    }
+}
+
+function switchTradeTab(type: 'buy' | 'sell') {
+    document.querySelectorAll('.stock-trade-tab').forEach(tab => {
+        tab.classList.remove('active');
+        if ((tab as HTMLElement).dataset.type === type) {
+            tab.classList.add('active');
+        }
+    });
+    
+    const buyBtn = $('buy-btn') as HTMLElement;
+    const sellBtn = $('sell-btn') as HTMLElement;
+    if (buyBtn && sellBtn) {
+        buyBtn.style.display = type === 'buy' ? 'block' : 'none';
+        sellBtn.style.display = type === 'sell' ? 'block' : 'none';
+    }
+}
+
+async function executeTrade(stockId: number, type: 'buy' | 'sell') {
+    if (!state.currentUser) {
+        showToast('请先登录', 'error');
+        showLoginModal();
+        return;
+    }
+    
+    if (!checkEmailVerified()) return;
+    
+    const sharesInput = $('trade-shares') as HTMLInputElement;
+    const shares = parseInt(sharesInput?.value) || 0;
+    
+    if (shares <= 0) {
+        showToast('请输入有效的股数', 'error');
+        return;
+    }
+    
+    try {
+        const endpoint = type === 'buy' ? `/stock/stocks/${stockId}/buy` : `/stock/stocks/${stockId}/sell`;
+        await fetchAPI(endpoint, {
+            method: 'POST',
+            body: JSON.stringify({ shares })
+        });
+        
+        showToast(type === 'buy' ? '买入成功' : '卖出成功', 'success');
+        showStockDetail(stockId);
+    } catch (e: any) {
+        showToast(e.message || '操作失败', 'error');
     }
 }
 
@@ -1384,6 +1602,419 @@ async function buyMakeupCard() {
         showCheckinPage();
     } catch (e: any) {
         showToast(e.message || '购买失败', 'error');
+    }
+}
+
+async function showShopPage() {
+    const contentBody = $('content-body');
+    if (!contentBody) return;
+    
+    contentBody.innerHTML = '<div class="loading-spinner"></div>';
+    
+    try {
+        const titlesData = await fetchAPI<{ titles: any[] }>('/titles');
+        const titles = (titlesData.titles || []).filter((t: any) => t.in_shop == 1);
+        
+        const itemsData = await fetchAPI<{ items: any[] }>('/shop/items?type=other');
+        const items = itemsData.items || [];
+        
+        contentBody.innerHTML = `
+            <div class="shop-page">
+                <div class="shop-tabs">
+                    <button class="shop-tab active" data-type="titles">称号</button>
+                    <button class="shop-tab" data-type="items">商品</button>
+                </div>
+                
+                <div id="shop-titles" class="shop-section">
+                    <h3 style="margin-bottom: 16px;">称号商店</h3>
+                    <div class="shop-grid">
+                        ${titles.map((t: any) => `
+                            <div class="shop-card">
+                                <div class="shop-card-header" style="background: ${t.color};">
+                                    <span class="shop-title-badge">${t.name}</span>
+                                </div>
+                                <div class="shop-card-body">
+                                    <div class="shop-item-name">${t.name}</div>
+                                    <div class="shop-item-desc">${t.description || '独特的身份标识'}</div>
+                                    <div class="shop-item-footer">
+                                        <span class="shop-price">${t.price} 贡献点</span>
+                                        <button class="btn btn-primary btn-sm" onclick="window.buyTitle(${t.id}, '${t.name}', ${t.price})">购买</button>
+                                    </div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+                
+                <div id="shop-items" class="shop-section" style="display: none;">
+                    <h3 style="margin-bottom: 16px;">商品列表</h3>
+                    <div class="shop-grid">
+                        ${items.map((item: any) => `
+                            <div class="shop-card">
+                                <div class="shop-card-header">
+                                    ${item.image ? `<img src="${getImageUrl(item.image)}" alt="${item.name}">` : '<span style="font-size: 48px;">📦</span>'}
+                                </div>
+                                <div class="shop-card-body">
+                                    <div class="shop-item-name">${item.name}</div>
+                                    <div class="shop-item-desc">${item.description || '暂无描述'}</div>
+                                    <div class="shop-item-footer">
+                                        <span class="shop-price">${item.price} 贡献点</span>
+                                        <button class="btn btn-primary btn-sm" onclick="window.buyItem(${item.id}, '${item.name}', ${item.price})">购买</button>
+                                    </div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.querySelectorAll('.shop-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.shop-tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                const type = (tab as HTMLElement).dataset.type;
+                if (type === 'titles') {
+                    ($('shop-titles') as HTMLElement).style.display = 'block';
+                    ($('shop-items') as HTMLElement).style.display = 'none';
+                } else {
+                    ($('shop-titles') as HTMLElement).style.display = 'none';
+                    ($('shop-items') as HTMLElement).style.display = 'block';
+                }
+            });
+        });
+    } catch (e: any) {
+        contentBody.innerHTML = `<div class="empty-state"><p>加载失败: ${e.message}</p></div>`;
+    }
+}
+
+async function showRankingsPage() {
+    const contentBody = $('content-body');
+    if (!contentBody) return;
+    
+    contentBody.innerHTML = '<div class="loading-spinner"></div>';
+    
+    try {
+        const data = await fetchAPI<{ rankings: any[] }>('/rankings/contribution');
+        const rankings = data.rankings || [];
+        
+        contentBody.innerHTML = `
+            <div class="rankings-page">
+                <div class="rankings-tabs">
+                    <button class="ranking-tab active" data-type="contribution">贡献榜</button>
+                    <button class="ranking-tab" data-type="posts-likes">点赞榜</button>
+                    <button class="ranking-tab" data-type="posts-views">浏览榜</button>
+                    <button class="ranking-tab" data-type="checkin">签到榜</button>
+                    <button class="ranking-tab" data-type="stock">股市榜</button>
+                </div>
+                <div id="rankings-list">
+                    ${rankings.map((r: any, i: number) => `
+                        <div class="ranking-item" onclick="window.showProfile('${r.username}')">
+                            <div class="ranking-rank">${i < 3 ? ['🥇', '🥈', '🥉'][i] : i + 1}</div>
+                            <div class="ranking-avatar">
+                                ${renderAvatar(r.avatar, r.nickname, 40)}
+                            </div>
+                            <div class="ranking-info">
+                                <div class="ranking-name">${r.nickname}</div>
+                                <div class="ranking-value">${(r.contribution || 0).toFixed(2)}</div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+        
+        document.querySelectorAll('.ranking-tab').forEach(tab => {
+            tab.addEventListener('click', async () => {
+                document.querySelectorAll('.ranking-tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                const type = (tab as HTMLElement).dataset.type;
+                const list = $('rankings-list');
+                if (list) {
+                    list.innerHTML = '<div class="loading-spinner"></div>';
+                    try {
+                        const data = await fetchAPI<{ rankings: any[] }>(`/rankings/${type}`);
+                        const rankings = data.rankings || [];
+                        list.innerHTML = rankings.map((r: any, i: number) => {
+                            let value = 0;
+                            if (type === 'contribution') value = r.contribution || 0;
+                            else if (type === 'posts-likes') value = r.likes || 0;
+                            else if (type === 'posts-views') value = r.views || 0;
+                            else if (type === 'checkin') value = r.max_continuous_days || 0;
+                            else if (type === 'stock') value = r.profit_loss || 0;
+                            return `
+                            <div class="ranking-item" onclick="window.showProfile('${r.username}')">
+                                <div class="ranking-rank">${i < 3 ? ['🥇', '🥈', '🥉'][i] : i + 1}</div>
+                                <div class="ranking-avatar">
+                                    ${renderAvatar(r.avatar, r.nickname, 40)}
+                                </div>
+                                <div class="ranking-info">
+                                    <div class="ranking-name">${r.nickname}</div>
+                                    <div class="ranking-value">${value.toFixed ? value.toFixed(2) : value}</div>
+                                </div>
+                            </div>
+                        `}).join('');
+                    } catch (e: any) {
+                        list.innerHTML = `<p>加载失败: ${e.message}</p>`;
+                    }
+                }
+            });
+        });
+    } catch (e: any) {
+        contentBody.innerHTML = `<div class="empty-state"><p>加载失败: ${e.message}</p></div>`;
+    }
+}
+
+async function showInventoryPage() {
+    const contentBody = $('content-body');
+    if (!contentBody) return;
+    
+    if (!state.currentUser) {
+        showToast('请先登录', 'error');
+        showLoginModal();
+        return;
+    }
+    
+    contentBody.innerHTML = '<div class="loading-spinner"></div>';
+    
+    try {
+        const titlesData = await fetchAPI<{ titles: any[], equippedTitle: number }>('/titles/my');
+        const titles = titlesData.titles || [];
+        const equippedTitle = titlesData.equippedTitle;
+        
+        const itemsData = await fetchAPI<{ items: any[] }>('/shop/my-items');
+        const items = itemsData.items || [];
+        
+        contentBody.innerHTML = `
+            <div class="inventory-page">
+                <div class="inventory-tabs">
+                    <div class="inventory-tab active" data-tab="titles">称号</div>
+                    <div class="inventory-tab" data-tab="items">商品</div>
+                </div>
+                
+                <div id="inventory-titles" class="inventory-section">
+                    ${titles.length === 0 ? '<div class="empty-state"><p>暂无称号</p></div>' :
+                        titles.map((t: any) => `
+                            <div class="inventory-item">
+                                <div class="title-badge" style="background: ${t.color}; color: white;">${t.name}</div>
+                                <div class="inventory-item-info">
+                                    <div class="inventory-item-name">${t.name}</div>
+                                    <div class="inventory-item-desc">${t.description || ''}</div>
+                                </div>
+                                <button class="btn ${equippedTitle === t.id ? 'btn-success' : 'btn-primary'} btn-sm" 
+                                        onclick="window.equipTitle(${t.id}, this)">
+                                    ${equippedTitle === t.id ? '已装备' : '装备'}
+                                </button>
+                            </div>
+                        `).join('')
+                    }
+                </div>
+                
+                <div id="inventory-items" class="inventory-section" style="display: none;">
+                    ${items.length === 0 ? '<div class="empty-state"><p>暂无商品</p></div>' :
+                        items.map((item: any) => `
+                            <div class="inventory-item">
+                                <div class="inventory-item-icon">📦</div>
+                                <div class="inventory-item-info">
+                                    <div class="inventory-item-name">${item.name}</div>
+                                    <div class="inventory-item-desc">购买于 ${formatDate(item.purchased_at)}</div>
+                                    ${item.verification_code ? `<div class="verification-code">核销码: ${item.verification_code}</div>` : ''}
+                                </div>
+                                <span class="inventory-status ${item.verified_at ? 'verified' : ''}">
+                                    ${item.verified_at ? '已核销' : '未核销'}
+                                </span>
+                            </div>
+                        `).join('')
+                    }
+                </div>
+            </div>
+        `;
+        
+        document.querySelectorAll('.inventory-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.inventory-tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                const tabId = (tab as HTMLElement).dataset.tab;
+                if (tabId === 'titles') {
+                    ($('inventory-titles') as HTMLElement).style.display = 'block';
+                    ($('inventory-items') as HTMLElement).style.display = 'none';
+                } else {
+                    ($('inventory-titles') as HTMLElement).style.display = 'none';
+                    ($('inventory-items') as HTMLElement).style.display = 'block';
+                }
+            });
+        });
+    } catch (e: any) {
+        contentBody.innerHTML = `<div class="empty-state"><p>加载失败: ${e.message}</p></div>`;
+    }
+}
+
+async function showClaimsPage() {
+    const contentBody = $('content-body');
+    if (!contentBody) return;
+    
+    if (!state.currentUser) {
+        showToast('请先登录', 'error');
+        showLoginModal();
+        return;
+    }
+    
+    contentBody.innerHTML = '<div class="loading-spinner"></div>';
+    
+    try {
+        const data = await fetchAPI<{ claims: any[] }>('/claims');
+        const claims = data.claims || [];
+        
+        contentBody.innerHTML = `
+            <div class="claims-page">
+                <div class="claims-header">
+                    <h2>贡献点申报</h2>
+                    <p>申请贡献点奖励，管理员审核后发放</p>
+                </div>
+                
+                <div class="claims-tabs">
+                    <div class="claims-tab active" data-tab="submit">提交申报</div>
+                    <div class="claims-tab" data-tab="my">我的申报</div>
+                </div>
+                
+                <div id="claims-submit" class="claims-section">
+                    <div class="claim-form-card">
+                        <div class="form-group">
+                            <label>申报贡献点数量</label>
+                            <input type="number" id="claim-amount" min="1" placeholder="请输入数量">
+                        </div>
+                        <div class="form-group">
+                            <label>申报原因</label>
+                            <textarea id="claim-reason" rows="3" placeholder="请详细说明申报原因（至少10个字符）"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>证明资料（选填）</label>
+                            <input type="text" id="claim-evidence" placeholder="可填写链接或说明">
+                        </div>
+                        <button class="btn btn-primary" onclick="window.submitClaim()">提交申报</button>
+                    </div>
+                </div>
+                
+                <div id="claims-my" class="claims-section" style="display: none;">
+                    ${claims.length === 0 ? '<div class="empty-state"><p>暂无申报记录</p></div>' :
+                        claims.map((c: any) => `
+                            <div class="claim-item">
+                                <div class="claim-header">
+                                    <div class="claim-amount">+${c.amount}</div>
+                                    <span class="claim-status ${c.status}">${c.status === 'pending' ? '待审核' : c.status === 'approved' ? '已通过' : '已拒绝'}</span>
+                                </div>
+                                <div class="claim-reason">${c.reason}</div>
+                                ${c.review_note ? `<div class="claim-review"><strong>审核备注：</strong>${c.review_note}</div>` : ''}
+                                <div class="claim-meta">提交于 ${formatDate(c.created_at)}</div>
+                            </div>
+                        `).join('')
+                    }
+                </div>
+            </div>
+        `;
+        
+        document.querySelectorAll('.claims-tab').forEach(tab => {
+            tab.addEventListener('click', async () => {
+                document.querySelectorAll('.claims-tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                const tabId = (tab as HTMLElement).dataset.tab;
+                if (tabId === 'submit') {
+                    ($('claims-submit') as HTMLElement).style.display = 'block';
+                    ($('claims-my') as HTMLElement).style.display = 'none';
+                } else {
+                    ($('claims-submit') as HTMLElement).style.display = 'none';
+                    ($('claims-my') as HTMLElement).style.display = 'block';
+                }
+            });
+        });
+    } catch (e: any) {
+        contentBody.innerHTML = `<div class="empty-state"><p>加载失败: ${e.message}</p></div>`;
+    }
+}
+
+async function buyTitle(id: number, name: string, price: number) {
+    if (!state.currentUser) {
+        showToast('请先登录', 'error');
+        showLoginModal();
+        return;
+    }
+    
+    if (!confirm(`确定购买称号「${name}」？\n价格：${price} 贡献点`)) return;
+    
+    try {
+        await fetchAPI(`/titles/${id}/buy`, { method: 'POST' });
+        showToast('购买成功！请在"我的仓库"中查看');
+    } catch (e: any) {
+        showToast(e.message || '购买失败', 'error');
+    }
+}
+
+async function buyItem(id: number, name: string, price: number) {
+    if (!state.currentUser) {
+        showToast('请先登录', 'error');
+        showLoginModal();
+        return;
+    }
+    
+    if (!confirm(`确定购买「${name}」？\n价格：${price} 贡献点`)) return;
+    
+    try {
+        await fetchAPI(`/shop/items/${id}/buy`, { method: 'POST' });
+        showToast('购买成功！请在"我的仓库"中查看');
+    } catch (e: any) {
+        showToast(e.message || '购买失败', 'error');
+    }
+}
+
+async function equipTitle(titleId: number, btn: HTMLButtonElement) {
+    try {
+        await fetchAPI('/titles/equip', {
+            method: 'PUT',
+            body: JSON.stringify({ titleId })
+        });
+        
+        document.querySelectorAll('.inventory-item .btn-success').forEach(b => {
+            (b as HTMLButtonElement).classList.remove('btn-success');
+            (b as HTMLButtonElement).classList.add('btn-primary');
+            (b as HTMLButtonElement).textContent = '装备';
+        });
+        
+        btn.classList.remove('btn-primary');
+        btn.classList.add('btn-success');
+        btn.textContent = '已装备';
+        
+        showToast('装备成功');
+    } catch (e: any) {
+        showToast(e.message || '装备失败', 'error');
+    }
+}
+
+async function submitClaim() {
+    const amount = parseInt(($('claim-amount') as HTMLInputElement)?.value);
+    const reason = ($('claim-reason') as HTMLTextAreaElement)?.value.trim();
+    const evidence = ($('claim-evidence') as HTMLInputElement)?.value.trim();
+    
+    if (!amount || amount <= 0) {
+        showToast('请输入有效的申报数量', 'error');
+        return;
+    }
+    
+    if (!reason || reason.length < 10) {
+        showToast('申报原因至少10个字符', 'error');
+        return;
+    }
+    
+    try {
+        await fetchAPI('/claims', {
+            method: 'POST',
+            body: JSON.stringify({ amount, reason, evidence })
+        });
+        showToast('申报提交成功，请等待管理员审核');
+        ($('claim-amount') as HTMLInputElement).value = '';
+        ($('claim-reason') as HTMLTextAreaElement).value = '';
+        ($('claim-evidence') as HTMLInputElement).value = '';
+    } catch (e: any) {
+        showToast(e.message || '提交失败', 'error');
     }
 }
 
@@ -1933,7 +2564,11 @@ async function navigateTo(page: string) {
             notifications: '通知中心',
             admin: '管理后台',
             stock: '虚拟股票',
-            checkin: '每日签到'
+            shop: '商城',
+            rankings: '排行榜',
+            checkin: '每日签到',
+            inventory: '我的仓库',
+            claims: '贡献点申报'
         };
         titleEl.textContent = titles[page] || '首页';
     }
@@ -1963,8 +2598,20 @@ async function navigateTo(page: string) {
         case 'stock':
             await showStockPage();
             break;
+        case 'shop':
+            await showShopPage();
+            break;
+        case 'rankings':
+            await showRankingsPage();
+            break;
         case 'checkin':
             await showCheckinPage();
+            break;
+        case 'inventory':
+            await showInventoryPage();
+            break;
+        case 'claims':
+            await showClaimsPage();
             break;
         default:
             await loadPosts();
@@ -2049,20 +2696,21 @@ async function refreshUserInfo() {
 // 加载未读通知数量
 async function loadUnreadNotificationCount() {
     if (!state.token) {
-        const badge = $('sidebar-notification-badge');
-        if (badge) badge.style.display = 'none';
+        const headerBadge = $('header-notification-badge');
+        if (headerBadge) headerBadge.style.display = 'none';
         return;
     }
 
     try {
         const data = await fetchAPI<{ unreadCount: number }>('/notifications?limit=1');
-        const badge = $('sidebar-notification-badge');
-        if (badge) {
+        const headerBadge = $('header-notification-badge');
+        
+        if (headerBadge) {
             if (data.unreadCount > 0) {
-                badge.textContent = data.unreadCount > 99 ? '99+' : data.unreadCount.toString();
-                badge.style.display = 'inline';
+                headerBadge.textContent = data.unreadCount > 99 ? '99+' : data.unreadCount.toString();
+                headerBadge.style.display = 'flex';
             } else {
-                badge.style.display = 'none';
+                headerBadge.style.display = 'none';
             }
         }
     } catch (error) {
@@ -2419,6 +3067,26 @@ function initApp() {
         });
     }
     
+    const notificationBtn = $('notification-btn');
+    if (notificationBtn) {
+        notificationBtn.addEventListener('click', () => {
+            navigateTo('notifications');
+        });
+    }
+    
+    const headerSearchInput = $('header-search-input');
+    if (headerSearchInput) {
+        headerSearchInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                const query = (headerSearchInput as HTMLInputElement).value.trim();
+                if (query) {
+                    state.searchQuery = query;
+                    navigateTo('search');
+                }
+            }
+        });
+    }
+    
     const userCard = $('user-card');
     if (userCard) {
         userCard.addEventListener('click', () => {
@@ -2441,6 +3109,8 @@ function initApp() {
             }
         });
     }
+    
+
     
     const loginClose = $('login-close');
     if (loginClose) {
@@ -2521,9 +3191,20 @@ function initApp() {
     (window as any).removeImage = removeImage;
     (window as any).insertFormat = insertFormat;
     (window as any).showStockPage = showStockPage;
+    (window as any).showStockDetail = showStockDetail;
+    (window as any).switchTradeTab = switchTradeTab;
+    (window as any).executeTrade = executeTrade;
     (window as any).showCheckinPage = showCheckinPage;
     (window as any).doCheckin = doCheckin;
     (window as any).buyMakeupCard = buyMakeupCard;
+    (window as any).showShopPage = showShopPage;
+    (window as any).showRankingsPage = showRankingsPage;
+    (window as any).showInventoryPage = showInventoryPage;
+    (window as any).showClaimsPage = showClaimsPage;
+    (window as any).buyTitle = buyTitle;
+    (window as any).buyItem = buyItem;
+    (window as any).equipTitle = equipTitle;
+    (window as any).submitClaim = submitClaim;
 
     // 定时刷新未读通知数（每30秒）
     setInterval(loadUnreadNotificationCount, 30000);

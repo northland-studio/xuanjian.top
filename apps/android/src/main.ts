@@ -37,6 +37,9 @@ function initTheme() {
     
     const themeToggle = $('themeToggle');
     themeToggle?.addEventListener('click', toggleTheme);
+    
+    const notificationBtn = $('notificationBtn');
+    notificationBtn?.addEventListener('click', () => navigateTo('notifications'));
 }
 
 function toggleTheme() {
@@ -106,10 +109,13 @@ async function navigateTo(page: string) {
         case 'daily': await loadPosts('daily'); break;
         case 'decision': await loadPosts('decision'); break;
         case 'forum': await loadPosts('forum'); break;
-        case 'social': showSocialPage(); break;
-        case 'notifications': await showNotificationsPage(); break;
         case 'stock': await showStockPage(); break;
+        case 'shop': await showShopPage(); break;
+        case 'rankings': await showRankingsPage(); break;
         case 'checkin': await showCheckinPage(); break;
+        case 'inventory': await showInventoryPage(); break;
+        case 'claims': await showClaimsPage(); break;
+        case 'notifications': await showNotificationsPage(); break;
     }
 }
 
@@ -380,19 +386,6 @@ function bindPostClick() {
             if (id) showPostDetail(parseInt(id));
         });
     });
-}
-
-// 社交媒体页
-function showSocialPage() {
-    const content = $('content-body');
-    if (!content) return;
-    
-    content.innerHTML = `
-        <div class="card">
-            <h3 class="card-title">社交媒体</h3>
-            <p style="color: var(--text-secondary); margin-top: 8px;">敬请期待...</p>
-        </div>
-    `;
 }
 
 // 帖子详情
@@ -1605,3 +1598,513 @@ async function buyMakeupCard() {
 (window as any).showCheckinPage = showCheckinPage;
 (window as any).doCheckin = doCheckin;
 (window as any).buyMakeupCard = buyMakeupCard;
+(window as any).showShopPage = showShopPage;
+(window as any).showRankingsPage = showRankingsPage;
+(window as any).showInventoryPage = showInventoryPage;
+(window as any).showClaimsPage = showClaimsPage;
+(window as any).buyTitle = buyTitle;
+(window as any).buyItem = buyItem;
+(window as any).equipTitle = equipTitle;
+(window as any).submitClaim = submitClaim;
+
+// 商城页面
+async function showShopPage() {
+    const content = $('content-body');
+    if (!content) return;
+    
+    content.innerHTML = '<div class="loading-spinner"><div class="spinner"></div></div>';
+    
+    try {
+        const [titlesData, itemsData] = await Promise.all([
+            fetchAPI<{ titles: any[] }>('/titles'),
+            fetchAPI<{ items: any[] }>('/shop/items')
+        ]);
+        
+        const titles = (titlesData.titles || []).filter((t: any) => t.in_shop == 1);
+        const items = itemsData.items || [];
+        
+        content.innerHTML = `
+            <button class="btn btn-secondary" onclick="goBack()" style="margin-bottom: 16px;">返回</button>
+            
+            <div style="display: flex; gap: 8px; margin-bottom: 16px; overflow-x: auto; padding-bottom: 8px;">
+                <button class="btn btn-sm btn-primary" onclick="loadShopCategory('all', this)">全部</button>
+                <button class="btn btn-sm btn-secondary" onclick="loadShopCategory('title', this)">称号</button>
+                <button class="btn btn-sm btn-secondary" onclick="loadShopCategory('item', this)">道具</button>
+            </div>
+            
+            <div id="shop-content">
+                <h3 class="section-title">称号商店</h3>
+                ${titles.length === 0 ? '<p style="color: var(--text-muted);">暂无称号出售</p>' :
+                    titles.map((t: any) => `
+                        <div class="card" style="margin-bottom: 12px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <div>
+                                    <span style="background: ${t.color}; color: white; padding: 4px 8px; border-radius: 4px; font-weight: 600;">${t.name}</span>
+                                    <p style="font-size: 12px; color: var(--text-muted); margin-top: 8px;">${t.description || '独特的身份标识'}</p>
+                                </div>
+                                <div style="text-align: right;">
+                                    <div style="font-weight: 700; color: #f59e0b;">${t.price}</div>
+                                    <button class="btn btn-sm btn-primary" onclick="buyTitle(${t.id}, '${t.name}', ${t.price})" style="margin-top: 8px;">购买</button>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('')
+                }
+                
+                ${items.length > 0 ? `
+                    <h3 class="section-title" style="margin-top: 20px;">道具商店</h3>
+                    ${items.map((item: any) => `
+                        <div class="card" style="margin-bottom: 12px;">
+                            <div style="display: flex; gap: 12px; align-items: center;">
+                                ${item.image ? `<img src="${getImageUrl(item.image)}" style="width: 60px; height: 60px; border-radius: 8px; object-fit: cover;">` : '<div style="width: 60px; height: 60px; background: var(--bg-secondary); border-radius: 8px; display: flex; align-items: center; justify-content: center;">📦</div>'}
+                                <div style="flex: 1;">
+                                    <div style="font-weight: 600;">${item.name}</div>
+                                    <div style="font-size: 12px; color: var(--text-muted);">${item.description || ''}</div>
+                                    <div style="font-size: 12px; color: var(--text-muted);">库存: ${item.stock || '无限'}</div>
+                                </div>
+                                <div style="text-align: right;">
+                                    <div style="font-weight: 700; color: #f59e0b;">${item.price}</div>
+                                    <button class="btn btn-sm btn-primary" onclick="buyItem(${item.id}, '${item.name}', ${item.price})" style="margin-top: 8px;">购买</button>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('')}
+                ` : ''}
+            </div>
+        `;
+    } catch (e) {
+        content.innerHTML = `
+            <button class="btn btn-secondary" onclick="goBack()" style="margin-bottom: 16px;">返回</button>
+            <div class="empty-state"><h3>加载失败</h3></div>
+        `;
+    }
+}
+
+async function loadShopCategory(category: string, btn: HTMLElement) {
+    document.querySelectorAll('#shop-content + .btn, #shop-content ~ .btn').forEach(b => {
+        b.classList.remove('btn-primary');
+        b.classList.add('btn-secondary');
+    });
+    btn.classList.remove('btn-secondary');
+    btn.classList.add('btn-primary');
+    
+    const content = $('shop-content');
+    if (!content) return;
+    
+    content.innerHTML = '<div class="loading-spinner"><div class="spinner"></div></div>';
+    
+    try {
+        if (category === 'title') {
+            const titlesData = await fetchAPI<{ titles: any[] }>('/titles');
+            const titles = (titlesData.titles || []).filter((t: any) => t.in_shop == 1);
+            
+            content.innerHTML = `
+                <h3 class="section-title">称号商店</h3>
+                ${titles.length === 0 ? '<p style="color: var(--text-muted);">暂无称号出售</p>' :
+                    titles.map((t: any) => `
+                        <div class="card" style="margin-bottom: 12px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <div>
+                                    <span style="background: ${t.color}; color: white; padding: 4px 8px; border-radius: 4px; font-weight: 600;">${t.name}</span>
+                                    <p style="font-size: 12px; color: var(--text-muted); margin-top: 8px;">${t.description || '独特的身份标识'}</p>
+                                </div>
+                                <div style="text-align: right;">
+                                    <div style="font-weight: 700; color: #f59e0b;">${t.price}</div>
+                                    <button class="btn btn-sm btn-primary" onclick="buyTitle(${t.id}, '${t.name}', ${t.price})" style="margin-top: 8px;">购买</button>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('')
+                }
+            `;
+        } else if (category === 'item') {
+            const itemsData = await fetchAPI<{ items: any[] }>('/shop/items');
+            const items = itemsData.items || [];
+            
+            content.innerHTML = `
+                <h3 class="section-title">道具商店</h3>
+                ${items.length === 0 ? '<p style="color: var(--text-muted);">暂无道具出售</p>' :
+                    items.map((item: any) => `
+                        <div class="card" style="margin-bottom: 12px;">
+                            <div style="display: flex; gap: 12px; align-items: center;">
+                                ${item.image ? `<img src="${getImageUrl(item.image)}" style="width: 60px; height: 60px; border-radius: 8px; object-fit: cover;">` : '<div style="width: 60px; height: 60px; background: var(--bg-secondary); border-radius: 8px; display: flex; align-items: center; justify-content: center;">📦</div>'}
+                                <div style="flex: 1;">
+                                    <div style="font-weight: 600;">${item.name}</div>
+                                    <div style="font-size: 12px; color: var(--text-muted);">${item.description || ''}</div>
+                                    <div style="font-size: 12px; color: var(--text-muted);">库存: ${item.stock || '无限'}</div>
+                                </div>
+                                <div style="text-align: right;">
+                                    <div style="font-weight: 700; color: #f59e0b;">${item.price}</div>
+                                    <button class="btn btn-sm btn-primary" onclick="buyItem(${item.id}, '${item.name}', ${item.price})" style="margin-top: 8px;">购买</button>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('')
+                }
+            `;
+        } else {
+            showShopPage();
+        }
+    } catch (e) {
+        content.innerHTML = '<div class="empty-state"><p>加载失败</p></div>';
+    }
+}
+
+(window as any).loadShopCategory = loadShopCategory;
+
+// 排行榜页面
+async function showRankingsPage() {
+    const content = $('content-body');
+    if (!content) return;
+    
+    content.innerHTML = '<div class="loading-spinner"><div class="spinner"></div></div>';
+    
+    try {
+        const data = await fetchAPI<{ rankings: any[] }>('/rankings/contribution');
+        const rankings = data.rankings || [];
+        
+        content.innerHTML = `
+            <button class="btn btn-secondary" onclick="goBack()" style="margin-bottom: 16px;">返回</button>
+            
+            <div style="display: flex; gap: 8px; margin-bottom: 16px; overflow-x: auto; padding-bottom: 8px;">
+                <button class="btn btn-sm btn-primary" onclick="loadRankingType('contribution')">贡献榜</button>
+                <button class="btn btn-sm btn-secondary" onclick="loadRankingType('posts-likes')">点赞榜</button>
+                <button class="btn btn-sm btn-secondary" onclick="loadRankingType('posts-views')">浏览榜</button>
+                <button class="btn btn-sm btn-secondary" onclick="loadRankingType('checkin')">签到榜</button>
+                <button class="btn btn-sm btn-secondary" onclick="loadRankingType('stock')">股市榜</button>
+            </div>
+            
+            <div id="rankings-list">
+                ${rankings.map((r: any, i: number) => `
+                    <div class="card" onclick="showProfile('${r.username}')" style="cursor: pointer; margin-bottom: 8px;">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <div style="font-size: 20px; width: 32px; text-align: center;">${i < 3 ? ['🥇', '🥈', '🥉'][i] : i + 1}</div>
+                            <img src="${getImageUrl(r.avatar) || 'https://xuanjian.top/uploads/default-avatar.png'}" style="width: 40px; height: 40px; border-radius: 50%;" onerror="this.src='https://xuanjian.top/uploads/default-avatar.png'">
+                            <div style="flex: 1;">
+                                <div style="font-weight: 600;">${r.nickname}</div>
+                                <div style="font-size: 12px; color: var(--text-muted);">${(r.contribution || 0).toFixed(2)}</div>
+                            </div>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    } catch (e) {
+        content.innerHTML = `
+            <button class="btn btn-secondary" onclick="goBack()" style="margin-bottom: 16px;">返回</button>
+            <div class="empty-state"><h3>加载失败</h3></div>
+        `;
+    }
+}
+
+async function loadRankingType(type: string) {
+    const list = $('rankings-list');
+    if (!list) return;
+    
+    list.innerHTML = '<div class="loading-spinner"><div class="spinner"></div></div>';
+    
+    try {
+        const data = await fetchAPI<{ rankings: any[] }>(`/rankings/${type}`);
+        const rankings = data.rankings || [];
+        
+        list.innerHTML = rankings.map((r: any, i: number) => {
+            let value = 0;
+            if (type === 'contribution') value = r.contribution || 0;
+            else if (type === 'posts-likes') value = r.likes || 0;
+            else if (type === 'posts-views') value = r.views || 0;
+            else if (type === 'checkin') value = r.max_continuous_days || 0;
+            else if (type === 'stock') value = r.profit_loss || 0;
+            return `
+                <div class="card" onclick="showProfile('${r.username}')" style="cursor: pointer; margin-bottom: 8px;">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <div style="font-size: 20px; width: 32px; text-align: center;">${i < 3 ? ['🥇', '🥈', '🥉'][i] : i + 1}</div>
+                        <img src="${getImageUrl(r.avatar) || 'https://xuanjian.top/uploads/default-avatar.png'}" style="width: 40px; height: 40px; border-radius: 50%;" onerror="this.src='https://xuanjian.top/uploads/default-avatar.png'">
+                        <div style="flex: 1;">
+                            <div style="font-weight: 600;">${r.nickname}</div>
+                            <div style="font-size: 12px; color: var(--text-muted);">${value.toFixed ? value.toFixed(2) : value}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    } catch (e) {
+        list.innerHTML = '<div class="empty-state"><p>加载失败</p></div>';
+    }
+}
+
+(window as any).loadRankingType = loadRankingType;
+
+// 仓库页面
+async function showInventoryPage() {
+    const content = $('content-body');
+    if (!content) return;
+    
+    if (!state.currentUser) {
+        showLoginModal();
+        return;
+    }
+    
+    content.innerHTML = '<div class="loading-spinner"><div class="spinner"></div></div>';
+    
+    try {
+        const [titlesData, itemsData] = await Promise.all([
+            fetchAPI<{ titles: any[], equippedTitle: number }>('/titles/my'),
+            fetchAPI<{ items: any[] }>('/shop/my-items')
+        ]);
+        
+        const titles = titlesData.titles || [];
+        const equippedTitle = titlesData.equippedTitle;
+        const items = itemsData.items || [];
+        
+        content.innerHTML = `
+            <button class="btn btn-secondary" onclick="goBack()" style="margin-bottom: 16px;">返回</button>
+            
+            <div style="display: flex; gap: 8px; margin-bottom: 16px; overflow-x: auto; padding-bottom: 8px;">
+                <button class="btn btn-sm btn-primary" onclick="loadInventoryCategory('all', this)">全部</button>
+                <button class="btn btn-sm btn-secondary" onclick="loadInventoryCategory('title', this)">称号</button>
+                <button class="btn btn-sm btn-secondary" onclick="loadInventoryCategory('item', this)">道具</button>
+            </div>
+            
+            <div id="inventory-content">
+                <h3 class="section-title">我的称号</h3>
+                ${titles.length === 0 ? '<p style="color: var(--text-muted);">暂无称号</p>' :
+                    titles.map((t: any) => `
+                        <div class="card" style="margin-bottom: 8px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <div>
+                                    <span style="background: ${t.color}; color: white; padding: 4px 8px; border-radius: 4px; font-weight: 600;">${t.name}</span>
+                                    <p style="font-size: 12px; color: var(--text-muted); margin-top: 8px;">${t.description || ''}</p>
+                                </div>
+                                <button class="btn btn-sm ${equippedTitle === t.id ? 'btn-success' : 'btn-primary'}" onclick="equipTitle(${t.id})">
+                                    ${equippedTitle === t.id ? '已装备' : '装备'}
+                                </button>
+                            </div>
+                        </div>
+                    `).join('')
+                }
+                
+                ${items.length > 0 ? `
+                    <h3 class="section-title" style="margin-top: 20px;">我的道具</h3>
+                    ${items.map((item: any) => `
+                        <div class="card" style="margin-bottom: 8px;">
+                            <div style="display: flex; gap: 12px; align-items: center;">
+                                ${item.image ? `<img src="${getImageUrl(item.image)}" style="width: 50px; height: 50px; border-radius: 8px; object-fit: cover;">` : '<div style="width: 50px; height: 50px; background: var(--bg-secondary); border-radius: 8px; display: flex; align-items: center; justify-content: center;">📦</div>'}
+                                <div style="flex: 1;">
+                                    <div style="font-weight: 600;">${item.name}</div>
+                                    <div style="font-size: 12px; color: var(--text-muted);">${item.description || ''}</div>
+                                    ${item.verification_code ? `<div style="font-size: 11px; color: var(--primary); font-family: monospace;">验证码: ${item.verification_code}</div>` : ''}
+                                    ${item.verified_at ? `<div style="font-size: 11px; color: #10b981;">已验证</div>` : ''}
+                                </div>
+                            </div>
+                        </div>
+                    `).join('')}
+                ` : ''}
+            </div>
+        `;
+    } catch (e) {
+        content.innerHTML = `
+            <button class="btn btn-secondary" onclick="goBack()" style="margin-bottom: 16px;">返回</button>
+            <div class="empty-state"><h3>加载失败</h3></div>
+        `;
+    }
+}
+
+async function loadInventoryCategory(category: string, btn: HTMLElement) {
+    document.querySelectorAll('#inventory-content + .btn, #inventory-content ~ .btn').forEach(b => {
+        b.classList.remove('btn-primary');
+        b.classList.add('btn-secondary');
+    });
+    btn.classList.remove('btn-secondary');
+    btn.classList.add('btn-primary');
+    
+    const content = $('inventory-content');
+    if (!content) return;
+    
+    content.innerHTML = '<div class="loading-spinner"><div class="spinner"></div></div>';
+    
+    try {
+        if (category === 'title') {
+            const titlesData = await fetchAPI<{ titles: any[], equippedTitle: number }>('/titles/my');
+            const titles = titlesData.titles || [];
+            const equippedTitle = titlesData.equippedTitle;
+            
+            content.innerHTML = `
+                <h3 class="section-title">我的称号</h3>
+                ${titles.length === 0 ? '<p style="color: var(--text-muted);">暂无称号</p>' :
+                    titles.map((t: any) => `
+                        <div class="card" style="margin-bottom: 8px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <div>
+                                    <span style="background: ${t.color}; color: white; padding: 4px 8px; border-radius: 4px; font-weight: 600;">${t.name}</span>
+                                    <p style="font-size: 12px; color: var(--text-muted); margin-top: 8px;">${t.description || ''}</p>
+                                </div>
+                                <button class="btn btn-sm ${equippedTitle === t.id ? 'btn-success' : 'btn-primary'}" onclick="equipTitle(${t.id})">
+                                    ${equippedTitle === t.id ? '已装备' : '装备'}
+                                </button>
+                            </div>
+                        </div>
+                    `).join('')
+                }
+            `;
+        } else if (category === 'item') {
+            const itemsData = await fetchAPI<{ items: any[] }>('/shop/my-items');
+            const items = itemsData.items || [];
+            
+            content.innerHTML = `
+                <h3 class="section-title">我的道具</h3>
+                ${items.length === 0 ? '<p style="color: var(--text-muted);">暂无道具</p>' :
+                    items.map((item: any) => `
+                        <div class="card" style="margin-bottom: 8px;">
+                            <div style="display: flex; gap: 12px; align-items: center;">
+                                ${item.image ? `<img src="${getImageUrl(item.image)}" style="width: 50px; height: 50px; border-radius: 8px; object-fit: cover;">` : '<div style="width: 50px; height: 50px; background: var(--bg-secondary); border-radius: 8px; display: flex; align-items: center; justify-content: center;">📦</div>'}
+                                <div style="flex: 1;">
+                                    <div style="font-weight: 600;">${item.name}</div>
+                                    <div style="font-size: 12px; color: var(--text-muted);">${item.description || ''}</div>
+                                    ${item.verification_code ? `<div style="font-size: 11px; color: var(--primary); font-family: monospace;">验证码: ${item.verification_code}</div>` : ''}
+                                    ${item.verified_at ? `<div style="font-size: 11px; color: #10b981;">已验证</div>` : ''}
+                                </div>
+                            </div>
+                        </div>
+                    `).join('')
+                }
+            `;
+        } else {
+            showInventoryPage();
+        }
+    } catch (e) {
+        content.innerHTML = '<div class="empty-state"><p>加载失败</p></div>';
+    }
+}
+
+(window as any).loadInventoryCategory = loadInventoryCategory;
+
+// 申报页面
+async function showClaimsPage() {
+    const content = $('content-body');
+    if (!content) return;
+    
+    if (!state.currentUser) {
+        showLoginModal();
+        return;
+    }
+    
+    content.innerHTML = '<div class="loading-spinner"><div class="spinner"></div></div>';
+    
+    try {
+        const data = await fetchAPI<{ claims: any[] }>('/claims');
+        const claims = data.claims || [];
+        
+        content.innerHTML = `
+            <button class="btn btn-secondary" onclick="goBack()" style="margin-bottom: 16px;">返回</button>
+            
+            <div class="card">
+                <h3 class="card-title">提交申报</h3>
+                <div class="form-group">
+                    <label>申报贡献点数量</label>
+                    <input type="number" id="claim-amount" placeholder="请输入数量" style="width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-secondary); color: var(--text-primary);">
+                </div>
+                <div class="form-group">
+                    <label>申报原因（至少10个字符）</label>
+                    <textarea id="claim-reason" placeholder="请详细说明申报原因" style="width: 100%; min-height: 80px; padding: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-secondary); color: var(--text-primary);"></textarea>
+                </div>
+                <button class="btn btn-primary btn-block" onclick="submitClaim()">提交申报</button>
+            </div>
+            
+            <h3 class="section-title" style="margin-top: 20px;">我的申报</h3>
+            ${claims.length === 0 ? '<div class="empty-state"><p>暂无申报记录</p></div>' :
+                claims.map((c: any) => `
+                    <div class="card" style="margin-bottom: 8px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <span style="font-size: 24px; font-weight: 700; color: #f59e0b;">+${c.amount}</span>
+                            <span style="padding: 4px 8px; border-radius: 12px; font-size: 12px; background: ${c.status === 'pending' ? '#fef3c7' : c.status === 'approved' ? '#d1fae5' : '#fee2e2'}; color: ${c.status === 'pending' ? '#92400e' : c.status === 'approved' ? '#065f46' : '#991b1b'};">
+                                ${c.status === 'pending' ? '待审核' : c.status === 'approved' ? '已通过' : '已拒绝'}
+                            </span>
+                        </div>
+                        <div style="color: var(--text-secondary); margin-bottom: 8px;">${c.reason}</div>
+                        <div style="font-size: 12px; color: var(--text-muted);">提交于 ${formatDate(c.created_at)}</div>
+                    </div>
+                `).join('')
+            }
+        `;
+    } catch (e) {
+        content.innerHTML = `
+            <button class="btn btn-secondary" onclick="goBack()" style="margin-bottom: 16px;">返回</button>
+            <div class="empty-state"><h3>加载失败</h3></div>
+        `;
+    }
+}
+
+// 购买称号
+async function buyTitle(id: number, name: string, price: number) {
+    if (!state.currentUser) {
+        showLoginModal();
+        return;
+    }
+    
+    if (!confirm(`确定购买称号「${name}」？\n价格：${price} 贡献点`)) return;
+    
+    try {
+        await fetchAPI(`/titles/${id}/buy`, { method: 'POST' });
+        showToast('购买成功！请在"仓库"中查看');
+    } catch (e: any) {
+        showToast(e.message || '购买失败', 'error');
+    }
+}
+
+// 装备称号
+async function equipTitle(titleId: number) {
+    try {
+        await fetchAPI('/titles/equip', {
+            method: 'PUT',
+            body: JSON.stringify({ titleId })
+        });
+        showToast('装备成功');
+        showInventoryPage();
+    } catch (e: any) {
+        showToast(e.message || '装备失败', 'error');
+    }
+}
+
+// 提交申报
+async function submitClaim() {
+    const amount = parseInt(($('claim-amount') as HTMLInputElement)?.value);
+    const reason = ($('claim-reason') as HTMLTextAreaElement)?.value.trim();
+    
+    if (!amount || amount <= 0) {
+        showToast('请输入有效的申报数量', 'error');
+        return;
+    }
+    
+    if (!reason || reason.length < 10) {
+        showToast('申报原因至少10个字符', 'error');
+        return;
+    }
+    
+    try {
+        await fetchAPI('/claims', {
+            method: 'POST',
+            body: JSON.stringify({ amount, reason })
+        });
+        showToast('申报提交成功，请等待管理员审核');
+        showClaimsPage();
+    } catch (e: any) {
+        showToast(e.message || '提交失败', 'error');
+    }
+}
+
+// 购买商品
+async function buyItem(id: number, name: string, price: number) {
+    if (!state.currentUser) {
+        showLoginModal();
+        return;
+    }
+    
+    if (!confirm(`确定购买「${name}」？\n价格：${price} 贡献点`)) return;
+    
+    try {
+        await fetchAPI(`/shop/items/${id}/buy`, { method: 'POST' });
+        showToast('购买成功！');
+    } catch (e: any) {
+        showToast(e.message || '购买失败', 'error');
+    }
+}

@@ -1,6 +1,6 @@
 [package]
 name = "xuanjian-guild"
-version = "2.0.7"
+version = "2.0.8"
 description = "玄剑公会桌面客户端"
 authors = ["Xuanjian Guild"]
 edition = "2021"
