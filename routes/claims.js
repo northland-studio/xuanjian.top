@@ -2,7 +2,7 @@ const express = require('express');
 const db = require('../database');
 const { getLocalTimestamp } = require('../database');
 const { authMiddleware, adminMiddleware } = require('../middleware/auth');
-const { sendEmail } = require('../config/mail');
+const { sendClaimNotification, sendClaimResult } = require('../config/mail');
 const { createNotification } = require('./notifications');
 const router = express.Router();
 
@@ -99,20 +99,11 @@ router.post('/', authMiddleware, async (req, res) => {
         for (const admin of admins) {
             if (admin.email) {
                 try {
-                    await sendEmail(admin.email, '玄剑公会 - 新的贡献点申报', `
-                        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                            <h2 style="color: #6366f1;">新的贡献点申报</h2>
-                            <p><strong>申报人：</strong>${user.nickname || user.username}</p>
-                            <p><strong>申报数量：</strong>${amount} 贡献点</p>
-                            <p><strong>申报原因：</strong>${reason}</p>
-                            <p style="margin-top: 20px;">
-                                <a href="${process.env.SITE_URL || 'https://xuanjian.top'}/admin" 
-                                   style="display: inline-block; background: #6366f1; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px;">
-                                    前往审核
-                                </a>
-                            </p>
-                        </div>
-                    `);
+                    await sendClaimNotification(admin.email, {
+                        nickname: user.nickname || user.username,
+                        amount,
+                        reason
+                    });
                     console.log(`已发送通知邮件到: ${admin.email}`);
                 } catch (emailErr) {
                     console.error(`发送邮件到 ${admin.email} 失败:`, emailErr.message);
@@ -170,17 +161,7 @@ router.put('/:id/review', authMiddleware, adminMiddleware, async (req, res) => {
         
         if (claim.email) {
             try {
-                await sendEmail(claim.email, `玄剑公会 - 贡献点申报${statusText}`, `
-                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                        <h2 style="color: ${status === 'approved' ? '#10b981' : '#ef4444'};">贡献点申报${statusText}</h2>
-                        <p>您好，${claim.nickname || claim.username}！</p>
-                        <p>您提交的贡献点申报已经审核完成。</p>
-                        <p><strong>申报数量：</strong>${claim.amount} 贡献点</p>
-                        <p><strong>审核结果：</strong>${statusText}</p>
-                        ${reviewNote ? `<p><strong>审核备注：</strong>${reviewNote}</p>` : ''}
-                        ${status === 'approved' ? `<p>贡献点已发放至您的账户。</p>` : ''}
-                    </div>
-                `);
+                await sendClaimResult(claim.email, claim, status, reviewNote);
                 console.log(`已发送审核结果邮件到: ${claim.email}`);
             } catch (emailErr) {
                 console.error(`发送审核结果邮件失败:`, emailErr.message);
