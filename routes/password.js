@@ -6,6 +6,10 @@ const { getLocalTimestamp } = require('../database');
 const { sendPasswordReset } = require('../config/mail');
 const router = express.Router();
 
+function hashToken(token) {
+    return crypto.createHash('sha256').update(token).digest('hex');
+}
+
 router.post('/forgot-password', async (req, res) => {
     try {
         const { email } = req.body;
@@ -23,15 +27,16 @@ router.post('/forgot-password', async (req, res) => {
             return res.status(404).json({ error: '该邮箱未绑定任何账号' });
         }
         
-        const token = crypto.randomBytes(32).toString('hex');
+        const rawToken = crypto.randomBytes(32).toString('hex');
+        const hashedToken = hashToken(rawToken);
         const expiresAt = new Date(Date.now() + 3600000);
         
         await db.run(
             'INSERT INTO password_resets (user_id, email, token, expires_at) VALUES (?, ?, ?, ?)',
-            [user.id, email, token, expiresAt.toISOString()]
+            [user.id, email, hashedToken, expiresAt.toISOString()]
         );
         
-        const resetUrl = `${process.env.SITE_URL || 'https://xuanjian.top'}/reset-password?token=${token}`;
+        const resetUrl = `${process.env.SITE_URL || 'https://xuanjian.top'}/reset-password?token=${rawToken}`;
         
         await sendPasswordReset(email, user, resetUrl);
         
@@ -54,9 +59,11 @@ router.post('/reset-password', async (req, res) => {
             return res.status(400).json({ error: '密码长度至少6位' });
         }
         
+        const hashedToken = hashToken(token);
+        
         const reset = await db.get(
             'SELECT * FROM password_resets WHERE token = ? AND used = 0 AND expires_at > ?',
-            [token, new Date().toISOString()]
+            [hashedToken, new Date().toISOString()]
         );
         
         if (!reset) {
@@ -85,10 +92,11 @@ router.post('/reset-password', async (req, res) => {
 router.get('/verify-reset-token/:token', async (req, res) => {
     try {
         const { token } = req.params;
+        const hashedToken = hashToken(token);
         
         const reset = await db.get(
             'SELECT * FROM password_resets WHERE token = ? AND used = 0 AND expires_at > ?',
-            [token, new Date().toISOString()]
+            [hashedToken, new Date().toISOString()]
         );
         
         if (!reset) {
