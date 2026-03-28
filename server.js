@@ -43,8 +43,13 @@ app.use('/api/', limiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// 静态文件服务
-app.use(express.static(path.join(__dirname, 'public')));
+// 静态文件服务 - 禁用范围请求避免 206 问题
+app.use(express.static(path.join(__dirname, 'public'), {
+    acceptRanges: false,
+    etag: true,
+    lastModified: true,
+    maxAge: '1d'
+}));
 
 // 上传文件服务 - 确保目录存在
 const uploadsPath = path.join(__dirname, 'data', 'uploads');

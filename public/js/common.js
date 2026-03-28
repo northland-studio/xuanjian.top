@@ -620,17 +620,91 @@ document.addEventListener('click', (e) => {
 // 初始化页面
 function initPage() {
     initTheme();
+    initLazyLoad();
     renderNavbar();
     initNavbarScroll();
     checkPopupAnnouncement();
     checkEmailVerification();
 
-    // 绑定移动端菜单按钮
     const mobileMenuBtn = document.querySelector('.mobile-menu-btn');
     if (mobileMenuBtn) {
         mobileMenuBtn.addEventListener('click', toggleMobileMenu);
     }
+    
+    observeLazyImages();
 }
 
 // 页面加载完成后初始化
 document.addEventListener('DOMContentLoaded', initPage);
+
+// 图片懒加载
+let lazyLoadObserver = null;
+
+function initLazyLoad() {
+    if ('IntersectionObserver' in window) {
+        lazyLoadObserver = new IntersectionObserver((entries, observer) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    const img = entry.target;
+                    if (img.dataset.src) {
+                        img.src = img.dataset.src;
+                        img.removeAttribute('data-src');
+                        img.classList.add('lazy-loaded');
+                    }
+                    if (img.dataset.bgSrc) {
+                        img.style.backgroundImage = `url(${img.dataset.bgSrc})`;
+                        img.removeAttribute('data-bg-src');
+                        img.classList.add('lazy-loaded');
+                    }
+                    observer.unobserve(img);
+                }
+            });
+        }, {
+            rootMargin: '50px 0px',
+            threshold: 0.01
+        });
+    }
+}
+
+function observeLazyImages(container = document) {
+    if (lazyLoadObserver) {
+        container.querySelectorAll('img[data-src], [data-bg-src]').forEach(img => {
+            lazyLoadObserver.observe(img);
+        });
+    } else {
+        container.querySelectorAll('img[data-src]').forEach(img => {
+            img.src = img.dataset.src;
+            img.removeAttribute('data-src');
+        });
+        container.querySelectorAll('[data-bg-src]').forEach(el => {
+            el.style.backgroundImage = `url(${el.dataset.bgSrc})`;
+            el.removeAttribute('data-bg-src');
+        });
+    }
+}
+
+function getImageUrl(url, options = {}) {
+    if (!url) return '/uploads/default-avatar.png';
+    
+    if (url.startsWith('data:') || url.startsWith('http://') || url.startsWith('https://')) {
+        return url;
+    }
+    
+    if (url.startsWith('/')) {
+        return url;
+    }
+    
+    return '/' + url;
+}
+
+function createLazyImage(url, alt = '', options = {}) {
+    const { className = '', width = '', height = '', lazy = true } = options;
+    
+    if (lazy && url && !url.startsWith('data:')) {
+        return `<img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 ${width || 100} ${height || 100}'%3E%3Crect fill='%23f1f5f9' width='100%25' height='100%25'/%3E%3C/svg%3E" data-src="${getImageUrl(url)}" alt="${alt}" class="${className}" loading="lazy" ${width ? `width="${width}"` : ''} ${height ? `height="${height}"` : ''}>`;
+    }
+    
+    return `<img src="${getImageUrl(url)}" alt="${alt}" class="${className}" loading="lazy" ${width ? `width="${width}"` : ''} ${height ? `height="${height}"` : ''}>`;
+}
+
+initLazyLoad();
