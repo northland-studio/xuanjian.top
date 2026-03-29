@@ -26,7 +26,11 @@ app.set('trust proxy', 1);
 
 // 安全中间件
 app.use(helmet({
-    contentSecurityPolicy: false
+    contentSecurityPolicy: false,
+    crossOriginEmbedderPolicy: false,
+    crossOriginOpenerPolicy: false,
+    crossOriginResourcePolicy: false,
+    originAgentCluster: false
 }));
 
 
