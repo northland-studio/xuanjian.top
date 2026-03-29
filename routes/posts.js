@@ -192,8 +192,12 @@ router.post('/', authMiddleware, async (req, res) => {
         
         const user = await db.get('SELECT level FROM users WHERE id = ?', [req.userId]);
         
-        if ((type === 'daily' || type === 'decision') && user.level < 1) {
-            return res.status(403).json({ error: '权限不足，无法发布此类型内容' });
+        if (type === 'decision' && user.level < 1) {
+            return res.status(403).json({ error: '权限不足，无法发布决策' });
+        }
+        
+        if (type === 'daily' && user.level < 1 && user.level !== 3) {
+            return res.status(403).json({ error: '权限不足，无法发布日报' });
         }
         
         const result = await db.run(

@@ -93,8 +93,8 @@ router.put('/users/:id/level', authMiddleware, superAdminMiddleware, async (req,
         const { id } = req.params;
         const { level } = req.body;
         
-        if (level === undefined || level < 0 || level > 2) {
-            return res.status(400).json({ error: '无效的用户等级' });
+        if (level === undefined || level < 0 || level > 3) {
+            return res.status(400).json({ error: '无效的用户等级（有效值：0-3）' });
         }
         
         await db.run(

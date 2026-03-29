@@ -485,8 +485,8 @@
                 // 加载未读通知数
                 loadUnreadNotificationCount();
 
-                // 管理员显示发布按钮
-                if (user.level >= 1 && pageActions) {
+                // 管理员或日报发布者显示发布按钮
+                if ((user.level >= 1 || user.level === 3) && pageActions) {
                     pageActions.innerHTML = `
                         <a href="/editor?type=daily" class="btn btn-primary">
                             <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">

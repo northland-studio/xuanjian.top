@@ -320,7 +320,7 @@
 
         function renderProfile() {
             const container = document.getElementById('profile-container');
-            const levelText = profileUser.level === 2 ? '超级管理员' : profileUser.level === 1 ? '管理员' : '普通成员';
+            const levelText = profileUser.level === 2 ? '超级管理员' : profileUser.level === 1 ? '管理员' : profileUser.level === 3 ? '认证报社' : '普通成员';
             
             // 构建操作按钮
             let actionButtons = '';
@@ -348,7 +348,7 @@
                 
                 actionButtons += `<button class="btn btn-secondary" onclick="openSettings()">账号设置</button>
                    <button class="btn btn-danger" onclick="logout()">退出登录</button>`;
-                if (profileUser.level >= 1) {
+                if (profileUser.level >= 1 && profileUser.level !== 3) {
                     actionButtons += `<button class="btn btn-primary" onclick="window.location.href='/admin'">管理系统</button>`;
                 }
             }

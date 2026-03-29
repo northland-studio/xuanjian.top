@@ -173,7 +173,7 @@
         </div>
     </main>
 
-    <script src="/js/common.js?v=2.0.3"></script>
+    <script src="/js/common.js?v=2.0.4"></script>
     <script>
         if (!isAdmin()) { window.location.href = '/'; }
 
@@ -265,7 +265,7 @@
         }
 
         async function setUserLevel(id, currentLevel) {
-            const newLevel = prompt('设置用户等级 (0-2):', currentLevel);
+            const newLevel = prompt('设置用户等级 (0-3):\n0-普通用户 1-管理员 2-超管 3-日报发布者', currentLevel);
             if (newLevel === null) return;
             await put(`/api/admin/users/${id}/level`, { level: parseInt(newLevel) });
             loadUsers();

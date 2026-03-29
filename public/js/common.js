@@ -28,16 +28,26 @@ function isLoggedIn() {
     return !!getToken();
 }
 
-// 检查是否为管理员
+// 检查是否为管理员（3级日报发布者不是管理员）
 function isAdmin() {
     const user = getCurrentUser();
-    return user && user.level >= 1;
+    return user && user.level >= 1 && user.level !== 3;
 }
 
 // 检查是否为超级管理员
 function isSuperAdmin() {
     const user = getCurrentUser();
     return user && user.level >= 2;
+}
+
+function canPublishDaily() {
+    const user = getCurrentUser();
+    return user && (user.level >= 1 || user.level === 3);
+}
+
+function canPublishDecision() {
+    const user = getCurrentUser();
+    return user && user.level >= 1;
 }
 
 // 检查邮箱是否已验证
