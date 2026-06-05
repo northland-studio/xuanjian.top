@@ -47,6 +47,11 @@ app.use('/api/', limiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+app.use((req, res, next) => {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+    next();
+});
+
 // 静态文件服务 - 禁用范围请求避免 206 问题
 app.use(express.static(path.join(__dirname, 'public'), {
     acceptRanges: false,

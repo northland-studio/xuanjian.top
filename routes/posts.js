@@ -18,11 +18,9 @@ function processImages(images) {
 
 router.get('/public-stats', async (req, res) => {
     try {
-        const [userCount, postCount, commentCount] = await Promise.all([
-            db.get('SELECT COUNT(*) as count FROM users'),
-            db.get('SELECT COUNT(*) as count FROM posts WHERE status = "active"'),
-            db.get('SELECT COUNT(*) as count FROM comments WHERE status = "active"')
-        ]);
+        const userCount = await db.get('SELECT COUNT(*) as count FROM users');
+        const postCount = await db.get('SELECT COUNT(*) as count FROM posts WHERE status = "active"');
+        const commentCount = await db.get('SELECT COUNT(*) as count FROM comments WHERE status = "active"');
         
         res.json({
             users: userCount.count,
@@ -138,44 +136,53 @@ router.get('/:id', async (req, res) => {
         await db.run('UPDATE posts SET views = views + 1 WHERE id = ?', [id]);
         post.views++;
         
-        const allComments = await db.all(
-            `SELECT c.id, c.post_id, c.author_id, c.content, c.parent_id, c.created_at, c.status,
-                    u.nickname as author_nickname, u.avatar as author_avatar, u.username as author_username,
+        async function getReplies(parentId, depth = 0) {
+            if (depth > 2) return [];
+            
+            const replies = await db.all(
+                `SELECT c.*, u.nickname as author_nickname, u.avatar as author_avatar, u.username as author_username,
+                        t.name as author_title_name, t.color as author_title_color
+                 FROM comments c
+                 LEFT JOIN users u ON c.author_id = u.id
+                 LEFT JOIN titles t ON u.equipped_title = t.id
+                 WHERE c.parent_id = ? AND c.status = 'active'
+                 ORDER BY c.created_at ASC`,
+                [parentId]
+            );
+            
+            for (let reply of replies) {
+                const parentComment = await db.get(
+                    `SELECT u.nickname, u.username 
+                     FROM comments c 
+                     JOIN users u ON c.author_id = u.id 
+                     WHERE c.id = ?`,
+                    [reply.parent_id]
+                );
+                if (parentComment) {
+                    reply.reply_to = parentComment;
+                }
+                reply.replies = await getReplies(reply.id, depth + 1);
+            }
+            
+            return replies;
+        }
+        
+        const comments = await db.all(
+            `SELECT c.*, u.nickname as author_nickname, u.avatar as author_avatar, u.username as author_username,
                     t.name as author_title_name, t.color as author_title_color
              FROM comments c
              LEFT JOIN users u ON c.author_id = u.id
              LEFT JOIN titles t ON u.equipped_title = t.id
-             WHERE c.post_id = ? AND c.status = 'active'
-             ORDER BY c.created_at ASC`,
+             WHERE c.post_id = ? AND c.status = 'active' AND c.parent_id IS NULL
+             ORDER BY c.created_at DESC`,
             [id]
         );
         
-        const commentMap = new Map();
-        allComments.forEach(comment => {
-            comment.replies = [];
-            commentMap.set(comment.id, comment);
-        });
+        for (let comment of comments) {
+            comment.replies = await getReplies(comment.id);
+        }
         
-        const rootComments = [];
-        allComments.forEach(comment => {
-            if (comment.parent_id) {
-                const parent = commentMap.get(comment.parent_id);
-                if (parent) {
-                    const parentComment = allComments.find(c => c.id === comment.parent_id);
-                    if (parentComment) {
-                        comment.reply_to = {
-                            nickname: parentComment.author_nickname,
-                            username: parentComment.author_username
-                        };
-                    }
-                    parent.replies.push(comment);
-                }
-            } else {
-                rootComments.push(comment);
-            }
-        });
-        
-        res.json({ post, comments: rootComments });
+        res.json({ post, comments });
     } catch (error) {
         console.error('获取内容详情错误:', error);
         res.status(500).json({ error: '获取内容详情失败' });
@@ -192,12 +199,8 @@ router.post('/', authMiddleware, async (req, res) => {
         
         const user = await db.get('SELECT level FROM users WHERE id = ?', [req.userId]);
         
-        if (type === 'decision' && user.level < 1) {
-            return res.status(403).json({ error: '权限不足，无法发布决策' });
-        }
-        
-        if (type === 'daily' && user.level < 1 && user.level !== 3) {
-            return res.status(403).json({ error: '权限不足，无法发布日报' });
+        if ((type === 'daily' || type === 'decision') && user.level < 1) {
+            return res.status(403).json({ error: '权限不足，无法发布此类型内容' });
         }
         
         const result = await db.run(

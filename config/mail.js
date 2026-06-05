@@ -1,21 +1,16 @@
 const nodemailer = require('nodemailer');
 
-if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
-    console.error('错误: 请设置环境变量 SMTP_USER 和 SMTP_PASS');
-    process.exit(1);
-}
-
 const transporter = nodemailer.createTransport({
     host: 'smtp.exmail.qq.com',
     port: 465,
     secure: true,
     auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS
+        user: process.env.SMTP_USER || 'xuanjian_guild@xuanjian.top',
+        pass: process.env.SMTP_PASS || 'Pm3FFATZgEYq2LeL'
     }
 });
 
-const FROM_EMAIL = `"玄剑公会" <${process.env.SMTP_USER}>`;
+const FROM_EMAIL = `"玄剑公会" <${process.env.SMTP_USER || 'xuanjian_guild@xuanjian.top'}>`;
 
 const SITE_URL = process.env.SITE_URL || 'https://xuanjian.top';
 const LOGO_URL = 'https://xuanjian.top/icon.png';

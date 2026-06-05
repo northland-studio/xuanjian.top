@@ -1,12 +1,5 @@
 const jwt = require('jsonwebtoken');
-const crypto = require('crypto');
-
-if (!process.env.JWT_SECRET) {
-    console.error('警告: 未设置 JWT_SECRET 环境变量，使用临时随机密钥');
-    console.error('建议: 在生产环境中设置强随机 JWT_SECRET 环境变量');
-}
-
-const JWT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(64).toString('hex');
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-here';
 
 // 验证JWT令牌
 const authMiddleware = (req, res, next) => {
