@@ -755,9 +755,25 @@ async function initImageLightbox() {
     }
     
     // 为帖子内容中的图片添加点击事件
-    const postContents = document.querySelectorAll('.post-content, .forum-content, .daily-content, .decision-content, .comment-content');
+    setupLightboxForImages();
+    
+    // 监听动态内容变化
+    const observer = new MutationObserver(() => {
+        setupLightboxForImages();
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+}
+
+function setupLightboxForImages() {
+    // 选择器包含所有可能的内容容器
+    const selectors = '.post-content, .post-detail-content, .forum-content, .daily-content, .decision-content, .comment-content';
+    const postContents = document.querySelectorAll(selectors);
     
     postContents.forEach(content => {
+        // 跳过已处理的容器
+        if (content.dataset.lightboxInit) return;
+        content.dataset.lightboxInit = 'true';
+        
         const images = content.querySelectorAll('img');
         if (images.length === 0) return;
         
