@@ -1,4 +1,5 @@
 const express = require('express');
+const crypto = require('crypto');
 const db = require('../database');
 const { getLocalTimestamp } = require('../database');
 const { authMiddleware, adminMiddleware } = require('../middleware/auth');
@@ -8,7 +9,7 @@ const generateVerificationCode = () => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     let code = 'XJ';
     for (let i = 0; i < 8; i++) {
-        code += chars.charAt(Math.floor(Math.random() * chars.length));
+        code += chars.charAt(crypto.randomInt(chars.length));
     }
     return code;
 };
@@ -74,38 +75,41 @@ router.post('/items/:id/buy', authMiddleware, async (req, res) => {
             return res.status(400).json({ error: '贡献点不足' });
         }
         
-        await db.run(
-            'UPDATE users SET contribution = contribution - ? WHERE id = ?',
-            [totalPrice, req.userId]
-        );
-        
-        if (item.stock !== -1) {
-            await db.run(
-                'UPDATE shop_items SET stock = stock - ? WHERE id = ?',
-                [quantity, id]
-            );
-        }
-        
         const purchasedItems = [];
-        for (let i = 0; i < quantity; i++) {
-            const verificationCode = generateVerificationCode();
-            const result = await db.run(
-                'INSERT INTO user_items (user_id, item_id, verification_code) VALUES (?, ?, ?)',
-                [req.userId, id, verificationCode]
+        
+        await db.transaction(async () => {
+            await db.run(
+                'UPDATE users SET contribution = contribution - ? WHERE id = ?',
+                [totalPrice, req.userId]
             );
             
-            purchasedItems.push({
-                id: result.id,
-                verificationCode
-            });
-            
-            if (item.type === 'title' && item.ref_id) {
+            if (item.stock !== -1) {
                 await db.run(
-                    'INSERT OR IGNORE INTO user_titles (user_id, title_id) VALUES (?, ?)',
-                    [req.userId, item.ref_id]
+                    'UPDATE shop_items SET stock = stock - ? WHERE id = ?',
+                    [quantity, id]
                 );
             }
-        }
+            
+            for (let i = 0; i < quantity; i++) {
+                const verificationCode = generateVerificationCode();
+                const result = await db.run(
+                    'INSERT INTO user_items (user_id, item_id, verification_code) VALUES (?, ?, ?)',
+                    [req.userId, id, verificationCode]
+                );
+                
+                purchasedItems.push({
+                    id: result.id,
+                    verificationCode
+                });
+                
+                if (item.type === 'title' && item.ref_id) {
+                    await db.run(
+                        'INSERT OR IGNORE INTO user_titles (user_id, title_id) VALUES (?, ?)',
+                        [req.userId, item.ref_id]
+                    );
+                }
+            }
+        });
         
         res.json({ message: '购买成功', totalPrice, purchasedItems });
     } catch (error) {

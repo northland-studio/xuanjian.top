@@ -1,5 +1,11 @@
 const jwt = require('jsonwebtoken');
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-here';
+
+if (!process.env.JWT_SECRET) {
+    console.error('错误: 未配置 JWT_SECRET 环境变量，请在 .env 文件中设置');
+    process.exit(1);
+}
+
+const JWT_SECRET = process.env.JWT_SECRET;
 
 // 验证JWT令牌
 const authMiddleware = (req, res, next) => {

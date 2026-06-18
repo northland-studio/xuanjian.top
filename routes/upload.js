@@ -2,9 +2,42 @@ const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const sharp = require('sharp');
 const { v4: uuidv4 } = require('uuid');
 const { authMiddleware } = require('../middleware/auth');
 const router = express.Router();
+
+// 水印图片路径
+const watermarkPath = path.join(__dirname, '..', 'public', 'images', 'watermark.png');
+
+// 添加水印函数
+async function addWatermark(inputPath) {
+    // 如果水印文件不存在，直接返回原图
+    if (!fs.existsSync(watermarkPath)) {
+        return inputPath;
+    }
+    
+    // 获取原图信息
+    const metadata = await sharp(inputPath).metadata();
+    
+    // 计算水印大小（原图宽度的15%）
+    const watermarkWidth = Math.round(metadata.width * 0.15);
+    
+    // 添加水印到右下角
+    const outputPath = inputPath.replace(/(\.\w+)$/, '_watermarked$1');
+    await sharp(inputPath)
+        .composite([{
+            input: watermarkPath,
+            width: watermarkWidth,
+            gravity: 'southeast',
+            blend: 'over'
+        }])
+        .toFile(outputPath);
+    
+    // 删除原图，返回水印后的图片路径
+    fs.unlinkSync(inputPath);
+    return outputPath;
+}
 
 // 确保上传目录存在
 const uploadsDir = path.join(__dirname, '..', 'data', 'uploads');
@@ -43,18 +76,22 @@ const upload = multer({
 });
 
 // 上传图片
-router.post('/image', authMiddleware, upload.single('image'), (req, res) => {
+router.post('/image', authMiddleware, upload.single('image'), async (req, res) => {
     try {
         if (!req.file) {
             return res.status(400).json({ error: '没有上传文件' });
         }
         
-        const imageUrl = `/uploads/${req.file.filename}`;
+        // 添加水印
+        const filePath = path.join(uploadsDir, req.file.filename);
+        const watermarkedPath = await addWatermark(filePath);
+        const filename = path.basename(watermarkedPath);
+        const imageUrl = `/uploads/${filename}`;
         
         res.json({
             message: '上传成功',
             url: imageUrl,
-            filename: req.file.filename
+            filename: filename
         });
     } catch (error) {
         console.error('上传错误:', error);
@@ -63,13 +100,20 @@ router.post('/image', authMiddleware, upload.single('image'), (req, res) => {
 });
 
 // 上传多张图片
-router.post('/images', authMiddleware, upload.array('images', 10), (req, res) => {
+router.post('/images', authMiddleware, upload.array('images', 10), async (req, res) => {
     try {
         if (!req.files || req.files.length === 0) {
             return res.status(400).json({ error: '没有上传文件' });
         }
         
-        const urls = req.files.map(file => `/uploads/${file.filename}`);
+        // 为每张图片添加水印
+        const urls = [];
+        for (const file of req.files) {
+            const filePath = path.join(uploadsDir, file.filename);
+            const watermarkedPath = await addWatermark(filePath);
+            const filename = path.basename(watermarkedPath);
+            urls.push(`/uploads/${filename}`);
+        }
         
         res.json({
             message: '上传成功',

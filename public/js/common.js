@@ -579,7 +579,7 @@ function showPopupAnnouncement(announcement) {
     modal.innerHTML = `
         <div class="popup-content">
             <div class="popup-header">
-                <h3 class="popup-title">${announcement.title}</h3>
+                <h3 class="popup-title">${escapeHtml(announcement.title)}</h3>
             </div>
             <div class="popup-body">
                 <div class="popup-text">${announcement.content}</div>
@@ -717,4 +717,60 @@ function createLazyImage(url, alt = '', options = {}) {
     return `<img src="${getImageUrl(url)}" alt="${alt}" class="${className}" loading="lazy" ${width ? `width="${width}"` : ''} ${height ? `height="${height}"` : ''}>`;
 }
 
+// 动态加载CSS
+function loadCSS(url) {
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = url;
+    document.head.appendChild(link);
+}
+
+// 动态加载JS
+function loadJS(url) {
+    return new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = url;
+        script.onload = resolve;
+        script.onerror = reject;
+        document.body.appendChild(script);
+    });
+}
+
+// 初始化图片查看器
+async function initImageLightbox() {
+    // 加载lightbox CSS
+    if (!document.querySelector('link[href*="lightbox.css"]')) {
+        loadCSS('/css/lightbox.css');
+    }
+    
+    // 加载lightbox JS
+    if (!document.querySelector('script[src*="lightbox.js"]')) {
+        await loadJS('/js/lightbox.js');
+    }
+    
+    // 等待lightbox实例创建
+    if (typeof window.lightbox === 'undefined') {
+        setTimeout(initImageLightbox, 100);
+        return;
+    }
+    
+    // 为帖子内容中的图片添加点击事件
+    const postContents = document.querySelectorAll('.post-content, .forum-content, .daily-content, .decision-content, .comment-content');
+    
+    postContents.forEach(content => {
+        const images = content.querySelectorAll('img');
+        if (images.length === 0) return;
+        
+        const imageUrls = Array.from(images).map(img => img.src);
+        
+        images.forEach((img, index) => {
+            img.style.cursor = 'pointer';
+            img.addEventListener('click', () => {
+                window.lightbox.open(imageUrls, index);
+            });
+        });
+    });
+}
+
 initLazyLoad();
+initImageLightbox();

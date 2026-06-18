@@ -12,8 +12,11 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3000
-      - JWT_SECRET=${JWT_SECRET:-your-secret-key-here}
-      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-xuanjian123}
+      - JWT_SECRET=${JWT_SECRET}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASS=${SMTP_PASS}
+      - SITE_URL=${SITE_URL}
     volumes:
       # 持久化数据库
       - ./data:/app/data

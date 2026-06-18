@@ -53,15 +53,17 @@ router.post('/checkin', authMiddleware, async (req, res) => {
         
         const rewardPoints = await getRewardForDays(continuousDays);
         
-        await db.run(
-            'INSERT INTO checkins (user_id, checkin_date, continuous_days, reward_points, created_at) VALUES (?, ?, ?, ?, ?)',
-            [req.userId, today, continuousDays, rewardPoints, getLocalTimestamp()]
-        );
-        
-        await db.run(
-            'UPDATE users SET contribution = contribution + ? WHERE id = ?',
-            [rewardPoints, req.userId]
-        );
+        await db.transaction(async () => {
+            await db.run(
+                'INSERT INTO checkins (user_id, checkin_date, continuous_days, reward_points, created_at) VALUES (?, ?, ?, ?, ?)',
+                [req.userId, today, continuousDays, rewardPoints, getLocalTimestamp()]
+            );
+            
+            await db.run(
+                'UPDATE users SET contribution = contribution + ? WHERE id = ?',
+                [rewardPoints, req.userId]
+            );
+        });
         
         const user = await db.get('SELECT contribution FROM users WHERE id = ?', [req.userId]);
         
@@ -143,47 +145,49 @@ router.post('/makeup', authMiddleware, async (req, res) => {
         
         const rewardPoints = await getRewardForDays(continuousDays);
         
-        await db.run(
-            'INSERT INTO checkins (user_id, checkin_date, continuous_days, reward_points, created_at) VALUES (?, ?, ?, ?, ?)',
-            [req.userId, targetDate, continuousDays, rewardPoints, getLocalTimestamp()]
-        );
-        
-        await db.run(
-            'UPDATE makeup_cards SET quantity = quantity - 1, updated_at = ? WHERE user_id = ?',
-            [getLocalTimestamp(), req.userId]
-        );
-        
-        await db.run(
-            'INSERT INTO makeup_usage (user_id, target_date, used_at) VALUES (?, ?, ?)',
-            [req.userId, targetDate, getLocalTimestamp()]
-        );
-        
-        await db.run(
-            'UPDATE users SET contribution = contribution + ? WHERE id = ?',
-            [rewardPoints, req.userId]
-        );
-        
-        if (afterCheckin) {
-            const newContinuousDays = continuousDays + 1;
-            let currentCheckDate = dayAfter;
+        await db.transaction(async () => {
+            await db.run(
+                'INSERT INTO checkins (user_id, checkin_date, continuous_days, reward_points, created_at) VALUES (?, ?, ?, ?, ?)',
+                [req.userId, targetDate, continuousDays, rewardPoints, getLocalTimestamp()]
+            );
             
-            while (true) {
-                const checkDateStr = currentCheckDate.toISOString().split('T')[0];
-                const checkin = await db.get(
-                    'SELECT id FROM checkins WHERE user_id = ? AND checkin_date = ?',
-                    [req.userId, checkDateStr]
-                );
+            await db.run(
+                'UPDATE makeup_cards SET quantity = quantity - 1, updated_at = ? WHERE user_id = ?',
+                [getLocalTimestamp(), req.userId]
+            );
+            
+            await db.run(
+                'INSERT INTO makeup_usage (user_id, target_date, used_at) VALUES (?, ?, ?)',
+                [req.userId, targetDate, getLocalTimestamp()]
+            );
+            
+            await db.run(
+                'UPDATE users SET contribution = contribution + ? WHERE id = ?',
+                [rewardPoints, req.userId]
+            );
+            
+            if (afterCheckin) {
+                const newContinuousDays = continuousDays + 1;
+                let currentCheckDate = dayAfter;
                 
-                if (!checkin) break;
-                
-                await db.run(
-                    'UPDATE checkins SET continuous_days = ? WHERE user_id = ? AND checkin_date = ?',
-                    [newContinuousDays, req.userId, checkDateStr]
-                );
-                
-                currentCheckDate.setDate(currentCheckDate.getDate() + 1);
+                while (true) {
+                    const checkDateStr = currentCheckDate.toISOString().split('T')[0];
+                    const checkin = await db.get(
+                        'SELECT id FROM checkins WHERE user_id = ? AND checkin_date = ?',
+                        [req.userId, checkDateStr]
+                    );
+                    
+                    if (!checkin) break;
+                    
+                    await db.run(
+                        'UPDATE checkins SET continuous_days = ? WHERE user_id = ? AND checkin_date = ?',
+                        [newContinuousDays, req.userId, checkDateStr]
+                    );
+                    
+                    currentCheckDate.setDate(currentCheckDate.getDate() + 1);
+                }
             }
-        }
+        });
         
         const user = await db.get('SELECT contribution FROM users WHERE id = ?', [req.userId]);
         makeupCards = await db.get('SELECT quantity FROM makeup_cards WHERE user_id = ?', [req.userId]);
@@ -212,27 +216,29 @@ router.post('/buy-makeup-card', authMiddleware, async (req, res) => {
             return res.status(400).json({ error: '贡献点不足，购买一张补签卡需要50贡献点' });
         }
         
-        await db.run(
-            'UPDATE users SET contribution = contribution - ? WHERE id = ?',
-            [cost, req.userId]
-        );
-        
-        const existingCards = await db.get(
-            'SELECT * FROM makeup_cards WHERE user_id = ?',
-            [req.userId]
-        );
-        
-        if (existingCards) {
+        await db.transaction(async () => {
             await db.run(
-                'UPDATE makeup_cards SET quantity = quantity + ?, updated_at = ? WHERE user_id = ?',
-                [quantity, getLocalTimestamp(), req.userId]
+                'UPDATE users SET contribution = contribution - ? WHERE id = ?',
+                [cost, req.userId]
             );
-        } else {
-            await db.run(
-                'INSERT INTO makeup_cards (user_id, quantity, updated_at) VALUES (?, ?, ?)',
-                [req.userId, quantity, getLocalTimestamp()]
+            
+            const existingCards = await db.get(
+                'SELECT * FROM makeup_cards WHERE user_id = ?',
+                [req.userId]
             );
-        }
+            
+            if (existingCards) {
+                await db.run(
+                    'UPDATE makeup_cards SET quantity = quantity + ?, updated_at = ? WHERE user_id = ?',
+                    [quantity, getLocalTimestamp(), req.userId]
+                );
+            } else {
+                await db.run(
+                    'INSERT INTO makeup_cards (user_id, quantity, updated_at) VALUES (?, ?, ?)',
+                    [req.userId, quantity, getLocalTimestamp()]
+                );
+            }
+        });
         
         const updatedUser = await db.get('SELECT contribution FROM users WHERE id = ?', [req.userId]);
         const cards = await db.get('SELECT quantity FROM makeup_cards WHERE user_id = ?', [req.userId]);
@@ -355,10 +361,11 @@ router.get('/leaderboard', async (req, res) => {
     try {
         const { type = 'continuous', limit = 10 } = req.query;
         
-        let orderBy = 'continuous_days DESC';
-        if (type === 'total') {
-            orderBy = 'total_checkins DESC';
-        }
+        const orderByMap = {
+            continuous: 'MAX(c.continuous_days) DESC',
+            total: 'COUNT(c.id) DESC'
+        };
+        const orderBy = orderByMap[type] || orderByMap.continuous;
         
         const leaderboard = await db.all(
             `SELECT u.id, u.username, u.nickname, u.avatar, 
@@ -370,7 +377,7 @@ router.get('/leaderboard', async (req, res) => {
              HAVING total_checkins > 0
              ORDER BY ${orderBy}
              LIMIT ?`,
-            [parseInt(limit)]
+            [parseInt(limit) || 10]
         );
         
         res.json({ leaderboard, type });

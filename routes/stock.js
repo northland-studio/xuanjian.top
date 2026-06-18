@@ -246,39 +246,41 @@ router.post('/stocks/:id/buy', authMiddleware, async (req, res) => {
             return res.status(400).json({ error: '贡献点不足' });
         }
         
-        await db.run(
-            'UPDATE users SET contribution = contribution - ? WHERE id = ?',
-            [totalCost, req.userId]
-        );
-        
-        await db.run(
-            'UPDATE stocks SET available_shares = available_shares - ? WHERE id = ?',
-            [shares, id]
-        );
-        
-        const existingHolding = await db.get(
-            'SELECT * FROM user_stocks WHERE user_id = ? AND stock_id = ?',
-            [req.userId, id]
-        );
-        
-        if (existingHolding) {
-            const newShares = existingHolding.shares + shares;
-            const newAvgCost = (existingHolding.shares * existingHolding.avg_cost + shares * stock.current_price) / newShares;
+        await db.transaction(async () => {
             await db.run(
-                'UPDATE user_stocks SET shares = ?, avg_cost = ?, updated_at = ? WHERE user_id = ? AND stock_id = ?',
-                [newShares, newAvgCost, getLocalTimestamp(), req.userId, id]
+                'UPDATE users SET contribution = contribution - ? WHERE id = ?',
+                [totalCost, req.userId]
             );
-        } else {
+            
             await db.run(
-                'INSERT INTO user_stocks (user_id, stock_id, shares, avg_cost, updated_at) VALUES (?, ?, ?, ?, ?)',
-                [req.userId, id, shares, stock.current_price, getLocalTimestamp()]
+                'UPDATE stocks SET available_shares = available_shares - ? WHERE id = ?',
+                [shares, id]
             );
-        }
-        
-        await db.run(
-            'INSERT INTO stock_transactions (user_id, stock_id, type, shares, price, total_cost, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
-            [req.userId, id, 'buy', shares, stock.current_price, totalCost, getLocalTimestamp()]
-        );
+            
+            const existingHolding = await db.get(
+                'SELECT * FROM user_stocks WHERE user_id = ? AND stock_id = ?',
+                [req.userId, id]
+            );
+            
+            if (existingHolding) {
+                const newShares = existingHolding.shares + shares;
+                const newAvgCost = (existingHolding.shares * existingHolding.avg_cost + shares * stock.current_price) / newShares;
+                await db.run(
+                    'UPDATE user_stocks SET shares = ?, avg_cost = ?, updated_at = ? WHERE user_id = ? AND stock_id = ?',
+                    [newShares, newAvgCost, getLocalTimestamp(), req.userId, id]
+                );
+            } else {
+                await db.run(
+                    'INSERT INTO user_stocks (user_id, stock_id, shares, avg_cost, updated_at) VALUES (?, ?, ?, ?, ?)',
+                    [req.userId, id, shares, stock.current_price, getLocalTimestamp()]
+                );
+            }
+            
+            await db.run(
+                'INSERT INTO stock_transactions (user_id, stock_id, type, shares, price, total_cost, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                [req.userId, id, 'buy', shares, stock.current_price, totalCost, getLocalTimestamp()]
+            );
+        });
         
         try {
             await db.run(
@@ -336,30 +338,32 @@ router.post('/stocks/:id/sell', authMiddleware, async (req, res) => {
         
         const totalValue = Math.round(stock.current_price * shares * 100) / 100;
         
-        await db.run(
-            'UPDATE users SET contribution = contribution + ? WHERE id = ?',
-            [totalValue, req.userId]
-        );
-        
-        await db.run(
-            'UPDATE stocks SET available_shares = available_shares + ? WHERE id = ?',
-            [shares, id]
-        );
-        
-        const newShares = holding.shares - shares;
-        if (newShares > 0) {
+        await db.transaction(async () => {
             await db.run(
-                'UPDATE user_stocks SET shares = ?, updated_at = ? WHERE user_id = ? AND stock_id = ?',
-                [newShares, getLocalTimestamp(), req.userId, id]
+                'UPDATE users SET contribution = contribution + ? WHERE id = ?',
+                [totalValue, req.userId]
             );
-        } else {
-            await db.run('DELETE FROM user_stocks WHERE user_id = ? AND stock_id = ?', [req.userId, id]);
-        }
-        
-        await db.run(
-            'INSERT INTO stock_transactions (user_id, stock_id, type, shares, price, total_cost, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
-            [req.userId, id, 'sell', shares, stock.current_price, totalValue, getLocalTimestamp()]
-        );
+            
+            await db.run(
+                'UPDATE stocks SET available_shares = available_shares + ? WHERE id = ?',
+                [shares, id]
+            );
+            
+            const newShares = holding.shares - shares;
+            if (newShares > 0) {
+                await db.run(
+                    'UPDATE user_stocks SET shares = ?, updated_at = ? WHERE user_id = ? AND stock_id = ?',
+                    [newShares, getLocalTimestamp(), req.userId, id]
+                );
+            } else {
+                await db.run('DELETE FROM user_stocks WHERE user_id = ? AND stock_id = ?', [req.userId, id]);
+            }
+            
+            await db.run(
+                'INSERT INTO stock_transactions (user_id, stock_id, type, shares, price, total_cost, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                [req.userId, id, 'sell', shares, stock.current_price, totalValue, getLocalTimestamp()]
+            );
+        });
         
         try {
             await db.run(

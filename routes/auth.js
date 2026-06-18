@@ -1,6 +1,7 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const db = require('../database');
 const { getLocalTimestamp } = require('../database');
 const { JWT_SECRET, authMiddleware } = require('../middleware/auth');
@@ -9,7 +10,7 @@ const router = express.Router();
 
 // 生成6位验证码
 function generateCode() {
-    return Math.random().toString().slice(2, 8);
+    return crypto.randomInt(100000, 999999).toString();
 }
 
 // 发送验证码
