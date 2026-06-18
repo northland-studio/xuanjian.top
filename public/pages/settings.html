@@ -54,7 +54,7 @@
         </div>
     </main>
 
-    <script src="/js/common.js?v=2.0.3"></script>
+    <script src="/js/common.js?v=2.1.0"></script>
     <script>
         let currentUser = null;
 
@@ -87,7 +87,7 @@
                     <div class="settings-section">
                         <h3 class="settings-section-title">基本信息</h3>
                         <div class="form-group">
-                            <label class="form-label">用户名</label>
+                            <label class="form-label">用户�?/label>
                             <input type="text" class="form-input" value="${currentUser.username}" disabled style="background: #f8fafc;">
                         </div>
                         <div class="form-group">
@@ -98,14 +98,14 @@
                             <label class="form-label">
                                 邮箱
                                 ${currentUser.email_verified ?
-                                    '<span style="color: #10b981; font-size: 13px; margin-left: 8px;">✓ 已验证</span>' :
-                                    '<span style="color: #f59e0b; font-size: 13px; margin-left: 8px;">⚠ 未验证</span>'
+                                    '<span style="color: #10b981; font-size: 13px; margin-left: 8px;">�?已验�?/span>' :
+                                    '<span style="color: #f59e0b; font-size: 13px; margin-left: 8px;">�?未验�?/span>'
                                 }
                             </label>
                             <div style="display: flex; gap: 8px;">
                                 <input type="email" class="form-input" id="email" value="${currentUser.email || ''}" ${currentUser.email_verified ? 'disabled style="background: #f8fafc; flex: 1;"' : 'style="flex: 1;"'}>
                                 ${!currentUser.email_verified ? `
-                                    <button type="button" class="avatar-upload-btn" id="send-verify-btn" onclick="sendVerifyCode()" style="white-space: nowrap;">获取验证码</button>
+                                    <button type="button" class="avatar-upload-btn" id="send-verify-btn" onclick="sendVerifyCode()" style="white-space: nowrap;">获取验证�?/button>
                                 ` : ''}
                             </div>
                             ${!currentUser.email_verified ? `
@@ -124,8 +124,8 @@
                             <input type="password" class="form-input" id="current-password" placeholder="输入当前密码">
                         </div>
                         <div class="form-group password-toggle">
-                            <label class="form-label">新密码</label>
-                            <input type="password" class="form-input" id="new-password" placeholder="输入新密码（不修改请留空）">
+                            <label class="form-label">新密�?/label>
+                            <input type="password" class="form-input" id="new-password" placeholder="输入新密码（不修改请留空�?>
                         </div>
                     </div>
                     
@@ -134,7 +134,7 @@
                 
                 <div class="settings-card">
                     <h3 class="settings-section-title">账号操作</h3>
-                    <button class="btn-danger" onclick="logout()">退出登录</button>
+                    <button class="btn-danger" onclick="logout()">退出登�?/button>
                 </div>
             `;
             
@@ -160,7 +160,7 @@
                 
                 document.getElementById('avatar-preview').src = data.url;
                 currentUser.avatar = data.url;
-                showToast('头像已上传，请保存更改', 'success');
+                showToast('头像已上传，请保存更�?, 'success');
             } catch (error) {
                 showToast(error.message, 'error');
             }
@@ -186,7 +186,7 @@
                 
                 if (newPassword) {
                     if (!currentPassword) {
-                        showToast('请输入当前密码', 'error');
+                        showToast('请输入当前密�?, 'error');
                         return;
                     }
                     updateData.currentPassword = currentPassword;
@@ -225,7 +225,7 @@
 
             const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
             if (!emailRegex.test(email)) {
-                showToast('邮箱格式不正确', 'error');
+                showToast('邮箱格式不正�?, 'error');
                 return;
             }
 
@@ -233,21 +233,20 @@
                 sendBtn.disabled = true;
                 await post('/api/auth/send-bind-code', { email });
 
-                // 倒计时
-                let countdown = 60;
+                // 倒计�?                let countdown = 60;
                 sendBtn.textContent = `${countdown}秒后重试`;
                 const timer = setInterval(() => {
                     countdown--;
                     if (countdown <= 0) {
                         clearInterval(timer);
                         sendBtn.disabled = false;
-                        sendBtn.textContent = '获取验证码';
+                        sendBtn.textContent = '获取验证�?;
                     } else {
                         sendBtn.textContent = `${countdown}秒后重试`;
                     }
                 }, 1000);
 
-                showToast('验证码已发送，请查收邮件', 'success');
+                showToast('验证码已发送，请查收邮�?, 'success');
             } catch (error) {
                 sendBtn.disabled = false;
                 showToast(error.message, 'error');
@@ -260,7 +259,7 @@
             const code = document.getElementById('verify-code').value.trim();
 
             if (!email || !code) {
-                showToast('请输入邮箱和验证码', 'error');
+                showToast('请输入邮箱和验证�?, 'error');
                 return;
             }
 

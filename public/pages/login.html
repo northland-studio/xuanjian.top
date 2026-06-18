@@ -136,17 +136,17 @@
             
             <form id="login-form">
                 <div class="form-group">
-                    <label class="form-label">用户名</label>
+                    <label class="form-label">用户�?/label>
                     <input type="text" class="form-input" id="username" placeholder="请输入用户名" required>
                 </div>
                 <div class="form-group">
                     <label class="form-label">密码</label>
-                    <input type="password" class="form-input" id="password" placeholder="请输入密码" required>
+                    <input type="password" class="form-input" id="password" placeholder="请输入密�? required>
                 </div>
                 <div class="form-options">
                     <label class="remember-me">
                         <input type="checkbox" id="remember">
-                        <span>记住我</span>
+                        <span>记住�?/span>
                     </label>
                 </div>
                 <button type="submit" class="auth-btn">登录</button>
@@ -155,12 +155,12 @@
             <div class="auth-footer">
                 还没有账号？<a href="/register">立即注册</a>
                 <span style="margin: 0 12px; color: var(--text-secondary);">|</span>
-                <a href="/forgot-password" style="color: var(--text-secondary);">忘记密码？</a>
+                <a href="/forgot-password" style="color: var(--text-secondary);">忘记密码�?/a>
             </div>
         </div>
     </div>
 
-    <script src="/js/common.js?v=2.0.3"></script>
+    <script src="/js/common.js?v=2.1.0"></script>
     <script>
         document.getElementById('login-form').addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -177,13 +177,13 @@
                     remember
                 });
                 
-                // 保存登录状态
+                // 保存登录状�?
                 localStorage.setItem('token', data.token);
                 localStorage.setItem('user', JSON.stringify(data.user));
                 
                 showToast('登录成功', 'success');
                 
-                // 跳转到首页
+                // 跳转到首�?
                 setTimeout(() => {
                     window.location.href = '/';
                 }, 500);

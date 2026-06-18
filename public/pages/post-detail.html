@@ -195,7 +195,7 @@
                 <a href="/forum" class="nav-link">贴吧</a>
                 <a href="/stock" class="nav-link">股市</a>
                 <a href="/shop" class="nav-link">商城</a>
-                <a href="/rankings" class="nav-link">排行榜</a>
+                <a href="/rankings" class="nav-link">排行�?/a>
                 <a href="/social" class="nav-link">社交媒体</a>
                 <div class="nav-user">
                     <button class="theme-toggle" onclick="toggleTheme()" title="切换主题">
@@ -230,7 +230,7 @@
         <a href="/forum">贴吧</a>
         <a href="/stock">股市</a>
         <a href="/shop">商城</a>
-        <a href="/rankings">排行榜</a>
+        <a href="/rankings">排行�?/a>
         <a href="/social">社交媒体</a>
         <a href="/notifications">通知</a>
     </div>
@@ -241,7 +241,7 @@
         </div>
     </main>
 
-    <script src="/js/common.js?v=2.0.5"></script>
+    <script src="/js/common.js?v=2.1.0"></script>
     <script>
         // 汉堡菜单
         document.getElementById('hamburger').addEventListener('click', function() {
@@ -268,7 +268,7 @@
                 currentPost = data.post;
                 renderPost(data.post, data.comments);
             } catch (error) {
-                document.getElementById('post-detail').innerHTML = '<div class="empty-state"><h3>内容不存在</h3></div>';
+                document.getElementById('post-detail').innerHTML = '<div class="empty-state"><h3>内容不存�?/h3></div>';
             }
         }
 
@@ -319,7 +319,7 @@
                             <textarea class="comment-input" id="comment-content" placeholder="发表你的评论..."></textarea>
                             <button class="comment-submit" onclick="submitComment()">发表评论</button>
                         </div>
-                    ` : '<p style="color:var(--text-secondary,#64748b);margin-bottom:20px;">请<a href="/login" style="color:#6366f1;">登录</a>后发表评论</p>'}
+                    ` : '<p style="color:var(--text-secondary,#64748b);margin-bottom:20px;">�?a href="/login" style="color:#6366f1;">登录</a>后发表评�?/p>'}
                     <div class="comments-list">${comments.map(c => renderComment(c)).join('')}</div>
                 </div>
             `;
@@ -334,7 +334,7 @@
                     <textarea id="reply-content-${comment.id}" placeholder="回复 ${comment.author_nickname}..."></textarea>
                     <div class="reply-form-actions">
                         <button class="reply-btn" onclick="hideReplyForm(${comment.id})">取消</button>
-                        <button class="reply-submit-btn" onclick="submitReply(${comment.id})">发送</button>
+                        <button class="reply-submit-btn" onclick="submitReply(${comment.id})">发�?/button>
                     </div>
                 </div>
             ` : '';
@@ -362,8 +362,7 @@
 
         // 显示回复表单
         function showReplyForm(commentId, authorNickname) {
-            // 隐藏所有其他回复表单
-            document.querySelectorAll('.reply-form').forEach(form => form.style.display = 'none');
+            // 隐藏所有其他回复表�?            document.querySelectorAll('.reply-form').forEach(form => form.style.display = 'none');
             const form = document.getElementById(`reply-form-${commentId}`);
             if (form) {
                 form.style.display = 'block';
@@ -383,14 +382,13 @@
 
         // 提交回复
         async function submitReply(parentId) {
-            // 检查邮箱验证状态
-            if (!isEmailVerified()) {
+            // 检查邮箱验证状�?            if (!isEmailVerified()) {
                 showEmailVerificationModal();
                 return;
             }
             const content = document.getElementById(`reply-content-${parentId}`).value.trim();
             if (!content) {
-                showToast('请输入回复内容', 'error');
+                showToast('请输入回复内�?, 'error');
                 return;
             }
             try {
@@ -415,8 +413,7 @@
 
         async function toggleLike() {
             if (!isLoggedIn()) { window.location.href = '/login'; return; }
-            // 检查邮箱验证状态
-            if (!isEmailVerified()) {
+            // 检查邮箱验证状�?            if (!isEmailVerified()) {
                 showEmailVerificationModal();
                 return;
             }
@@ -429,9 +426,9 @@
         // 分享帖子
         function sharePost() {
             if (!currentPost) return;
-            const shareText = `【${currentPost.title}】https://xuanjian.top/post/${postId}`;
+            const shareText = `�?{currentPost.title}】https://xuanjian.top/post/${postId}`;
             navigator.clipboard.writeText(shareText).then(() => {
-                showToast('已复制到剪贴板', 'success');
+                showToast('已复制到剪贴�?, 'success');
             }).catch(() => {
                 // 备用方案
                 const textarea = document.createElement('textarea');
@@ -440,14 +437,13 @@
                 textarea.select();
                 document.execCommand('copy');
                 document.body.removeChild(textarea);
-                showToast('已复制到剪贴板', 'success');
+                showToast('已复制到剪贴�?, 'success');
             });
         }
 
         // 显示点赞用户列表
         async function submitComment() {
-            // 检查邮箱验证状态
-            if (!isEmailVerified()) {
+            // 检查邮箱验证状�?            if (!isEmailVerified()) {
                 showEmailVerificationModal();
                 return;
             }

@@ -1,0 +1,20 @@
+Tracking Prevention blocked access to storage for <URL>.
+Tracking Prevention blocked access to storage for <URL>.
+Tracking Prevention blocked access to storage for <URL>.
+Tracking Prevention blocked access to storage for <URL>.
+Tracking Prevention blocked access to storage for <URL>.
+Tracking Prevention blocked access to storage for <URL>.
+Tracking Prevention blocked access to storage for <URL>.
+Tracking Prevention blocked access to storage for <URL>.
+rocket-loader.min.js:1 Executing inline event handler violates the following Content Security Policy directive 'script-src-attr 'none''. Either the 'unsafe-inline' keyword, a hash ('sha256-...'), or a nonce ('nonce-...') is required to enable inline execution. Note that hashes do not apply to event handlers, style attributes and javascript: navigations unless the 'unsafe-hashes' keyword is present. The action has been blocked.
+(匿名) @ rocket-loader.min.js:1
+(匿名) @ rocket-loader.min.js:1
+g @ rocket-loader.min.js:1
+(匿名) @ rocket-loader.min.js:1
+(匿名) @ rocket-loader.min.js:1
+(匿名) @ rocket-loader.min.js:1
+Connecting to 'https://cdn.jsdelivr.net/npm/quill@2.0.0/dist/quill.snow.css.map' violates the following Content Security Policy directive: "connect-src 'self' https://xuanjian.top". The request has been blocked.
+
+Connecting to 'https://cdn.jsdelivr.net/npm/quill@2.0.0/dist/quill.js.map' violates the following Content Security Policy directive: "connect-src 'self' https://xuanjian.top". The request has been blocked.
+
+editor?type=forum:465 Executing inline event handler violates the following Content Security Policy directive 'script-src-attr 'none''. Either the 'unsafe-inline' keyword, a hash ('sha256-...'), or a nonce ('nonce-...') is required to enable inline execution. Note that hashes do not apply to event handlers, style attributes and javascript: navigations unless the 'unsafe-hashes' keyword is present. The action has been blocked.

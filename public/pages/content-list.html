@@ -50,7 +50,7 @@
     </style>
 </head>
 <body>
-    <!-- 导航栏 -->
+    <!-- 导航�?-->
     <nav class="navbar">
         <div class="navbar-content">
             <a href="/" class="navbar-brand">
@@ -75,7 +75,7 @@
         </div>
     </nav>
 
-    <!-- 主内容 -->
+    <!-- 主内�?-->
     <main class="main-content">
         <!-- 页面头部 -->
         <div class="content-header">
@@ -86,9 +86,9 @@
         </div>
 
         <div class="container">
-            <!-- 搜索栏 -->
+            <!-- 搜索�?-->
             <div class="search-bar">
-                <input type="text" class="search-input" id="search-input" placeholder="搜索标题、标签、内容、作者...">
+                <input type="text" class="search-input" id="search-input" placeholder="搜索标题、标签、内容、作�?..">
                 <button class="search-btn" onclick="searchPosts()">
                     <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
@@ -98,7 +98,7 @@
 
             <!-- 发布按钮 -->
             <div class="content-actions" id="post-actions">
-                <!-- 动态显示 -->
+                <!-- 动态显�?-->
             </div>
 
             <!-- 内容列表 -->
@@ -120,7 +120,7 @@
         </svg>
     </button>
 
-    <script src="/js/common.js?v=2.0.3"></script>
+    <script src="/js/common.js?v=2.1.0"></script>
     <script>
         // 页面配置
         const pageConfig = {
@@ -148,7 +148,7 @@
         let currentSearch = '';
         let currentType = '';
 
-        // 初始化页面
+        // 初始化页�?
         function initPage() {
             // 获取当前页面类型
             const path = window.location.pathname;
@@ -167,7 +167,7 @@
             document.getElementById('page-title-en').textContent = config.titleEn;
             document.title = `${config.titleCn} - 我的世界玄剑公会`;
             
-            // 设置导航栏激活状态
+            // 设置导航栏激活状�?
             document.querySelectorAll('.nav-link').forEach(link => {
                 if (link.dataset.type === currentType) {
                     link.classList.add('active');
@@ -187,7 +187,7 @@
             const actionsDiv = document.getElementById('post-actions');
             const user = getCurrentUser();
             
-            // 检查权限
+            // 检查权�?
             let canPost = false;
             if (config.requireAdmin) {
                 canPost = user && user.level >= 1;
@@ -333,10 +333,10 @@
             
             let html = '';
             
-            // 上一页
+            // 上一�?
             html += `
                 <button class="pagination-btn" onclick="loadPosts(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}>
-                    上一页
+                    上一�?
                 </button>
             `;
             
@@ -353,10 +353,10 @@
                 }
             }
             
-            // 下一页
+            // 下一�?
             html += `
                 <button class="pagination-btn" onclick="loadPosts(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''}>
-                    下一页
+                    下一�?
                 </button>
             `;
             

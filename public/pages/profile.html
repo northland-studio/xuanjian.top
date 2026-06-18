@@ -198,7 +198,7 @@
                 <a href="/forum" class="nav-link">贴吧</a>
                 <a href="/stock" class="nav-link">股市</a>
                 <a href="/shop" class="nav-link">商城</a>
-                <a href="/rankings" class="nav-link">排行榜</a>
+                <a href="/rankings" class="nav-link">排行�?/a>
                 <a href="/social" class="nav-link">社交媒体</a>
                 <div class="nav-user">
                     <button class="theme-toggle" onclick="toggleTheme()" title="切换主题">
@@ -233,7 +233,7 @@
         <a href="/forum">贴吧</a>
         <a href="/stock">股市</a>
         <a href="/shop">商城</a>
-        <a href="/rankings">排行榜</a>
+        <a href="/rankings">排行�?/a>
         <a href="/social">社交媒体</a>
         <a href="/notifications">通知</a>
     </div>
@@ -244,7 +244,7 @@
         </div>
     </main>
 
-    <script src="/js/common.js?v=2.0.5"></script>
+    <script src="/js/common.js?v=2.1.0"></script>
     <script>
         // 汉堡菜单
         document.getElementById('hamburger').addEventListener('click', function() {
@@ -266,8 +266,7 @@
                     currentUser = null;
                 }
                 
-                // 获取签到状态
-                if (currentUser) {
+                // 获取签到状�?                if (currentUser) {
                     try {
                         checkinStatus = await get('/api/checkin/status');
                     } catch (e) {
@@ -275,8 +274,7 @@
                     }
                 }
 
-                // 从 URL 获取用户名
-                const pathParts = window.location.pathname.split('/');
+                // �?URL 获取用户�?                const pathParts = window.location.pathname.split('/');
                 const usernameFromUrl = pathParts[pathParts.length - 1];
 
                 if (usernameFromUrl && usernameFromUrl !== 'profile') {
@@ -286,18 +284,17 @@
                         profileUser = data.user;
                         isOwnProfile = currentUser && currentUser.id === profileUser.id;
                     } catch (e) {
-                        document.getElementById('profile-container').innerHTML = '<div class="empty-state"><h3>用户不存在</h3><p>该用户可能已被删除或不存在</p></div>';
+                        document.getElementById('profile-container').innerHTML = '<div class="empty-state"><h3>用户不存�?/h3><p>该用户可能已被删除或不存�?/p></div>';
                         return;
                     }
                 } else if (currentUser) {
-                    // 查看自己的档案 - 获取完整信息
+                    // 查看自己的档�?- 获取完整信息
                     try {
                         const data = await get(`/api/auth/user/${currentUser.username}`);
                         profileUser = data.user;
                         isOwnProfile = true;
                     } catch (e) {
-                        // 如果API失败，使用当前用户数据
-                        profileUser = currentUser;
+                        // 如果API失败，使用当前用户数�?                        profileUser = currentUser;
                         profileUser.posts_count = 0;
                         profileUser.comments_count = 0;
                         profileUser.likes_count = 0;
@@ -314,19 +311,18 @@
                 loadUserPosts();
             } catch (error) {
                 console.error('加载档案错误:', error);
-                document.getElementById('profile-container').innerHTML = '<div class="empty-state"><h3>加载失败</h3><p>请稍后重试</p></div>';
+                document.getElementById('profile-container').innerHTML = '<div class="empty-state"><h3>加载失败</h3><p>请稍后重�?/p></div>';
             }
         }
 
         function renderProfile() {
             const container = document.getElementById('profile-container');
-            const levelText = profileUser.level === 2 ? '超级管理员' : profileUser.level === 1 ? '管理员' : profileUser.level === 3 ? '认证报社' : '普通成员';
+            const levelText = profileUser.level === 2 ? '超级管理�? : profileUser.level === 1 ? '管理�? : profileUser.level === 3 ? '认证报社' : '普通成�?;
             
             // 构建操作按钮
             let actionButtons = '';
             if (isOwnProfile) {
-                // 签到状态卡片
-                if (checkinStatus) {
+                // 签到状态卡�?                if (checkinStatus) {
                     actionButtons += `
                         <div class="checkin-status-card ${checkinStatus.todayCheckedIn ? 'checked' : ''}" onclick="window.location.href='/checkin'" style="cursor: pointer;">
                             <div class="checkin-status-icon">
@@ -338,16 +334,16 @@
                                 </svg>
                             </div>
                             <div class="checkin-status-info">
-                                <div class="checkin-status-title">${checkinStatus.todayCheckedIn ? '今日已签到' : '今日未签到'}</div>
-                                <div class="checkin-status-detail">连续 ${checkinStatus.continuousDays} 天 · 贡献点 ${(profileUser.contribution || 0).toFixed(2)}</div>
+                                <div class="checkin-status-title">${checkinStatus.todayCheckedIn ? '今日已签�? : '今日未签�?}</div>
+                                <div class="checkin-status-detail">连续 ${checkinStatus.continuousDays} �?· 贡献�?${(profileUser.contribution || 0).toFixed(2)}</div>
                             </div>
-                            <div class="checkin-status-arrow">›</div>
+                            <div class="checkin-status-arrow">�?/div>
                         </div>
                     `;
                 }
                 
                 actionButtons += `<button class="btn btn-secondary" onclick="openSettings()">账号设置</button>
-                   <button class="btn btn-danger" onclick="logout()">退出登录</button>`;
+                   <button class="btn btn-danger" onclick="logout()">退出登�?/button>`;
                 if (profileUser.level >= 1 && profileUser.level !== 3) {
                     actionButtons += `<button class="btn btn-primary" onclick="window.location.href='/admin'">管理系统</button>`;
                 }
@@ -368,7 +364,7 @@
                     <div class="profile-stats">
                         <div class="profile-stat">
                             <div class="profile-stat-value">${(profileUser.contribution || 0).toFixed(2)}</div>
-                            <div class="profile-stat-label">贡献值</div>
+                            <div class="profile-stat-label">贡献�?/div>
                         </div>
                         <div class="profile-stat">
                             <div class="profile-stat-value">${profileUser.posts_count || 0}</div>
@@ -390,7 +386,7 @@
                 <div class="profile-info">
                     <h3 class="profile-info-title">基本信息</h3>
                     <div class="profile-info-item">
-                        <span class="profile-info-label">用户名</span>
+                        <span class="profile-info-label">用户�?/span>
                         <span class="profile-info-value">@${profileUser.username}</span>
                     </div>
                     <div class="profile-info-item">
@@ -399,7 +395,7 @@
                     </div>
                     <div class="profile-info-item">
                         <span class="profile-info-label">邮箱</span>
-                        <span class="profile-info-value">${profileUser.email || '未设置'}</span>
+                        <span class="profile-info-value">${profileUser.email || '未设�?}</span>
                     </div>
                     <div class="profile-info-item">
                         <span class="profile-info-label">注册时间</span>
@@ -407,7 +403,7 @@
                     </div>
                 </div>
                 <div class="user-posts">
-                    <h3 class="user-posts-title">最近发布</h3>
+                    <h3 class="user-posts-title">最近发�?/h3>
                     <div id="user-posts-list">
                         <div class="loading"><div class="spinner"></div></div>
                     </div>
@@ -420,8 +416,7 @@
                 // 使用用户ID获取帖子
                 const response = await get('/api/posts?limit=100');
                 const allPosts = response.posts || response; // 兼容两种返回格式
-                // 使用 == 而不是 === 来比较，因为 ID 可能是字符串或数字
-                const userId = profileUser.id;
+                // 使用 == 而不�?=== 来比较，因为 ID 可能是字符串或数�?                const userId = profileUser.id;
                 const username = profileUser.username;
                 const posts = allPosts.filter(p => {
                     const postAuthorId = p.author_id;

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>贡献点申报 - 玄剑公会</title>
+    <title>贡献点申�?- 玄剑公会</title>
     <link rel="icon" href="/icon.ico" type="image/x-icon">
     <link rel="stylesheet" href="/css/style.css">
     <style>
@@ -58,7 +58,7 @@
                 <a href="/forum" class="nav-link">贴吧</a>
                 <a href="/stock" class="nav-link">股市</a>
                 <a href="/shop" class="nav-link">商城</a>
-                <a href="/rankings" class="nav-link">排行榜</a>
+                <a href="/rankings" class="nav-link">排行�?/a>
                 <a href="/social" class="nav-link">社交媒体</a>
                 <div class="nav-user">
                     <button class="theme-toggle" onclick="toggleTheme()" title="切换主题">
@@ -89,29 +89,29 @@
     <main class="main-content">
         <div class="claims-container">
             <div class="claims-header">
-                <h1>贡献点申报</h1>
+                <h1>贡献点申�?/h1>
                 <p>申请贡献点奖励，管理员审核后发放</p>
             </div>
 
             <div class="claims-tabs">
                 <div class="claims-tab active" data-tab="submit">提交申报</div>
                 <div class="claims-tab" data-tab="my">我的申报</div>
-                <div class="claims-tab" data-tab="pending" id="pendingTab" style="display: none;">待审核</div>
+                <div class="claims-tab" data-tab="pending" id="pendingTab" style="display: none;">待审�?/div>
             </div>
 
             <div id="submitTab" class="tab-content">
                 <div class="claim-form-card">
                     <form id="claimForm">
                         <div class="form-group">
-                            <label for="amount">申报贡献点数量</label>
-                            <input type="number" id="amount" name="amount" min="1" required placeholder="请输入数量">
+                            <label for="amount">申报贡献点数�?/label>
+                            <input type="number" id="amount" name="amount" min="1" required placeholder="请输入数�?>
                         </div>
                         <div class="form-group">
                             <label for="reason">申报原因</label>
                             <textarea id="reason" name="reason" required placeholder="请详细说明申报原因（至少10个字符）"></textarea>
                         </div>
                         <div class="form-group">
-                            <label for="evidence">证明资料（选填）</label>
+                            <label for="evidence">证明资料（选填�?/label>
                             <input type="text" id="evidence" name="evidence" placeholder="可填写链接或说明">
                         </div>
                         <button type="submit" class="submit-btn" id="submitBtn">提交申报</button>
@@ -182,7 +182,7 @@
             
             const submitBtn = document.getElementById('submitBtn');
             submitBtn.disabled = true;
-            submitBtn.textContent = '提交中...';
+            submitBtn.textContent = '提交�?..';
             
             try {
                 const res = await fetch('/api/claims', {
@@ -229,8 +229,8 @@
                             <span class="claim-status ${c.status}">${getStatusText(c.status)}</span>
                         </div>
                         <div class="claim-reason">${c.reason}</div>
-                        ${c.review_note ? `<div class="claim-review"><strong>审核备注：</strong>${c.review_note}</div>` : ''}
-                        <div class="claim-meta">提交于 ${formatDate(c.created_at)}</div>
+                        ${c.review_note ? `<div class="claim-review"><strong>审核备注�?/strong>${c.review_note}</div>` : ''}
+                        <div class="claim-meta">提交�?${formatDate(c.created_at)}</div>
                     </div>
                 `).join('');
             } catch (e) {
@@ -246,7 +246,7 @@
                 const list = document.getElementById('pendingClaimsList');
                 
                 if (claims.length === 0) {
-                    list.innerHTML = '<div class="empty-state">暂无待审核申报</div>';
+                    list.innerHTML = '<div class="empty-state">暂无待审核申�?/div>';
                     return;
                 }
                 
@@ -257,11 +257,11 @@
                                 <div class="claim-amount">+${c.amount}</div>
                                 <div style="font-size: 14px; color: var(--text-secondary);">申请人：${c.nickname || c.username}</div>
                             </div>
-                            <span class="claim-status pending">待审核</span>
+                            <span class="claim-status pending">待审�?/span>
                         </div>
                         <div class="claim-reason">${c.reason}</div>
-                        ${c.evidence ? `<div style="margin: 8px 0; color: var(--text-secondary);"><strong>证明：</strong>${c.evidence}</div>` : ''}
-                        <div class="claim-meta">提交于 ${formatDate(c.created_at)}</div>
+                        ${c.evidence ? `<div style="margin: 8px 0; color: var(--text-secondary);"><strong>证明�?/strong>${c.evidence}</div>` : ''}
+                        <div class="claim-meta">提交�?${formatDate(c.created_at)}</div>
                         <div class="review-actions">
                             <button class="review-btn approve-btn" onclick="reviewClaim(${c.id}, 'approved')">通过</button>
                             <button class="review-btn reject-btn" onclick="reviewClaim(${c.id}, 'rejected')">拒绝</button>
@@ -269,13 +269,13 @@
                     </div>
                 `).join('');
             } catch (e) {
-                console.error('加载待审核申报错误:', e);
+                console.error('加载待审核申报错�?', e);
                 showToast('加载失败', 'error');
             }
         }
 
         async function reviewClaim(id, status) {
-            const note = status === 'rejected' ? prompt('请输入拒绝理由（可选）：') : prompt('请输入审核备注（可选）：');
+            const note = status === 'rejected' ? prompt('请输入拒绝理由（可选）�?) : prompt('请输入审核备注（可选）�?);
             if (status === 'rejected' && note === null) return;
             
             try {
@@ -303,7 +303,7 @@
         }
 
         function getStatusText(status) {
-            const map = { pending: '待审核', approved: '已通过', rejected: '已拒绝' };
+            const map = { pending: '待审�?, approved: '已通过', rejected: '已拒�? };
             return map[status] || status;
         }
 

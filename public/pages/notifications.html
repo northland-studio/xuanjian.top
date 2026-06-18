@@ -367,7 +367,7 @@
         </div>
     </main>
 
-    <script src="/js/common.js?v=2.0.5"></script>
+    <script src="/js/common.js?v=2.1.0"></script>
     <script>
         // 汉堡菜单
         document.getElementById('hamburger').addEventListener('click', function() {
@@ -430,7 +430,7 @@
                         <div class="empty-state">
                             <div class="empty-state-icon">${icons.warning}</div>
                             <h3>加载失败</h3>
-                            <p>${error.message || '请稍后重试'}</p>
+                            <p>${error.message || '请稍后重�?}</p>
                         </div>
                     </div>
                 `;
@@ -463,7 +463,7 @@
                     <div class="notifications-title">
                         <div class="notifications-title-icon">${icons.bell}</div>
                         <span>通知中心</span>
-                        ${unreadCount > 0 ? `<span class="unread-badge">${unreadCount} 条未读</span>` : ''}
+                        ${unreadCount > 0 ? `<span class="unread-badge">${unreadCount} 条未�?/span>` : ''}
                     </div>
                     ${headerActions}
                 </div>
@@ -510,9 +510,9 @@
         function renderPagination() {
             return `
                 <div class="pagination">
-                    <button class="btn btn-secondary" onclick="prevPage()" ${currentPage <= 1 ? 'disabled' : ''}>上一页</button>
-                    <span class="page-info">第 ${currentPage} 页</span>
-                    <button class="btn btn-secondary" onclick="nextPage()">下一页</button>
+                    <button class="btn btn-secondary" onclick="prevPage()" ${currentPage <= 1 ? 'disabled' : ''}>上一�?/button>
+                    <span class="page-info">�?${currentPage} �?/span>
+                    <button class="btn btn-secondary" onclick="nextPage()">下一�?/button>
                 </div>
             `;
         }
