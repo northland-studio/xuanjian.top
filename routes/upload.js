@@ -20,8 +20,8 @@ async function addWatermark(inputPath) {
     // 获取原图信息
     const metadata = await sharp(inputPath).metadata();
     
-    // 计算水印大小（原图宽度的15%）
-    const watermarkWidth = Math.round(metadata.width * 0.15);
+    // 计算水印大小（原图宽度的8%）
+    const watermarkWidth = Math.round(metadata.width * 0.08);
     
     // 添加水印到右下角
     const outputPath = inputPath.replace(/(\.\w+)$/, '_watermarked$1');
