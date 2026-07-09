@@ -190,15 +190,16 @@
                 // 跳转
                 setTimeout(() => {
                     if (redirect) {
-                        // 保留OAuth参数并跳转
+                        // 保留所有OAuth参数并跳转
                         const clientId = params.get('client_id');
                         const redirectUri = params.get('redirect_uri');
                         const state = params.get('state');
                         
-                        let targetUrl = redirect;
-                        if (clientId || redirectUri || state) {
-                            targetUrl += `?client_id=${clientId || ''}&redirect_uri=${redirectUri || ''}&state=${state || ''}`;
-                        }
+                        let targetUrl = redirect + '?response_type=code';
+                        if (clientId) targetUrl += `&client_id=${clientId}`;
+                        if (redirectUri) targetUrl += `&redirect_uri=${redirectUri}`;
+                        if (state) targetUrl += `&state=${state}`;
+                        
                         window.location.href = targetUrl;
                     } else {
                         window.location.href = '/';
