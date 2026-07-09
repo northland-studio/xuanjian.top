@@ -18,6 +18,7 @@ const passwordRoutes = require('./routes/password');
 const claimRoutes = require('./routes/claims');
 const shopRoutes = require('./routes/shop');
 const rankingRoutes = require('./routes/rankings');
+const oauthRoutes = require('./routes/oauth');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -101,6 +102,7 @@ app.use('/api/password', passwordRoutes);
 app.use('/api/claims', claimRoutes);
 app.use('/api/shop', shopRoutes);
 app.use('/api/rankings', rankingRoutes);
+app.use('/api/oauth', oauthRoutes);
 
 // 页面路由
 app.get('/', (req, res) => {

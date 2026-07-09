@@ -740,12 +740,12 @@ function loadJS(url) {
 async function initImageLightbox() {
     // 加载lightbox CSS
     if (!document.querySelector('link[href*="lightbox.css"]')) {
-        loadCSS('/css/lightbox.css');
+        loadCSS('/css/lightbox.css?v=2.1.0');
     }
     
     // 加载lightbox JS
     if (!document.querySelector('script[src*="lightbox.js"]')) {
-        await loadJS('/js/lightbox.js');
+        await loadJS('/js/lightbox.js?v=2.1.0');
     }
     
     // 等待lightbox实例创建
@@ -790,3 +790,73 @@ function setupLightboxForImages() {
 
 initLazyLoad();
 initImageLightbox();
+initSiteTheme();
+
+// 初始化站点主题
+async function initSiteTheme() {
+    try {
+        // 从服务器获取当前主题设置
+        const response = await fetch('/api/admin/theme');
+        const data = await response.json();
+        const theme = data.theme || 'default';
+        
+        // 加载主题样式
+        loadThemeCSS(theme);
+        
+        // 保存到本地存储
+        localStorage.setItem('site_theme', theme);
+    } catch (error) {
+        // 如果获取失败，使用本地存储的主题
+        const localTheme = localStorage.getItem('site_theme') || 'default';
+        loadThemeCSS(localTheme);
+    }
+}
+
+// 加载主题CSS
+function loadThemeCSS(theme) {
+    // 移除旧的主题样式
+    const oldThemeLink = document.querySelector('link[id="theme-css"]');
+    if (oldThemeLink) {
+        oldThemeLink.remove();
+    }
+    
+    // 如果不是默认主题，加载对应的主题CSS
+    if (theme !== 'default') {
+        const themeCSS = document.createElement('link');
+        themeCSS.id = 'theme-css';
+        themeCSS.rel = 'stylesheet';
+        themeCSS.href = `/css/theme-${theme}.css?v=2.1.1`;
+        document.head.appendChild(themeCSS);
+    }
+    
+    // 设置主题属性
+    document.documentElement.setAttribute('data-site-theme', theme);
+}
+
+// 切换主题（供外部调用）
+async function switchSiteTheme(theme) {
+    try {
+        // 调用API设置主题
+        const response = await fetch('/api/admin/theme', {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${getToken()}`
+            },
+            body: JSON.stringify({ theme })
+        });
+        
+        if (!response.ok) {
+            throw new Error('设置主题失败');
+        }
+        
+        // 加载新主题样式
+        loadThemeCSS(theme);
+        localStorage.setItem('site_theme', theme);
+        
+        return true;
+    } catch (error) {
+        console.error('切换主题错误:', error);
+        return false;
+    }
+}

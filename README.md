@@ -25,6 +25,7 @@
 - **虚拟股市** - 交易驱动价格、做市商机制、熔断保护
 - **每日签到** - 连续签到奖励递增、补签卡系统
 - **用户系统** - 四级权限体系，支持头像上传
+- **OAuth授权** - 支持第三方应用使用公会账号登录
 - **社交互动** - 评论、点赞、内容搜索
 - **响应式设计** - 完美适配 PC 和移动端
 - **多平台支持** - Web、桌面、移动端全覆盖
@@ -242,8 +243,9 @@ xuanjian-guild-website/
 │   ├── posts.js             # 内容接口
 │   ├── admin.js             # 管理接口
 │   ├── stock.js             # 股票接口
-│   ├── checkin.js           # 签到接口
+│   ├── checkin.js           # 筛到接口
 │   ├── upload.js            # 上传接口
+│   ├── oauth.js             # OAuth授权接口
 │   └── notifications.js     # 通知接口
 ├── scripts/                 # 工具脚本
 │   ├── init-db.js           # 数据库初始化
@@ -475,6 +477,16 @@ SMTP_PASS=your-password
 | POST | `/api/password/reset-password` | 重置密码 |
 | GET | `/api/password/verify-reset-token/:token` | 验证重置链接 |
 
+### OAuth授权接口
+
+| 方法 | 路径 | 说明 |
+|:---:|:---|:---|
+| GET | `/api/oauth/authorize` | 授权确认页面 |
+| POST | `/api/oauth/authorize` | 生成授权码(code) |
+| POST | `/api/oauth/token` | 用授权码换取访问令牌 |
+| GET | `/api/oauth/verify` | 验证访问令牌有效性 |
+| GET | `/api/oauth/userinfo` | 获取授权用户详细信息 |
+
 ---
 
 ## 页面路由
@@ -535,6 +547,107 @@ SMTP_PASS=your-password
 
 ---
 
+## OAuth授权系统
+
+玄剑公会官网支持OAuth 2.0授权码模式，第三方应用可以使用公会账号登录，获取用户基本信息。
+
+### 授权流程
+
+```
+第三方应用                    玄剑公会官网                     用户
+    │                              │                           │
+    │ 1. 发起授权请求               │                           │
+    │─────────────────────────────>│                           │
+    │                              │ 2. 显示授权页面            │
+    │                              │──────────────────────────>│
+    │                              │                           │
+    │                              │ 3. 用户同意授权            │
+    │                              │<──────────────────────────│
+    │                              │                           │
+    │ 4. 重定向+授权码              │                           │
+    │<─────────────────────────────│                           │
+    │                              │                           │
+    │ 5. 用授权码换取令牌           │                           │
+    │─────────────────────────────>│                           │
+    │                              │                           │
+    │ 6. 返回访问令牌               │                           │
+    │<─────────────────────────────│                           │
+    │                              │                           │
+    │ 7. 用令牌获取用户信息         │                           │
+    │─────────────────────────────>│                           │
+    │                              │                           │
+    │ 8. 返回用户数据               │                           │
+    │<─────────────────────────────│                           │
+```
+
+### 使用示例
+
+#### 1. 发起授权请求
+
+```javascript
+// 第三方应用发起授权
+const authUrl = `https://xuanjian.top/api/oauth/authorize?client_id=your_app_id&redirect_uri=https://your-app.com/callback&response_type=code&state=random_state`;
+window.location.href = authUrl;
+```
+
+#### 2. 用户同意后获取授权码
+
+用户登录并同意授权后，会重定向到回调地址：
+```
+https://your-app.com/callback?code=AUTHORIZATION_CODE&state=random_state
+```
+
+#### 3. 用授权码换取访问令牌
+
+```javascript
+const response = await fetch('https://xuanjian.top/api/oauth/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+        code: 'AUTHORIZATION_CODE',
+        client_id: 'your_app_id',
+        client_secret: 'your_client_secret',
+        redirect_uri: 'https://your-app.com/callback',
+        grant_type: 'authorization_code'
+    })
+});
+
+const { access_token } = await response.json();
+```
+
+#### 4. 获取用户信息
+
+```javascript
+const userResponse = await fetch('https://xuanjian.top/api/oauth/userinfo', {
+    headers: { 'Authorization': `Bearer ${access_token}` }
+});
+
+const user = await userResponse.json();
+// 返回: { id, username, level, title, contribution, checkin, created_at }
+```
+
+### 返回数据结构
+
+| 字段 | 说明 |
+|:---|:---|
+| `id` | 用户ID |
+| `username` | 用户名 |
+| `email_verified` | 邮箱是否验证 |
+| `level` | 用户等级（0-2） |
+| `title` | 当前佩戴的称号 |
+| `contribution` | 贡献点数量 |
+| `checkin` | 签到信息（总天数、连续天数） |
+| `created_at` | 注册时间 |
+
+### 安全说明
+
+- 授权码有效期：**5分钟**，一次性使用
+- 访问令牌有效期：**7天**
+- 生产环境建议将授权码存储到数据库而非内存
+- 建议实现 client_secret 验证机制
+
+---
+
 ## 部署文档
 
 - [Docker 部署指南](./DOCKER_DEPLOY.md)
@@ -591,6 +704,24 @@ SMTP_PASS=your-password
 ---
 
 ## 更新日志
+
+### v2.1.1 (2026-7-9)
+- **OAuth授权系统**
+  - 新增OAuth 2.0授权码模式支持
+  - 第三方应用可使用公会账号登录
+  - 授权码有效期5分钟，访问令牌有效期7天
+  - 支持获取用户基本信息、称号、签到记录等
+- **全站主题切换**
+  - 管理后台可一键切换全站配色
+  - 新增春节主题（中国红+金色配色）
+  - 灯笼动画装饰效果
+- **图片查看器增强**
+  - 添加缩放功能（滚轮、双击、按钮）
+  - 支持拖拽移动查看大图
+  - 多端触摸手势支持
+- **水印优化**
+  - 水印大小缩小至图片宽度1%
+  - 水印图片资源更新
 
 ### v2.0.9 (2026-3-29)
 - **四级用户权限体系**

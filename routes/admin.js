@@ -280,4 +280,38 @@ router.get('/statistics', authMiddleware, adminMiddleware, async (req, res) => {
     }
 });
 
+// 获取主题设置
+router.get('/theme', async (req, res) => {
+    try {
+        const setting = await db.get('SELECT value FROM settings WHERE key = ?', ['site_theme']);
+        res.json({ theme: setting?.value || 'default' });
+    } catch (error) {
+        console.error('获取主题设置错误:', error);
+        res.status(500).json({ error: '获取主题设置失败' });
+    }
+});
+
+// 设置主题（管理员）
+router.put('/theme', authMiddleware, adminMiddleware, async (req, res) => {
+    try {
+        const { theme } = req.body;
+        
+        const validThemes = ['default', 'spring', 'dragonboat', 'midautumn', 'national'];
+        if (!validThemes.includes(theme)) {
+            return res.status(400).json({ error: '无效的主题名称' });
+        }
+        
+        // 使用 REPLACE 语法插入或更新
+        await db.run(
+            'INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES (?, ?, ?)',
+            ['site_theme', theme, getLocalTimestamp()]
+        );
+        
+        res.json({ message: '主题设置成功', theme });
+    } catch (error) {
+        console.error('设置主题错误:', error);
+        res.status(500).json({ error: '设置主题失败' });
+    }
+});
+
 module.exports = router;
