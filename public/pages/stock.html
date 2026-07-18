@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>虚拟股票 - 我的世界玄剑公会</title>
     <link rel="icon" href="/icon.ico" type="image/x-icon">
-    <link rel="stylesheet" href="/css/style.css?v=2.0.5">
+    <link rel="stylesheet" href="/css/style.css?v=20260524k">
     <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.1.0/dist/lightweight-charts.standalone.production.js"></script>
     <style>
         .stock-container { max-width: 1200px; margin: 0 auto; padding: 20px; }
@@ -450,38 +450,49 @@
 
         async function loadMiniChart(stockId) {
             try {
-                const data = await get(`/api/stock/stocks/${stockId}/history?limit=30`);
-                const prices = data.prices || [];
+                const data = await get(`/api/stock/stocks/${stockId}/kline?limit=20`);
+                const kline = data.kline || [];
                 
-                if (prices.length === 0) return;
+                if (kline.length === 0) return;
                 
-                const ctx = document.getElementById(`chart-${stockId}`);
-                if (!ctx) return;
+                const container = document.getElementById(`chart-${stockId}`);
+                if (!container) return;
                 
-                new Chart(ctx, {
-                    type: 'line',
-                    data: {
-                        labels: prices.map(p => ''),
-                        datasets: [{
-                            data: prices.map(p => p.price),
-                            borderColor: '#6366f1',
-                            borderWidth: 2,
-                            fill: true,
-                            backgroundColor: 'rgba(99, 102, 241, 0.1)',
-                            tension: 0.4,
-                            pointRadius: 0
-                        }]
+                // 清空容器
+                container.innerHTML = '';
+                
+                // 创建迷你K线图
+                const chart = LightweightCharts.createChart(container, {
+                    width: container.clientWidth,
+                    height: 120,
+                    layout: {
+                        background: { type: 'solid', color: 'transparent' },
+                        textColor: 'transparent',
                     },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: { legend: { display: false } },
-                        scales: {
-                            x: { display: false },
-                            y: { display: false }
-                        }
-                    }
+                    grid: {
+                        vertLines: { visible: false },
+                        horzLines: { visible: false },
+                    },
+                    rightPriceScale: { visible: false },
+                    timeScale: { visible: false },
+                    crosshair: { mode: 0 },
+                    handleScale: false,
+                    handleScroll: false,
                 });
+
+                const candleSeries = chart.addCandlestickSeries({
+                    upColor: '#10b981',
+                    downColor: '#ef4444',
+                    borderUpColor: '#10b981',
+                    borderDownColor: '#ef4444',
+                    wickUpColor: '#10b981',
+                    wickDownColor: '#ef4444',
+                });
+
+                candleSeries.setData(kline);
+                
+                // 自适应内容
+                chart.timeScale().fitContent();
             } catch (e) {
                 console.error('加载图表失败:', e);
             }
