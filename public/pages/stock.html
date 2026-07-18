@@ -6,7 +6,7 @@
     <title>虚拟股票 - 我的世界玄剑公会</title>
     <link rel="icon" href="/icon.ico" type="image/x-icon">
     <link rel="stylesheet" href="/css/style.css?v=2.0.5">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.1.0/dist/lightweight-charts.standalone.production.js"></script>
     <style>
         .stock-container { max-width: 1200px; margin: 0 auto; padding: 20px; }
         .stock-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 16px; }
@@ -15,7 +15,7 @@
         .stock-tab.active { background: #6366f1; color: white; border-color: #6366f1; }
         .stock-tab:hover:not(.active) { background: var(--bg-color, #f1f5f9); }
         
-        .portfolio-card { background: linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)), url('7.png') center/cover no-repeat; border-radius: 16px; padding: 24px; color: white; margin-bottom: 24px; }
+        .portfolio-card { background: linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)), url('2.png') center/cover no-repeat; border-radius: 16px; padding: 24px; color: white; margin-bottom: 24px; }
         .portfolio-value { font-size: 36px; font-weight: 700; margin-bottom: 8px; }
         .portfolio-label { opacity: 0.8; font-size: 14px; }
         .portfolio-stats { display: flex; gap: 32px; margin-top: 16px; }
@@ -75,7 +75,15 @@
         .btn-sm { padding: 6px 12px; font-size: 13px; }
         .btn-block { width: 100%; }
         
-        .stock-detail-chart { height: 300px; margin-bottom: 24px; }
+        .stock-detail-chart { height: 400px; margin-bottom: 24px; position: relative; }
+        .kline-toolbar { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+        .kline-btn { padding: 4px 12px; border: 1px solid var(--border-color, #e2e8f0); border-radius: 4px; background: var(--bg-color, #f8fafc); cursor: pointer; font-size: 12px; transition: all 0.2s; }
+        .kline-btn.active { background: #6366f1; color: white; border-color: #6366f1; }
+        .kline-btn:hover:not(.active) { background: var(--border-color, #e2e8f0); }
+        .chart-legend { display: flex; gap: 16px; font-size: 12px; margin-bottom: 8px; }
+        .legend-item { display: flex; align-items: center; gap: 4px; }
+        .legend-color { width: 20px; height: 3px; border-radius: 1px; }
+        .volume-chart { height: 100px; margin-bottom: 24px; }
         .stock-detail-info { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px; margin-bottom: 24px; }
         .info-item { background: var(--bg-color, #f8fafc); padding: 12px; border-radius: 8px; }
         .info-label { font-size: 12px; color: var(--text-secondary, #64748b); }
@@ -126,7 +134,7 @@
                 <a href="/forum" class="nav-link">贴吧</a>
                 <a href="/stock" class="nav-link active">股市</a>
                 <a href="/shop" class="nav-link">商城</a>
-                <a href="/rankings" class="nav-link">排行�?/a>
+                <a href="/rankings" class="nav-link">排行榜</a>
                 <a href="/social" class="nav-link">社交媒体</a>
                 <div class="nav-user">
                     <button class="theme-toggle" onclick="toggleTheme()" title="切换主题">
@@ -171,7 +179,7 @@
                     <div id="trade-stock-price" style="font-size: 20px; font-weight: 700;"></div>
                 </div>
                 <div class="form-group">
-                    <label class="form-label">可用贡献�?/label>
+                    <label class="form-label">可用贡献点</label>
                     <div id="trade-available-points"></div>
                 </div>
                 <div class="form-group">
@@ -180,7 +188,7 @@
                 </div>
                 <div class="form-group">
                     <label class="form-label">交易数量</label>
-                    <input type="number" class="form-input" id="trade-shares" min="1" placeholder="请输入数�?>
+                    <input type="number" class="form-input" id="trade-shares" min="1" placeholder="请输入数量">
                 </div>
                 <div class="form-group">
                     <label class="form-label">预计金额</label>
@@ -196,14 +204,25 @@
     </div>
 
     <div class="modal" id="stock-detail-modal">
-        <div class="modal-content" style="max-width: 700px;">
+        <div class="modal-content" style="max-width: 900px;">
             <div class="modal-header">
                 <h3 class="modal-title" id="detail-stock-name">股票详情</h3>
                 <button class="modal-close" onclick="closeDetailModal()">&times;</button>
             </div>
             <div class="modal-body">
+                <div class="kline-toolbar">
+                    <button class="kline-btn active" onclick="changePeriod('5m', this)">5分钟</button>
+                    <button class="kline-btn" onclick="changePeriod('15m', this)">15分钟</button>
+                    <button class="kline-btn" onclick="changePeriod('1h', this)">1小时</button>
+                    <button class="kline-btn" onclick="changePeriod('1d', this)">日K</button>
+                    <div class="chart-legend" id="chart-legend" style="margin-left: auto;">
+                        <div class="legend-item"><span class="legend-color" style="background: #2962FF;"></span><span>MA5</span></div>
+                        <div class="legend-item"><span class="legend-color" style="background: #FF6D00;"></span><span>MA10</span></div>
+                        <div class="legend-item"><span class="legend-color" style="background: #00E676;"></span><span>MA20</span></div>
+                    </div>
+                </div>
                 <div class="stock-detail-chart">
-                    <canvas id="detail-chart"></canvas>
+                    <div id="kline-chart"></div>
                 </div>
                 <div class="stock-detail-info" id="stock-detail-info"></div>
                 <div style="display: flex; gap: 12px;">
@@ -214,7 +233,7 @@
         </div>
     </div>
 
-    <script src="/js/common.js?v=2.1.0"></script>
+    <script src="/js/common.js?v=2.0.5"></script>
     <script>
         let currentUser = null;
         let stocks = [];
@@ -223,6 +242,13 @@
         let currentStockId = null;
         let tradeType = 'buy';
         let detailChart = null;
+        let candleSeries = null;
+        let volumeSeries = null;
+        let ma5Series = null;
+        let ma10Series = null;
+        let ma20Series = null;
+        let currentPeriod = '5m';
+        let klineData = [];
 
         async function init() {
             try {
@@ -264,12 +290,12 @@
                 </div>
                 
                 <div class="portfolio-card">
-                    <div class="portfolio-label">总资�?/div>
-                    <div class="portfolio-value">${formatNumber(totalValue)} 贡献�?/div>
+                    <div class="portfolio-label">总资产</div>
+                    <div class="portfolio-value">${formatNumber(totalValue)} 贡献点</div>
                     <div class="portfolio-stats">
                         <div class="portfolio-stat">
                             <div class="portfolio-stat-value">${formatNumber(availablePoints)}</div>
-                            <div class="portfolio-stat-label">可用贡献�?/div>
+                            <div class="portfolio-stat-label">可用贡献点</div>
                         </div>
                         <div class="portfolio-stat">
                             <div class="portfolio-stat-value" style="color: ${totalProfit >= 0 ? '#86efac' : '#fca5a5'};">${totalProfit >= 0 ? '+' : ''}${formatNumber(totalProfit)}</div>
@@ -362,7 +388,7 @@
                                     <div class="holding-info">
                                         <div style="font-weight: 600; font-size: 16px;">${holding.symbol}</div>
                                         <div style="font-size: 13px; color: var(--text-secondary);">${holding.name}</div>
-                                        <div class="holding-shares">持有 ${holding.shares} �?· 成本 ${holding.avg_cost.toFixed(2)}</div>
+                                        <div class="holding-shares">持有 ${holding.shares} 股 · 成本 ${holding.avg_cost.toFixed(2)}</div>
                                     </div>
                                     <div class="holding-value">
                                         <div class="holding-current-value">${holding.current_value.toFixed(2)}</div>
@@ -398,7 +424,7 @@
                             <div class="transaction-item">
                                 <div class="transaction-info">
                                     <div class="transaction-type ${t.type}">${t.type === 'buy' ? '买入' : '卖出'} ${t.symbol}</div>
-                                    <div class="transaction-date">${t.shares}�?× ${t.price.toFixed(2)} · ${formatDate(t.created_at)}</div>
+                                    <div class="transaction-date">${t.shares}股 × ${t.price.toFixed(2)} · ${formatDate(t.created_at)}</div>
                                 </div>
                                 <div class="transaction-amount" style="color: ${t.type === 'buy' ? '#ef4444' : '#10b981'}">
                                     ${t.type === 'buy' ? '-' : '+'}${t.total_cost.toFixed(2)}
@@ -466,7 +492,6 @@
             try {
                 const data = await get(`/api/stock/stocks/${stockId}`);
                 const stock = data.stock;
-                const prices = data.prices || [];
                 
                 document.getElementById('detail-stock-name').textContent = `${stock.symbol} - ${stock.name}`;
                 
@@ -479,7 +504,7 @@
                         <div class="info-value">${stock.current_price.toFixed(2)}</div>
                     </div>
                     <div class="info-item">
-                        <div class="info-label">涨跌�?/div>
+                        <div class="info-label">涨跌幅</div>
                         <div class="info-value" style="color: ${change >= 0 ? '#10b981' : '#ef4444'}">
                             ${change >= 0 ? '+' : ''}${changePercent}%
                         </div>
@@ -494,38 +519,8 @@
                     </div>
                 `;
                 
-                if (detailChart) {
-                    detailChart.destroy();
-                }
-                
-                const ctx = document.getElementById('detail-chart');
-                detailChart = new Chart(ctx, {
-                    type: 'line',
-                    data: {
-                        labels: prices.map(p => formatDate(p.recorded_at)),
-                        datasets: [{
-                            label: '价格',
-                            data: prices.map(p => p.price),
-                            borderColor: '#6366f1',
-                            borderWidth: 2,
-                            fill: true,
-                            backgroundColor: 'rgba(99, 102, 241, 0.1)',
-                            tension: 0.4
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: { legend: { display: false } },
-                        scales: {
-                            x: { 
-                                display: true,
-                                ticks: { maxTicksLimit: 10 }
-                            },
-                            y: { display: true }
-                        }
-                    }
-                });
+                // 初始化K线图
+                await initKlineChart(stockId);
                 
                 document.getElementById('stock-detail-modal').classList.add('active');
             } catch (e) {
@@ -533,8 +528,134 @@
             }
         }
 
+        async function initKlineChart(stockId) {
+            const container = document.getElementById('kline-chart');
+            container.innerHTML = '';
+            
+            // 创建图表
+            const chart = LightweightCharts.createChart(container, {
+                width: container.clientWidth,
+                height: 400,
+                layout: {
+                    background: { type: 'solid', color: 'transparent' },
+                    textColor: '#64748b',
+                },
+                grid: {
+                    vertLines: { color: 'rgba(42, 46, 57, 0.1)' },
+                    horzLines: { color: 'rgba(42, 46, 57, 0.1)' },
+                },
+                crosshair: {
+                    mode: LightweightCharts.CrosshairMode.Normal,
+                },
+                rightPriceScale: {
+                    borderColor: 'rgba(197, 203, 213, 0.3)',
+                },
+                timeScale: {
+                    borderColor: 'rgba(197, 203, 213, 0.3)',
+                    timeVisible: true,
+                    secondsVisible: false,
+                },
+            });
+
+            // 创建K线系列
+            candleSeries = chart.addCandlestickSeries({
+                upColor: '#10b981',
+                downColor: '#ef4444',
+                borderUpColor: '#10b981',
+                borderDownColor: '#ef4444',
+                wickUpColor: '#10b981',
+                wickDownColor: '#ef4444',
+            });
+
+            // 创建成交量系列
+            volumeSeries = chart.addHistogramSeries({
+                color: '#6366f1',
+                priceFormat: { type: 'volume' },
+                priceScaleId: '',
+                scaleMargins: { top: 0.85, bottom: 0 },
+            });
+
+            // 创建MA均线
+            ma5Series = chart.addLineSeries({ color: '#2962FF', lineWidth: 1 });
+            ma10Series = chart.addLineSeries({ color: '#FF6D00', lineWidth: 1 });
+            ma20Series = chart.addLineSeries({ color: '#00E676', lineWidth: 1 });
+
+            // 获取K线数据
+            try {
+                const response = await get(`/api/stock/stocks/${stockId}/kline?limit=200`);
+                klineData = response.kline || [];
+                
+                if (klineData.length > 0) {
+                    candleSeries.setData(klineData);
+                    
+                    // 设置成交量数据
+                    const volumeData = klineData.map(d => ({
+                        time: d.time,
+                        value: d.volume,
+                        color: d.close >= d.open ? 'rgba(16, 185, 129, 0.5)' : 'rgba(239, 68, 68, 0.5)'
+                    }));
+                    volumeSeries.setData(volumeData);
+                    
+                    // 计算并设置MA均线
+                    updateMASeries();
+                }
+            } catch (e) {
+                console.error('加载K线数据失败:', e);
+            }
+
+            // 响应窗口大小变化
+            new ResizeObserver(entries => {
+                if (entries.length === 0 || entries[0].target !== container) return;
+                const { width, height } = entries[0].contentRect;
+                chart.applyOptions({ width, height });
+            }).observe(container);
+
+            detailChart = chart;
+        }
+
+        function updateMASeries() {
+            if (klineData.length === 0) return;
+            
+            const ma5 = calculateMA(5);
+            const ma10 = calculateMA(10);
+            const ma20 = calculateMA(20);
+            
+            ma5Series.setData(ma5);
+            ma10Series.setData(ma10);
+            ma20Series.setData(ma20);
+        }
+
+        function calculateMA(period) {
+            const result = [];
+            for (let i = period - 1; i < klineData.length; i++) {
+                let sum = 0;
+                for (let j = 0; j < period; j++) {
+                    sum += klineData[i - j].close;
+                }
+                result.push({
+                    time: klineData[i].time,
+                    value: sum / period
+                });
+            }
+            return result;
+        }
+
+        async function changePeriod(period, btn) {
+            currentPeriod = period;
+            document.querySelectorAll('.kline-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            
+            if (currentStockId) {
+                await initKlineChart(currentStockId);
+            }
+        }
+
         function closeDetailModal() {
             document.getElementById('stock-detail-modal').classList.remove('active');
+            if (detailChart) {
+                detailChart.remove();
+                detailChart = null;
+            }
         }
 
         async function openTradeModal(stockId, type) {
@@ -550,7 +671,7 @@
                 document.getElementById('trade-stock-name').textContent = `${stock.symbol} - ${stock.name}`;
                 document.getElementById('trade-stock-price').textContent = stock.current_price.toFixed(2);
                 document.getElementById('trade-available-points').textContent = portfolio?.availablePoints || 0;
-                document.getElementById('trade-holding-shares').textContent = holding ? `${holding.shares} 股` : '0 �?;
+                document.getElementById('trade-holding-shares').textContent = holding ? `${holding.shares} 股` : '0 股';
                 document.getElementById('trade-shares').value = '';
                 document.getElementById('trade-total').textContent = '0.00';
                 
@@ -598,7 +719,7 @@
         }
 
         function formatNumber(num) {
-            if (num >= 10000) return (num / 10000).toFixed(2) + '�?;
+            if (num >= 10000) return (num / 10000).toFixed(2) + '万';
             if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
             return (num || 0).toFixed(2);
         }

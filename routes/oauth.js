@@ -21,29 +21,7 @@ router.get('/authorize', async (req, res) => {
             return res.status(400).json({ error: '缺少必要参数或参数错误' });
         }
 
-        // 验证用户是否已登录
-        const token = req.headers.authorization?.replace('Bearer ', '');
-        if (!token) {
-            // 未登录，跳转到登录页面并携带参数
-            const loginUrl = `/login?redirect=/api/oauth/authorize&client_id=${client_id}&redirect_uri=${encodeURIComponent(redirect_uri)}&state=${state || ''}`;
-            return res.redirect(loginUrl);
-        }
-
-        // 验证 Token
-        let decoded;
-        try {
-            decoded = jwt.verify(token, JWT_SECRET);
-        } catch (err) {
-            return res.status(401).json({ error: 'Token 无效或已过期' });
-        }
-
-        // 获取用户信息
-        const user = await database.get('SELECT id, username, level FROM users WHERE id = ?', [decoded.userId]);
-        if (!user) {
-            return res.status(404).json({ error: '用户不存在' });
-        }
-
-        // 显示授权页面
+        // 始终返回HTML页面，由前端JavaScript判断登录状态
         res.send(`
 <!DOCTYPE html>
 <html lang="zh-CN">
@@ -53,67 +31,129 @@ router.get('/authorize', async (req, res) => {
     <title>授权确认 - 玄剑公会</title>
     <link rel="stylesheet" href="/css/style.css">
     <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
         body {
             min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
-            background: linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), url('/2.png') center/cover;
+            background: linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), url('/2.png') center/cover no-repeat;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            padding: 20px;
         }
         .oauth-container {
-            background: var(--card-bg);
+            background: rgba(255, 255, 255, 0.285);
             padding: 40px;
-            border-radius: 16px;
+            border-radius: 20px;
             max-width: 420px;
             width: 100%;
             text-align: center;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
         }
         .oauth-logo {
             width: 80px;
-            margin-bottom: 20px;
+            height: 80px;
+            margin-bottom: 24px;
+            border-radius: 16px;
         }
         .oauth-title {
             font-size: 24px;
             font-weight: 600;
-            margin-bottom: 16px;
-            color: var(--text-primary);
+            margin-bottom: 8px;
+            color: #fff;
         }
-        .oauth-desc {
-            color: var(--text-secondary);
+        .oauth-subtitle {
+            color: #94979a;
+            font-size: 14px;
             margin-bottom: 24px;
-            line-height: 1.6;
         }
-        .app-name {
-            color: #6366f1;
+        .app-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(99, 102, 241, 0.2);
+            color: #fff;
+            padding: 10px 16px;
+            border-radius: 8px;
             font-weight: 500;
+            margin-bottom: 24px;
+            font-size: 14px;
         }
         .user-info {
-            background: rgba(99, 102, 241, 0.1);
-            padding: 12px 16px;
-            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 12px;
             margin-bottom: 24px;
-            color: var(--text-primary);
+        }
+        .user-avatar-img {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            object-fit: cover;
+            margin: 0 auto 12px;
+            display: block;
+            background: #e2e8f0;
+        }
+        .user-name {
+            color: #fff;
+            font-weight: 600;
+            font-size: 16px;
+        }
+        .user-label {
+            color: #94979a;
+            font-size: 12px;
+            margin-top: 4px;
         }
         .oauth-buttons {
             display: flex;
             gap: 12px;
         }
+        .btn {
+            flex: 1;
+            padding: 12px 20px;
+            border-radius: 10px;
+            font-size: 15px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s;
+            border: none;
+        }
         .btn-allow {
             background: #6366f1;
             color: white;
-            padding: 12px 24px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: 500;
-            flex: 1;
+        }
+        .btn-allow:hover {
+            background: #4f46e5;
         }
         .btn-deny {
             background: rgba(255,255,255,0.1);
-            color: var(--text-secondary);
-            padding: 12px 24px;
-            border-radius: 8px;
-            cursor: pointer;
-            flex: 1;
+            color: #94979a;
+        }
+        .btn-deny:hover {
+            background: rgba(255,255,255,0.2);
+        }
+        .loading {
+            color: #94979a;
+            font-size: 14px;
+        }
+        .loading::after {
+            content: '';
+            animation: dots 1.5s infinite;
+        }
+        @keyframes dots {
+            0%, 20% { content: '.'; }
+            40% { content: '..'; }
+            60%, 100% { content: '...'; }
+        }
+        .oauth-notice {
+            color: #6b7280;
+            font-size: 12px;
+            margin-top: 20px;
+            line-height: 1.5;
         }
     </style>
 </head>
@@ -121,16 +161,7 @@ router.get('/authorize', async (req, res) => {
     <div class="oauth-container">
         <img src="/icon.png" class="oauth-logo" alt="玄剑公会">
         <h1 class="oauth-title">授权确认</h1>
-        <p class="oauth-desc">
-            第三方应用 <span class="app-name">${client_id}</span> 请求访问您的玄剑公会账号信息
-        </p>
-        <div class="user-info">
-            当前账号：<strong>${user.username}</strong>
-        </div>
-        <div class="oauth-buttons">
-            <button class="btn-deny" onclick="denyAuth()">拒绝</button>
-            <button class="btn-allow" onclick="allowAuth()">允许授权</button>
-        </div>
+        <p id="status" class="loading">正在检查登录状态</p>
     </div>
     <script>
         const params = new URLSearchParams(window.location.search);
@@ -138,11 +169,57 @@ router.get('/authorize', async (req, res) => {
         const redirectUri = params.get('redirect_uri');
         const state = params.get('state');
         
+        const token = localStorage.getItem('token');
+        
+        if (!token) {
+            const loginUrl = '/login?redirect=/api/oauth/authorize&client_id=' + clientId + '&redirect_uri=' + encodeURIComponent(redirectUri) + '&state=' + (state || '');
+            window.location.href = loginUrl;
+        } else {
+            fetch('/api/auth/me', {
+                headers: { 'Authorization': 'Bearer ' + token }
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.id) {
+                    const avatarUrl = data.avatar || '/uploads/default-avatar.png';
+                    document.getElementById('status').outerHTML = \`
+                        <p class="oauth-subtitle">第三方应用请求访问您的账号</p>
+                        <div class="app-badge">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                <polyline points="14 2 14 8 20 8"></polyline>
+                            </svg>
+                            \${clientId}
+                        </div>
+                        <div class="user-info">
+                            <img class="user-avatar-img" src="\${avatarUrl}" alt="头像" onerror="this.src='/uploads/default-avatar.png'">
+                            <div class="user-name">\${data.username}</div>
+                            <div class="user-label">当前登录账号</div>
+                        </div>
+                        <div class="oauth-buttons">
+                            <button class="btn btn-deny" onclick="denyAuth()">拒绝</button>
+                            <button class="btn btn-allow" onclick="allowAuth()">允许授权</button>
+                        </div>
+                        <p class="oauth-notice">授权后，该应用将获取您的基本信息<br>包括用户名、权限等级等</p>
+                    \`;
+                } else {
+                    localStorage.removeItem('token');
+                    const loginUrl = '/login?redirect=/api/oauth/authorize&client_id=' + clientId + '&redirect_uri=' + encodeURIComponent(redirectUri) + '&state=' + (state || '');
+                    window.location.href = loginUrl;
+                }
+            })
+            .catch(err => {
+                localStorage.removeItem('token');
+                const loginUrl = '/login?redirect=/api/oauth/authorize&client_id=' + clientId + '&redirect_uri=' + encodeURIComponent(redirectUri) + '&state=' + (state || '');
+                window.location.href = loginUrl;
+            });
+        }
+        
         function allowAuth() {
             fetch('/api/oauth/authorize', {
                 method: 'POST',
                 headers: {
-                    'Authorization': localStorage.getItem('token'),
+                    'Authorization': 'Bearer ' + localStorage.getItem('token'),
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({ client_id: clientId, redirect_uri: redirectUri, state: state })
@@ -285,27 +362,51 @@ router.get('/verify', async (req, res) => {
         }
 
         // 获取最新用户信息
-        const user = await database.get(
-            'SELECT id, username, level, title_id, contribution FROM users WHERE id = ?',
-            [decoded.userId]
-        );
+        let user;
+        try {
+            // 尝试查询包含title_id的schema
+            user = await database.get(
+                'SELECT id, username, avatar, level, title_id, contribution FROM users WHERE id = ?',
+                [decoded.userId]
+            );
+        } catch (e) {
+            // 如果title_id列不存在，使用备用查询
+            if (e.code === 'SQLITE_ERROR') {
+                user = await database.get(
+                    'SELECT id, username, avatar, level, contribution FROM users WHERE id = ?',
+                    [decoded.userId]
+                );
+            } else {
+                throw e;
+            }
+        }
 
         if (!user) {
             return res.status(404).json({ valid: false, error: 'user_not_found' });
         }
 
-        // 获取称号名称
+        // 获取称号名称（如果title_id存在）
         let titleName = null;
         if (user.title_id) {
-            const title = await database.get('SELECT name FROM titles WHERE id = ?', [user.title_id]);
-            titleName = title?.name;
+            try {
+                const title = await database.get('SELECT name FROM titles WHERE id = ?', [user.title_id]);
+                titleName = title?.name;
+            } catch (e) {
+                // titles表可能不存在，忽略错误
+            }
         }
+
+        // 构建完整头像URL
+        const avatarUrl = user.avatar
+            ? (user.avatar.startsWith('http') ? user.avatar : `https://xuanjian.top${user.avatar}`)
+            : 'https://xuanjian.top/uploads/default-avatar.png';
 
         res.json({
             valid: true,
             user: {
                 id: user.id,
                 username: user.username,
+                avatar: avatarUrl,
                 level: user.level,
                 title: titleName,
                 contribution: user.contribution

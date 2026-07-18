@@ -34,7 +34,7 @@
             justify-content: center;
         }
 
-        /* 置顶工具�?- 替代导航�?*/
+        /* 置顶工具栏 - 替代导航栏 */
         .toolbar-section {
             background: white;
             padding: 12px 24px;
@@ -59,7 +59,7 @@
             gap: 16px;
         }
 
-        /* 搜索�?*/
+        /* 搜索框 */
         .toolbar-search {
             flex: 1;
             position: relative;
@@ -279,7 +279,7 @@
             margin-bottom: 12px;
         }
 
-        /* 加载状�?*/
+        /* 加载状态 */
         .loading {
             text-align: center;
             padding: 60px 20px;
@@ -299,7 +299,7 @@
             to { transform: rotate(360deg); }
         }
 
-        /* 空状�?*/
+        /* 空状态 */
         .empty-state {
             text-align: center;
             padding: 60px 20px;
@@ -364,7 +364,7 @@
     </style>
 </head>
 <body>
-    <!-- 导航�?-->
+    <!-- 导航栏 -->
     <nav class="navbar">
         <div class="navbar-content">
             <a href="/" class="navbar-brand">
@@ -380,7 +380,7 @@
                 <a href="/forum" class="nav-link">贴吧</a>
                 <a href="/stock" class="nav-link">股市</a>
                 <a href="/shop" class="nav-link">商城</a>
-                <a href="/rankings" class="nav-link">排行�?/a>
+                <a href="/rankings" class="nav-link">排行榜</a>
                 <a href="/social" class="nav-link">社交媒体</a>
                 <div class="nav-user">
                     <button class="theme-toggle" onclick="toggleTheme()" title="切换主题">
@@ -411,7 +411,7 @@
     <!-- 页面头部 -->
     <header class="page-header">
         <h1 class="page-title">决策公告</h1>
-        <p class="page-subtitle">公会重要决策与官方公�?/p>
+        <p class="page-subtitle">公会重要决策与官方公告</p>
         <div class="page-actions" id="pageActions"></div>
     </header>
 
@@ -441,7 +441,7 @@
         <div class="content-container" id="contentContainer">
             <div class="loading">
                 <div class="spinner"></div>
-                <p>加载�?..</p>
+                <p>加载中...</p>
             </div>
         </div>
     </section>
@@ -453,19 +453,21 @@
         </svg>
     </button>
 
-    <script src="/js/common.js?v=2.1.0"></script>
+    <script src="/js/common.js?v=2.1.1"></script>
     <script>
         let currentFilter = 'all';
         let currentPage = 1;
         let currentSearch = '';
 
-        // 初始化页�?        document.addEventListener('DOMContentLoaded', function() {
+        // 初始化页面
+        document.addEventListener('DOMContentLoaded', function() {
             initUserStatus();
             loadPosts();
             bindEvents();
         });
 
-        // 初始化用户状�?        function initUserStatus() {
+        // 初始化用户状态
+        function initUserStatus() {
             const user = getCurrentUser();
             const navUser = document.querySelector('.nav-user');
             const pageActions = document.getElementById('pageActions');
@@ -493,13 +495,15 @@
             ` : '';
 
             if (user) {
-                // 已登�?                navUser.innerHTML = themeBtn + notificationBtn + `
+                // 已登录
+                navUser.innerHTML = themeBtn + notificationBtn + `
                     <a href="/profile">
                         <img src="${user.avatar || '/uploads/default-avatar.png'}" alt="${user.nickname}" class="nav-avatar">
                     </a>
                 `;
                 
-                // 加载未读通知�?                loadUnreadNotificationCount();
+                // 加载未读通知数
+                loadUnreadNotificationCount();
 
                 // 管理员显示发布按钮（3级日报发布者不能发布决策）
                 if (user.level >= 1 && user.level !== 3 && pageActions) {
@@ -513,13 +517,15 @@
                     `;
                 }
             } else {
-                // 未登�?                navUser.innerHTML = themeBtn + `<a href="/login" class="nav-login-btn">登录</a>`;
+                // 未登录
+                navUser.innerHTML = themeBtn + `<a href="/login" class="nav-login-btn">登录</a>`;
             }
         }
 
         // 绑定事件
         function bindEvents() {
-            // 筛选按�?            document.querySelectorAll('.toolbar-filter-btn').forEach(btn => {
+            // 筛选按钮
+            document.querySelectorAll('.toolbar-filter-btn').forEach(btn => {
                 btn.addEventListener('click', function() {
                     document.querySelectorAll('.toolbar-filter-btn').forEach(b => b.classList.remove('active'));
                     this.classList.add('active');
@@ -547,7 +553,8 @@
                 }
             });
 
-            // 滚动监听 - 工具栏样式变�?            window.addEventListener('scroll', () => {
+            // 滚动监听 - 工具栏样式变化
+            window.addEventListener('scroll', () => {
                 const toolbar = document.getElementById('toolbar');
                 if (window.scrollY > 100) {
                     toolbar.classList.add('scrolled');
@@ -563,7 +570,7 @@
             container.innerHTML = `
                 <div class="loading">
                     <div class="spinner"></div>
-                    <p>加载�?..</p>
+                    <p>加载中...</p>
                 </div>
             `;
 
@@ -675,9 +682,11 @@
             const container = document.getElementById('contentContainer');
             let paginationHtml = '<div class="pagination">';
 
-            // 上一�?            paginationHtml += `
+            // 上一页
+            paginationHtml += `
                 <button class="page-btn" ${currentPage === 1 ? 'disabled' : ''} onclick="changePage(${currentPage - 1})">
-                    上一�?                </button>
+                    上一页
+                </button>
             `;
 
             // 页码
@@ -689,9 +698,11 @@
                 `;
             }
 
-            // 下一�?            paginationHtml += `
+            // 下一页
+            paginationHtml += `
                 <button class="page-btn" ${currentPage === totalPages ? 'disabled' : ''} onclick="changePage(${currentPage + 1})">
-                    下一�?                </button>
+                    下一页
+                </button>
             `;
 
             paginationHtml += '</div>';

@@ -65,7 +65,7 @@
                 <a href="/forum" class="nav-link">贴吧</a>
                 <a href="/stock" class="nav-link">股市</a>
                 <a href="/shop" class="nav-link">商城</a>
-                <a href="/rankings" class="nav-link">排行�?/a>
+                <a href="/rankings" class="nav-link">排行榜</a>
                 <a href="/social" class="nav-link">社交媒体</a>
                 <div class="nav-user">
                     <button class="theme-toggle" onclick="toggleTheme()" title="切换主题">
@@ -103,6 +103,7 @@
                 <div class="admin-tab" onclick="switchTab('shop')">商城管理</div>
                 <div class="admin-tab" onclick="switchTab('claims')">申报审核</div>
                 <div class="admin-tab" onclick="switchTab('verify')">核销商品</div>
+                <div class="admin-tab" onclick="switchTab('theme')">主题设置</div>
             </div>
 
             <div class="admin-content">
@@ -111,13 +112,13 @@
                 </div>
                 <div id="tab-posts" class="tab-content">
                     <table class="admin-table">
-                        <thead><tr><th>ID</th><th>标题</th><th>类型</th><th>作�?/th><th>状�?/th><th>操作</th></tr></thead>
+                        <thead><tr><th>ID</th><th>标题</th><th>类型</th><th>作者</th><th>状态</th><th>操作</th></tr></thead>
                         <tbody id="posts-table"></tbody>
                     </table>
                 </div>
                 <div id="tab-users" class="tab-content">
                     <table class="admin-table">
-                        <thead><tr><th>ID</th><th>用户�?/th><th>昵称</th><th>等级</th><th>贡献</th><th>操作</th></tr></thead>
+                        <thead><tr><th>ID</th><th>用户名</th><th>昵称</th><th>等级</th><th>贡献</th><th>操作</th></tr></thead>
                         <tbody id="users-table"></tbody>
                     </table>
                 </div>
@@ -129,7 +130,7 @@
                     <button class="bt bt-primary" onclick="createStock()" style="margin-bottom:20px;">创建股票</button>
                     <button class="bt bt-primary" onclick="triggerStockUpdate()" style="margin-bottom:20px;margin-left:8px;">触发价格更新</button>
                     <table class="admin-table">
-                        <thead><tr><th>ID</th><th>代码</th><th>名称</th><th>当前�?/th><th>基础�?/th><th>可用股份</th><th>波动�?/th><th>趋势</th><th>状�?/th><th>操作</th></tr></thead>
+                        <thead><tr><th>ID</th><th>代码</th><th>名称</th><th>当前价</th><th>基础价</th><th>可用股份</th><th>波动率</th><th>趋势</th><th>状态</th><th>操作</th></tr></thead>
                         <tbody id="stocks-table"></tbody>
                     </table>
                 </div>
@@ -137,45 +138,94 @@
                     <h3 style="margin-bottom:16px;">签到奖励配置</h3>
                     <button class="bt bt-primary" onclick="createCheckinReward()" style="margin-bottom:20px;">添加奖励档位</button>
                     <table class="admin-table">
-                        <thead><tr><th>连续天数</th><th>奖励贡献�?/th><th>描述</th><th>操作</th></tr></thead>
+                        <thead><tr><th>连续天数</th><th>奖励贡献点</th><th>描述</th><th>操作</th></tr></thead>
                         <tbody id="checkin-rewards-table"></tbody>
                     </table>
                 </div>
                 <div id="tab-titles" class="tab-content">
                     <button class="bt bt-primary" onclick="createTitle()" style="margin-bottom:20px;">创建称号</button>
                     <table class="admin-table">
-                        <thead><tr><th>ID</th><th>名称</th><th>颜色</th><th>价格</th><th>类型</th><th>状�?/th><th>商城</th><th>操作</th></tr></thead>
+                        <thead><tr><th>ID</th><th>名称</th><th>颜色</th><th>价格</th><th>类型</th><th>状态</th><th>商城</th><th>操作</th></tr></thead>
                         <tbody id="titles-table"></tbody>
                     </table>
                 </div>
                 <div id="tab-shop" class="tab-content">
                     <button class="bt bt-primary" onclick="createShopItem()" style="margin-bottom:20px;">添加商品</button>
                     <table class="admin-table">
-                        <thead><tr><th>ID</th><th>名称</th><th>类型</th><th>价格</th><th>库存</th><th>状�?/th><th>操作</th></tr></thead>
+                        <thead><tr><th>ID</th><th>名称</th><th>类型</th><th>价格</th><th>库存</th><th>状态</th><th>操作</th></tr></thead>
                         <tbody id="shop-table"></tbody>
                     </table>
                 </div>
                 <div id="tab-claims" class="tab-content">
-                    <h3 style="margin-bottom:16px;">待审核申�?/h3>
+                    <h3 style="margin-bottom:16px;">待审核申报</h3>
                     <div id="claims-list"></div>
                 </div>
                 <div id="tab-verify" class="tab-content">
                     <h3 style="margin-bottom:16px;">核销商品</h3>
                     <div style="display:flex;gap:12px;margin-bottom:20px;">
-                        <input type="text" id="verify-code-input" placeholder="请输入核销�? style="flex:1;padding:10px 16px;border:1px solid var(--border-color);border-radius:8px;background:var(--bg-color);color:var(--text-primary);">
+                        <input type="text" id="verify-code-input" placeholder="请输入核销码" style="flex:1;padding:10px 16px;border:1px solid var(--border-color);border-radius:8px;background:var(--bg-color);color:var(--text-primary);">
                         <button class="bt bt-primary" onclick="verifyCode()">验证</button>
                     </div>
                     <div id="verify-result" style="display:none;background:var(--card-bg);border-radius:12px;padding:20px;border:1px solid var(--border-color);">
                         <div id="verify-info"></div>
                     </div>
                 </div>
+                <div id="tab-theme" class="tab-content">
+                    <h3 style="margin-bottom:16px;">全站主题设置</h3>
+                    <p style="color:var(--text-secondary);margin-bottom:24px;">选择节日主题，一键切换全站配色风格</p>
+                    <div class="theme-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;">
+                        <div class="theme-card" data-theme="default" onclick="selectTheme('default')" style="border:2px solid var(--border-color);border-radius:12px;padding:20px;cursor:pointer;transition:all 0.3s;">
+                            <div style="font-size:24px;margin-bottom:12px;">🎨</div>
+                            <div style="font-weight:600;margin-bottom:8px;">默认主题</div>
+                            <div style="color:var(--text-secondary);font-size:13px;">经典蓝紫配色</div>
+                        </div>
+                        <div class="theme-card" data-theme="spring" onclick="selectTheme('spring')" style="border:2px solid var(--border-color);border-radius:12px;padding:20px;cursor:pointer;transition:all 0.3s;">
+                            <div style="font-size:24px;margin-bottom:12px;">🧧</div>
+                            <div style="font-weight:600;margin-bottom:8px;">春节主题</div>
+                            <div style="color:var(--text-secondary);font-size:13px;">中国红+金色喜庆配色</div>
+                        </div>
+                        <div class="theme-card" data-theme="dragonboat" onclick="selectTheme('dragonboat')" style="border:2px solid var(--border-color);border-radius:12px;padding:20px;cursor:pointer;transition:all 0.3s;">
+                            <div style="font-size:24px;margin-bottom:12px;">🐉</div>
+                            <div style="font-weight:600;margin-bottom:8px;">端午主题</div>
+                            <div style="color:var(--text-secondary);font-size:13px;">绿色+龙舟元素</div>
+                            <div style="color:#94a3b8;font-size:11px;margin-top:8px;">（待实现）</div>
+                        </div>
+                        <div class="theme-card" data-theme="midautumn" onclick="selectTheme('midautumn')" style="border:2px solid var(--border-color);border-radius:12px;padding:20px;cursor:pointer;transition:all 0.3s;">
+                            <div style="font-size:24px;margin-bottom:12px;">🌕</div>
+                            <div style="font-weight:600;margin-bottom:8px;">中秋主题</div>
+                            <div style="color:var(--text-secondary);font-size:13px;">月光银+桂花黄</div>
+                            <div style="color:#94a3b8;font-size:11px;margin-top:8px;">（待实现）</div>
+                        </div>
+                        <div class="theme-card" data-theme="national" onclick="selectTheme('national')" style="border:2px solid var(--border-color);border-radius:12px;padding:20px;cursor:pointer;transition:all 0.3s;">
+                            <div style="font-size:24px;margin-bottom:12px;">🇨🇳</div>
+                            <div style="font-weight:600;margin-bottom:8px;">国庆主题</div>
+                            <div style="color:var(--text-secondary);font-size:13px;">红色+五星元素</div>
+                            <div style="color:#94a3b8;font-size:11px;margin-top:8px;">（待实现）</div>
+                        </div>
+                    </div>
+                    <div style="margin-top:24px;padding:16px;background:var(--bg-color);border-radius:8px;">
+                        <div style="display:flex;align-items:center;gap:12px;">
+                            <span style="color:var(--text-secondary);">当前主题：</span>
+                            <span id="current-theme-name" style="font-weight:600;color:var(--primary-color);">默认主题</span>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </main>
 
-    <script src="/js/common.js?v=2.1.0"></script>
+    <script src="/js/common.js?v=2.1.1"></script>
     <script>
         if (!isAdmin()) { window.location.href = '/'; }
+
+        let currentTheme = 'default';
+        const themeNames = {
+            'default': '默认主题',
+            'spring': '春节主题',
+            'dragonboat': '端午主题',
+            'midautumn': '中秋主题',
+            'national': '国庆主题'
+        };
 
         function switchTab(tab) {
             document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
@@ -192,6 +242,51 @@
             if (tab === 'shop') loadShopItems();
             if (tab === 'claims') loadClaims();
             if (tab === 'verify') loadVerify();
+            if (tab === 'theme') loadThemeSettings();
+        }
+
+        async function loadThemeSettings() {
+            try {
+                const data = await get('/api/admin/theme');
+                currentTheme = data.theme || 'default';
+                updateThemeUI();
+            } catch (error) {
+                console.error('加载主题设置失败:', error);
+            }
+        }
+
+        function updateThemeUI() {
+            // 更新当前主题名称显示
+            document.getElementById('current-theme-name').textContent = themeNames[currentTheme];
+            
+            // 更新卡片选中状态
+            document.querySelectorAll('.theme-card').forEach(card => {
+                if (card.dataset.theme === currentTheme) {
+                    card.style.borderColor = 'var(--primary-color)';
+                    card.style.background = 'var(--primary-light)';
+                } else {
+                    card.style.borderColor = 'var(--border-color)';
+                    card.style.background = 'transparent';
+                }
+            });
+        }
+
+        async function selectTheme(theme) {
+            if (theme === currentTheme) return;
+            
+            try {
+                const success = await switchSiteTheme(theme);
+                if (success) {
+                    currentTheme = theme;
+                    updateThemeUI();
+                    alert(`主题已切换为：${themeNames[theme]}`);
+                } else {
+                    alert('切换主题失败，请检查权限');
+                }
+            } catch (error) {
+                console.error('切换主题错误:', error);
+                alert('切换主题失败');
+            }
         }
 
         async function loadStats() {
@@ -261,11 +356,11 @@
             const newPinStatus = isPinned ? 0 : 1;
             await put(`/api/admin/posts/${id}/pin`, { isPinned: newPinStatus });
             loadPosts();
-            showToast(newPinStatus ? '已置�? : '已取消置�?, 'success');
+            showToast(newPinStatus ? '已置顶' : '已取消置顶', 'success');
         }
 
         async function setUserLevel(id, currentLevel) {
-            const newLevel = prompt('设置用户等级 (0-3):\n0-普通用�?1-管理�?2-超管 3-日报发布�?, currentLevel);
+            const newLevel = prompt('设置用户等级 (0-3):\n0-普通用户 1-管理员 2-超管 3-日报发布者', currentLevel);
             if (newLevel === null) return;
             await put(`/api/admin/users/${id}/level`, { level: parseInt(newLevel) });
             loadUsers();
@@ -277,7 +372,7 @@
             if (!title) return;
             const content = prompt('公告内容:');
             if (!content) return;
-            const isPopup = confirm('是否设为弹窗公告�?);
+            const isPopup = confirm('是否设为弹窗公告？');
             await post('/api/admin/announcements', { title, content, isPopup, isActive: true });
             loadAnnouncements();
             showToast('发布成功', 'success');
@@ -317,15 +412,15 @@
         }
 
         async function createStock() {
-            const symbol = prompt('股票代码 (�?XJ001):');
+            const symbol = prompt('股票代码 (如 XJ001):');
             if (!symbol) return;
             const name = prompt('股票名称:');
             if (!name) return;
             const basePrice = prompt('基础价格:', '100');
             if (!basePrice) return;
-            const totalShares = prompt('总股�?', '10000');
-            const volatility = prompt('波动�?(0-1, 建议0.1-0.2):', '0.15');
-            const trend = prompt('趋势 (-1�?, 正数上涨):', '0');
+            const totalShares = prompt('总股数:', '10000');
+            const volatility = prompt('波动率 (0-1, 建议0.1-0.2):', '0.15');
+            const trend = prompt('趋势 (-1到1, 正数上涨):', '0');
             
             try {
                 await post('/api/stock/stocks', {
@@ -346,11 +441,11 @@
         async function editStock(id, symbol, name, volatility, trend, isActive) {
             const newName = prompt('股票名称:', name);
             if (newName === null) return;
-            const newVolatility = prompt('波动�?', volatility);
+            const newVolatility = prompt('波动率:', volatility);
             if (newVolatility === null) return;
             const newTrend = prompt('趋势:', trend);
             if (newTrend === null) return;
-            const statusChoice = confirm('是否启用？\n确定=启用，取�?停用');
+            const statusChoice = confirm('是否启用？\n确定=启用，取消=停用');
             
             try {
                 await put(`/api/stock/stocks/${id}`, {
@@ -381,7 +476,7 @@
         async function triggerStockUpdate() {
             try {
                 await post('/api/stock/trigger-update', {});
-                showToast('价格更新已触�?, 'success');
+                showToast('价格更新已触发', 'success');
                 setTimeout(loadStocks, 1000);
             } catch (e) {
                 showToast(e.message || '触发失败', 'error');
@@ -410,7 +505,7 @@
         async function createCheckinReward() {
             const days = prompt('连续签到天数:');
             if (!days) return;
-            const points = prompt('奖励贡献�?');
+            const points = prompt('奖励贡献点:');
             if (!points) return;
             const desc = prompt('描述:', `连续${days}天`);
             
@@ -442,9 +537,9 @@
                         <td><span style="color:${t.color};font-weight:600;">${t.name}</span></td>
                         <td><span style="background:${t.color};color:white;padding:2px 8px;border-radius:4px;">${t.color}</span></td>
                         <td>${t.price}</td>
-                        <td>${t.is_preset ? '预设' : '自定�?}</td>
+                        <td>${t.is_preset ? '预设' : '自定义'}</td>
                         <td style="color: ${t.is_active ? 'var(--success)' : 'var(--danger)'}">${t.is_active ? '启用' : '停用'}</td>
-                        <td style="color: ${t.in_shop ? 'var(--success)' : 'var(--text-secondary)'}">${t.in_shop ? '已上�? : '未上�?}</td>
+                        <td style="color: ${t.in_shop ? 'var(--success)' : 'var(--text-secondary)'}">${t.in_shop ? '已上架' : '未上架'}</td>
                         <td>
                             <button class="admin-btn admin-btn-primary" onclick="editTitle(${t.id}, '${t.name}', '${t.color}', ${t.price}, ${t.is_active}, ${t.in_shop || 0})">编辑</button>
                             <button class="admin-btn admin-btn-danger" onclick="deleteTitle(${t.id})">删除</button>
@@ -460,11 +555,11 @@
             const name = prompt('称号名称:');
             if (!name) return;
             const description = prompt('称号描述（可选）:', '');
-            const color = prompt('颜色 (�?#6366f1):', '#6366f1');
+            const color = prompt('颜色 (如 #6366f1):', '#6366f1');
             if (!color) return;
-            const price = prompt('价格 (贡献�?:', '0');
+            const price = prompt('价格 (贡献点):', '0');
             const isPreset = confirm('是否为预设称号？');
-            const inShop = confirm('是否上架商城�?);
+            const inShop = confirm('是否上架商城？');
             
             try {
                 await post('/api/titles', {
@@ -489,8 +584,8 @@
             if (newColor === null) return;
             const newPrice = prompt('价格:', price.toString());
             if (newPrice === null) return;
-            const statusChoice = confirm('是否启用？\n确定=启用，取�?停用');
-            const shopChoice = confirm('是否上架商城？\n确定=上架，取�?不上�?);
+            const statusChoice = confirm('是否启用？\n确定=启用，取消=停用');
+            const shopChoice = confirm('是否上架商城？\n确定=上架，取消=不上架');
             
             try {
                 await put(`/api/titles/${id}`, {
@@ -508,7 +603,7 @@
         }
 
         async function deleteTitle(id) {
-            if (!await showConfirm('确定删除此称号？已购买的用户将保留称号�?)) return;
+            if (!await showConfirm('确定删除此称号？已购买的用户将保留称号。')) return;
             try {
                 await del(`/api/titles/${id}`);
                 loadTitles();
@@ -545,9 +640,9 @@
             const name = prompt('商品名称:');
             if (!name) return;
             const type = confirm('是否为称号商品？') ? 'title' : 'other';
-            const price = prompt('价格 (贡献�?:');
+            const price = prompt('价格 (贡献点):');
             if (!price) return;
-            const stock = prompt('库存 (-1为无�?:', '-1');
+            const stock = prompt('库存 (-1为无限):', '-1');
             
             try {
                 await post('/api/shop/items', {
@@ -570,7 +665,7 @@
             if (newPrice === null) return;
             const newStock = prompt('库存:', stock.toString());
             if (newStock === null) return;
-            const statusChoice = confirm('是否上架？\n确定=上架，取�?下架');
+            const statusChoice = confirm('是否上架？\n确定=上架，取消=下架');
             
             try {
                 await put(`/api/shop/items/${id}`, {
@@ -604,7 +699,7 @@
                 const list = document.getElementById('claims-list');
                 
                 if (claims.length === 0) {
-                    list.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-secondary);">暂无待审核申�?/div>';
+                    list.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-secondary);">暂无待审核申报</div>';
                     return;
                 }
                 
@@ -612,14 +707,14 @@
                     <div style="padding:20px;border-bottom:1px solid var(--border-color);">
                         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;">
                             <div>
-                                <div style="font-size:20px;font-weight:700;color:#f59e0b;">+${c.amount} 贡献�?/div>
+                                <div style="font-size:20px;font-weight:700;color:#f59e0b;">+${c.amount} 贡献点</div>
                                 <div style="font-size:14px;color:var(--text-secondary);margin-top:4px;">申请人：${c.nickname || c.username}</div>
                             </div>
-                            <span style="padding:4px 12px;border-radius:12px;font-size:12px;background:#fef3c7;color:#92400e;">待审�?/span>
+                            <span style="padding:4px 12px;border-radius:12px;font-size:12px;background:#fef3c7;color:#92400e;">待审核</span>
                         </div>
                         <div style="margin-bottom:8px;line-height:1.6;">${c.reason}</div>
-                        ${c.evidence ? `<div style="margin-bottom:8px;color:var(--text-secondary);font-size:14px;"><strong>证明�?/strong>${c.evidence}</div>` : ''}
-                        <div style="font-size:12px;color:var(--text-secondary);margin-bottom:12px;">提交�?${new Date(c.created_at).toLocaleString('zh-CN')}</div>
+                        ${c.evidence ? `<div style="margin-bottom:8px;color:var(--text-secondary);font-size:14px;"><strong>证明：</strong>${c.evidence}</div>` : ''}
+                        <div style="font-size:12px;color:var(--text-secondary);margin-bottom:12px;">提交于 ${new Date(c.created_at).toLocaleString('zh-CN')}</div>
                         <div style="display:flex;gap:12px;">
                             <button class="admin-btn" style="background:#10b981;color:white;" onclick="reviewClaim(${c.id}, 'approved')">通过</button>
                             <button class="admin-btn admin-btn-danger" onclick="reviewClaim(${c.id}, 'rejected')">拒绝</button>
@@ -632,7 +727,7 @@
         }
 
         async function reviewClaim(id, status) {
-            const note = status === 'rejected' ? prompt('请输入拒绝理由（可选）�?) : prompt('请输入审核备注（可选）�?);
+            const note = status === 'rejected' ? prompt('请输入拒绝理由（可选）：') : prompt('请输入审核备注（可选）：');
             if (status === 'rejected' && note === null) return;
             
             try {
@@ -659,7 +754,7 @@
         async function verifyCode() {
             const code = document.getElementById('verify-code-input').value.trim();
             if (!code) {
-                showToast('请输入核销�?, 'error');
+                showToast('请输入核销码', 'error');
                 return;
             }
             
@@ -671,22 +766,22 @@
                 resultDiv.style.display = 'block';
                 infoDiv.innerHTML = `
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-                        <h4 style="color:#10b981;">�?核销码有�?/h4>
+                        <h4 style="color:#10b981;">✓ 核销码有效</h4>
                         <button class="bt bt-primary" onclick="confirmVerify('${code}')">确认核销</button>
                     </div>
                     <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;">
-                        <div><strong>商品名称�?/strong>${data.item.name}</div>
-                        <div><strong>商品类型�?/strong>${data.item.type === 'title' ? '称号' : '其他'}</div>
+                        <div><strong>商品名称：</strong>${data.item.name}</div>
+                        <div><strong>商品类型：</strong>${data.item.type === 'title' ? '称号' : '其他'}</div>
                         <div><strong>购买者：</strong>${data.item.buyer}</div>
-                        <div><strong>购买时间�?/strong>${new Date(data.item.purchasedAt).toLocaleString('zh-CN')}</div>
+                        <div><strong>购买时间：</strong>${new Date(data.item.purchasedAt).toLocaleString('zh-CN')}</div>
                     </div>
-                    ${data.item.description ? `<div style="margin-top:12px;"><strong>描述�?/strong>${data.item.description}</div>` : ''}
+                    ${data.item.description ? `<div style="margin-top:12px;"><strong>描述：</strong>${data.item.description}</div>` : ''}
                 `;
             } catch (e) {
                 const resultDiv = document.getElementById('verify-result');
                 const infoDiv = document.getElementById('verify-info');
                 resultDiv.style.display = 'block';
-                infoDiv.innerHTML = `<div style="color:#ef4444;text-align:center;padding:20px;">�?${e.message || '核销码无�?}</div>`;
+                infoDiv.innerHTML = `<div style="color:#ef4444;text-align:center;padding:20px;">✗ ${e.message || '核销码无效'}</div>`;
             }
         }
 

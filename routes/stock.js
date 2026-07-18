@@ -12,6 +12,21 @@ const TRADE_WINDOW_MINUTES = 5;
 
 const TRADE_COOLDOWN_MINUTES = 60;
 
+// OHLC K线数据存储
+const ohlcData = new Map(); // stock_id -> { open, high, low, close, volume, startTime }
+
+// 每根K线的时间周期（毫秒），默认5分钟
+const CANDLE_INTERVAL_MS = 5 * 60 * 1000;
+
+function getIntervalStart(timestamp) {
+    const date = new Date(timestamp);
+    const minutes = date.getMinutes();
+    const intervalMinutes = CANDLE_INTERVAL_MS / 60000;
+    const startMinute = Math.floor(minutes / intervalMinutes) * intervalMinutes;
+    date.setMinutes(startMinute, 0, 0);
+    return date.getTime();
+}
+
 function getLocalTimeStr(date) {
     const offset = date.getTimezoneOffset() * 60000;
     const localTime = new Date(date - offset);
@@ -37,6 +52,8 @@ async function updateStockPrices() {
     try {
         const stocks = await db.all('SELECT * FROM stocks WHERE is_active = 1');
         const now = getLocalTimestamp();
+        const nowTs = Date.now();
+        const currentIntervalStart = getIntervalStart(nowTs);
         
         for (const stock of stocks) {
             const windowStart = new Date(Date.now() - TRADE_WINDOW_MINUTES * 60 * 1000);
@@ -84,6 +101,32 @@ async function updateStockPrices() {
             );
             
             const marketMakerVolume = Math.floor(MARKET_MAKER_BASE_VOLUME * (0.5 + Math.random()));
+            
+            // 更新OHLC数据
+            let ohlc = ohlcData.get(stock.id);
+            if (!ohlc || ohlc.startTime !== currentIntervalStart) {
+                // 新的K线周期，保存旧的K线到数据库
+                if (ohlc) {
+                    await saveOhlcToDb(stock.id, ohlc);
+                }
+                // 创建新的K线
+                ohlc = {
+                    open: stock.current_price,
+                    high: newPrice,
+                    low: newPrice,
+                    close: newPrice,
+                    volume: marketMakerVolume,
+                    startTime: currentIntervalStart
+                };
+            } else {
+                // 更新当前K线
+                ohlc.high = Math.max(ohlc.high, newPrice);
+                ohlc.low = Math.min(ohlc.low, newPrice);
+                ohlc.close = newPrice;
+                ohlc.volume += marketMakerVolume;
+            }
+            ohlcData.set(stock.id, ohlc);
+            
             await db.run(
                 'INSERT INTO stock_prices (stock_id, price, volume, recorded_at) VALUES (?, ?, ?, ?)',
                 [stock.id, newPrice, marketMakerVolume, now]
@@ -98,6 +141,19 @@ async function updateStockPrices() {
         }
     } catch (err) {
         console.error('更新股票价格失败:', err);
+    }
+}
+
+async function saveOhlcToDb(stockId, ohlc) {
+    try {
+        const timeStr = new Date(ohlc.startTime).toISOString().slice(0, 19).replace('T', ' ');
+        await db.run(
+            `INSERT OR REPLACE INTO stock_ohlc (stock_id, time, open, high, low, close, volume)
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [stockId, timeStr, ohlc.open, ohlc.high, ohlc.low, ohlc.close, ohlc.volume]
+        );
+    } catch (err) {
+        console.error('保存OHLC数据失败:', err);
     }
 }
 
@@ -168,6 +224,72 @@ router.get('/stocks/:id/history', async (req, res) => {
     } catch (error) {
         console.error('获取股票历史错误:', error);
         res.status(500).json({ error: '获取股票历史失败' });
+    }
+});
+
+// 获取K线数据（OHLC）
+router.get('/stocks/:id/kline', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { limit = 100, period = '5m' } = req.query;
+        
+        // 尝试从OHLC表获取
+        let ohlcRows = [];
+        try {
+            ohlcRows = await db.all(
+                `SELECT time, open, high, low, close, volume 
+                 FROM stock_ohlc 
+                 WHERE stock_id = ? 
+                 ORDER BY time DESC LIMIT ?`,
+                [id, parseInt(limit)]
+            );
+        } catch (e) {
+            // 表不存在，使用旧数据生成
+        }
+        
+        if (ohlcRows.length > 0) {
+            // 转换为前端格式
+            const klineData = ohlcRows.reverse().map(row => ({
+                time: Math.floor(new Date(row.time).getTime() / 1000),
+                open: row.open,
+                high: row.high,
+                low: row.low,
+                close: row.close,
+                volume: row.volume
+            }));
+            return res.json({ kline: klineData });
+        }
+        
+        // 没有OHLC数据，从stock_prices生成模拟K线
+        const prices = await db.all(
+            'SELECT price, volume, recorded_at FROM stock_prices WHERE stock_id = ? ORDER BY recorded_at DESC LIMIT ?',
+            [id, parseInt(limit)]
+        );
+        
+        if (prices.length === 0) {
+            return res.json({ kline: [] });
+        }
+        
+        // 将点数据转换为K线格式（每5个点合成一根K线）
+        const klineData = [];
+        const reversedPrices = prices.reverse();
+        
+        for (let i = 0; i < reversedPrices.length; i += 5) {
+            const slice = reversedPrices.slice(i, i + 5);
+            const open = slice[0].price;
+            const close = slice[slice.length - 1].price;
+            const high = Math.max(...slice.map(p => p.price));
+            const low = Math.min(...slice.map(p => p.price));
+            const volume = slice.reduce((sum, p) => sum + (p.volume || 0), 0);
+            const time = Math.floor(new Date(slice[0].recorded_at).getTime() / 1000);
+            
+            klineData.push({ time, open, high, low, close, volume });
+        }
+        
+        res.json({ kline: klineData });
+    } catch (error) {
+        console.error('获取K线数据错误:', error);
+        res.status(500).json({ error: '获取K线数据失败' });
     }
 });
 

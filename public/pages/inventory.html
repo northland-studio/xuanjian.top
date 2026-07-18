@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>我的仓库 - 玄剑公会</title>
-    <link rel="icon" href="/icon.ico" type="image/x-icon">
     <link rel="stylesheet" href="/css/style.css">
     <style>
         .inventory-container { max-width: 1000px; margin: 0 auto; padding: 20px; }
@@ -52,7 +51,7 @@
                 <a href="/forum" class="nav-link">贴吧</a>
                 <a href="/stock" class="nav-link">股市</a>
                 <a href="/shop" class="nav-link">商城</a>
-                <a href="/rankings" class="nav-link">排行�?/a>
+                <a href="/rankings" class="nav-link">排行榜</a>
                 <a href="/social" class="nav-link">社交媒体</a>
                 <div class="nav-user">
                     <button class="theme-toggle" onclick="toggleTheme()" title="切换主题">
@@ -150,13 +149,13 @@
                             <div class="item-name">${item.name}</div>
                             <div class="item-type">类型: ${item.type === 'title' ? '称号' : '其他'}</div>
                             ${item.verification_code ? `
-                                <div class="item-code">核销�? ${item.verification_code}</div>
+                                <div class="item-code">核销码: ${item.verification_code}</div>
                                 <div class="item-status ${item.verified_at ? 'verified' : 'pending'}">
                                     ${item.verified_at ? `已核销 (${formatDate(item.verified_at)})` : '待核销'}
                                 </div>
                             ` : ''}
                             <div style="font-size: 12px; color: var(--text-secondary); margin-top: 8px;">
-                                购买�?${formatDate(item.purchased_at)}
+                                购买于 ${formatDate(item.purchased_at)}
                             </div>
                         </div>
                     </div>
@@ -193,7 +192,7 @@
                             ${editBtn}
                             <button class="equip-btn ${equippedTitle === title.id ? 'equipped' : ''}" 
                                     onclick="equipTitle(${title.id}, this)">
-                                ${equippedTitle === title.id ? '已装�? : '装备'}
+                                ${equippedTitle === title.id ? '已装备' : '装备'}
                             </button>
                         </div>
                     </div>
@@ -214,7 +213,7 @@
                 });
                 
                 btn.classList.add('equipped');
-                btn.textContent = '已装�?;
+                btn.textContent = '已装备';
                 equippedTitle = titleId;
                 
                 showToast('装备成功');
@@ -225,10 +224,10 @@
         }
 
         async function editCustomTitle(titleId, currentName, currentColor) {
-            const newName = prompt('请输入新的称号名�?', currentName);
+            const newName = prompt('请输入新的称号名称:', currentName);
             if (newName === null || newName.trim() === '') return;
             
-            const newColor = prompt('请输入新的颜�?(�?#6366f1):', currentColor);
+            const newColor = prompt('请输入新的颜色 (如 #6366f1):', currentColor);
             if (newColor === null) return;
             
             try {
