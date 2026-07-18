@@ -1,0 +1,40 @@
+name: Build Flutter Web
+
+on:
+  push:
+    branches: [master, main]
+    paths:
+      - 'apps/flutter/**'
+  workflow_dispatch:
+
+jobs:
+  build-web:
+    name: Build Web
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/flutter
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.22.0'
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build Web
+        run: flutter build web --release --base-href /app/
+
+      - name: Upload Web artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-release
+          path: apps/flutter/build/web/
+          retention-days: 30
