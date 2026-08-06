@@ -1,217 +1,85 @@
 <div align="center">
+  <img src="h:\chengxuyuanma\NLDocs\icon.png" width="200" height="200" alt="玄剑公会 Logo">
+</div>
+
+<div align="center">
 
 # 我的世界玄剑公会官网
 
-[![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)](https://nodejs.org/)
-[![Express](https://img.shields.io/badge/Express-4.x-blue.svg)](https://expressjs.com/)
-[![SQLite](https://img.shields.io/badge/SQLite-3-orange.svg)](https://www.sqlite.org/)
-[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+xuanjian.top 2.0 - React 重构版
 
-**一个功能完善的 Minecraft 公会官网系统**
+![Node.js](https://img.shields.io/badge/Node.js-22-green?style=flat-square)
+![Express](https://img.shields.io/badge/Express-4.x-blue?style=flat-square)
+![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square)
+![Vite](https://img.shields.io/badge/Vite-8-646CFF?style=flat-square)
+![SQLite](https://img.shields.io/badge/SQLite-3-003B49?style=flat-square)
+![Qiniu](https://img.shields.io/badge/Qiniu-Kodo-0080FF?style=flat-square)
+![Version](https://img.shields.io/badge/Version-v2.0.0-blue?style=flat-square)
+![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
 
-[在线演示](https://xuanjian.top) · [部署文档](#部署方式) · [API文档](#api接口)
+**在线地址**: https://xuanjian.top
 
 </div>
 
 ---
 
-## 项目简介
+## 项目介绍
 
-玄剑公会官网是一个专为 Minecraft 公会设计的完整内容管理系统，支持内容发布、用户管理、社交互动、虚拟股市等功能。采用轻量级架构，无需复杂的数据库配置，适合中小型公会快速部署使用。
+玄剑公会官网（xuanjian.top 2.0）是面向 Minecraft 公会的完整内容管理系统，提供内容发布、用户体系、贡献点商城、签到排行、通知中心等核心能力。前端采用 React 19 + Vite 8 构建单页应用，后端基于 Node.js + Express + SQLite，图片通过七牛云对象存储（新加坡区域）分发，全站支持亮色 / 暗色主题与移动端适配。
 
-### 核心特性
+## 功能特性
 
-- **内容管理** - 公会日报、决策公告、贴吧三大板块
-- **虚拟股市** - 交易驱动价格、做市商机制、熔断保护
-- **每日签到** - 连续签到奖励递增、补签卡系统
-- **用户系统** - 四级权限体系，支持头像上传
-- **OAuth授权** - 支持第三方应用使用公会账号登录
-- **社交互动** - 评论、点赞、内容搜索
-- **响应式设计** - 完美适配 PC 和移动端
-- **多平台支持** - Web、桌面、移动端全覆盖
-- **通知系统** - 实时通知，不错过任何动态
-- **邮箱验证** - 企业邮箱验证码注册
-- **自动备份** - 系统定时备份，数据安全有保障
-- **一键部署** - 支持 Docker 和传统部署方式
+### 内容管理
 
----
+- 三大板块：公会贴吧（全员发帖）、公会日报（管理权限）、决策公示（管理权限）
+- Tiptap 富文本编辑器，支持标题、加粗、引用、列表、链接、代码块、图片插入
+- 帖子二次编辑、点赞、评论（楼中楼回复）、搜索
+- 图片查看器（Lightbox）：多图切换、键盘 / 滚轮操作、移动端手势
+- 一键分享：复制帖子标题与链接
 
-## 多平台版本
+### 用户体系
 
-本项目提供三个版本，共享同一套后端 API：
+- 四级等级体系：成员（0）/ 管理员（1）/ 超级管理员（2）/ 创始人（3）
+- QQ 授权登录 + 邮箱绑定（验证码） + 用户名密码登录
+- 自定义 ID（/profile/:id）、昵称、头像、个人主页封面
+- 密码设置 / 修改、邮箱验证码
 
-### Web 版（主站）
+### 贡献点经济
 
-基于原生 HTML/CSS/JavaScript 开发的网页版，无需安装即可使用。
+- 贡献点商城：使用贡献点兑换称号与权限
+- 称号系统：购买、装备、自定义称号
+- 贡献点申报：用户提交申报，管理员审核发放
+- 每日签到：连续签到奖励递增、补签卡、签到排行榜
+- 排行榜：贡献点、帖子阅读 / 点赞、签到排行
 
-- **访问地址**: https://xuanjian.top
-- **技术栈**: HTML5 + CSS3 + JavaScript
-- **特点**: 无需安装，跨平台访问
+### 管理后台
 
-### 桌面版（Desktop）
+- 轮播图管理、用户管理（等级调整）、内容管理、公告管理
+- 商城管理（商品上下架、库存、价格）、申报审核
 
-基于 Tauri 构建的跨平台桌面客户端，支持 Windows、macOS 和 Linux。
+### 系统能力
 
-- **下载地址**: https://xuanjian.top/download/xuanjian-guild.exe
-- **技术栈**: Tauri + TypeScript + Vite
-- **特点**: 原生体验，离线可用，自动更新
-
-<details>
-<summary>桌面版详细说明</summary>
-
-#### 功能特性
-
-- 直接访问玄剑公会官网
-- 原生桌面应用体验
-- 支持快捷键操作
-- 页面缩放功能
-- 自动更新检测
-- 系统通知支持
-
-#### 开发构建
-
-```bash
-cd apps/desktop
-
-# 安装依赖
-npm install
-
-# 开发模式
-npm run tauri dev
-
-# 构建发布
-npm run tauri build
-```
-
-#### 目录结构
-
-```
-apps/desktop/
-├── src/                    # 前端源码
-│   ├── assets/             # 静态资源
-│   ├── config.ts           # 配置
-│   ├── main.ts             # 主入口
-│   ├── styles.css          # 样式
-│   └── version-check.ts    # 版本检测
-├── src-tauri/              # Tauri 配置
-│   ├── src/                # Rust 源码
-│   ├── icons/              # 应用图标
-│   └── tauri.conf.json     # Tauri 配置
-├── index.html
-├── package.json
-└── vite.config.ts
-```
-
-</details>
-
-### 移动版（Android）
-
-基于 Capacitor 构建的移动端应用，支持 Android 平台。
-
-- **技术栈**: Capacitor + TypeScript + Vite
-- **特点**: 可收起侧边栏，原生相机支持，流畅体验
-
-<details>
-<summary>移动版详细说明</summary>
-
-#### 功能特性
-
-- 原生移动端体验
-- 支持相机拍照上传
-- 可收起侧边栏导航
-- 暗色/亮色主题切换
-- 实时通知推送
-
-#### 开发构建
-
-```bash
-cd apps/android
-
-# 安装依赖
-npm install
-
-# 开发模式
-npm run dev
-
-# 构建
-npm run build
-
-# 添加Android平台
-npm run cap:add
-
-# 同步到Android
-npm run cap:sync
-
-# 打开Android Studio
-npm run cap:open
-```
-
-#### 图片上传处理
-
-移动端使用 Capacitor Camera 插件处理图片上传，将 Base64 转换为 File 对象后上传：
-
-```typescript
-import { Camera, CameraResultType } from '@capacitor/camera';
-
-const photo = await Camera.getPhoto({
-    quality: 90,
-    resultType: CameraResultType.Base64
-});
-
-// 将 Base64 转换为 Blob/File
-const byteCharacters = atob(photo.base64String!);
-const byteNumbers = new Array(byteCharacters.length);
-for (let i = 0; i < byteCharacters.length; i++) {
-    byteNumbers[i] = byteCharacters.charCodeAt(i);
-}
-const byteArray = new Uint8Array(byteNumbers);
-const blob = new Blob([byteArray], { type: 'image/jpeg' });
-
-// 创建 File 对象并上传
-const file = new File([blob], `photo_${Date.now()}.jpg`, { type: 'image/jpeg' });
-const formData = new FormData();
-formData.append('image', file);
-
-await fetch('/api/upload/image', {
-    method: 'POST',
-    body: formData
-});
-```
-
-#### 目录结构
-
-```
-apps/android/
-├── src/
-│   ├── assets/             # 静态资源
-│   ├── config.ts           # 配置和类型定义
-│   ├── main.ts             # 主入口
-│   ├── styles.css          # 样式
-│   └── vite-env.d.ts       # Vite类型
-├── android/                # Android原生项目（cap add后生成）
-├── index.html
-├── package.json
-├── tsconfig.json
-├── vite.config.ts
-└── capacitor.config.ts
-```
-
-</details>
+- 通知中心：日报 / 决策更新、评论、点赞实时提醒
+- OAuth 2.0 授权码模式：第三方应用可使用公会账号登录
+- 七牛云对象存储：前端 XHR 直传，实时上传进度回调
+- 亮色 / 暗色主题切换，SVG 图标，品牌色 #004AAD
 
 ---
 
 ## 技术栈
 
 | 层级 | 技术 | 说明 |
-|:---:|:---|:---|
-| **前端** | HTML5 + CSS3 + JavaScript | 原生开发，无框架依赖 |
-| **后端** | Node.js + Express | 轻量级 Web 框架 |
-| **数据库** | SQLite3 | 本地文件存储，零配置 |
-| **桌面应用** | Tauri 2.0 | Rust + WebView2 |
-| **移动应用** | Capacitor 7 | 跨平台原生运行时 |
-| **进程管理** | PM2 | 生产环境进程守护 |
-| **反向代理** | Nginx | 高性能反向代理 |
-| **容器化** | Docker | 快速部署方案 |
+|:---|:---|:---|
+| 前端框架 | React 19 + Vite 8 | 单页应用（SPA） |
+| 路由 | React Router 7 | 前端路由 |
+| 富文本 | Tiptap 3 | 富文本编辑器 |
+| 后端 | Node.js + Express 4 | REST API |
+| 数据库 | SQLite (sqlite3) | 本地文件存储，WAL 模式 |
+| 对象存储 | 七牛云 Kodo | 图片直传 + CDN 分发 |
+| 图片处理 | sharp | 图片水印处理 |
+| 认证 | JWT + QQ OAuth | 登录与第三方授权 |
+| 进程管理 | PM2 | 生产环境守护 |
+| 反向代理 | Nginx | 站点入口与缓存 |
 
 ---
 
@@ -219,661 +87,152 @@ apps/android/
 
 ```
 xuanjian-guild-website/
-├── apps/                    # 多平台应用
-│   ├── desktop/             # 桌面客户端
-│   │   ├── src/             # 前端源码
-│   │   ├── src-tauri/       # Tauri 配置
-│   │   └── README.md        # 桌面版文档
-│   └── android/             # 移动端
-│       ├── src/             # 前端源码
-│       └── README.md        # 移动版文档
-├── data/                    # 数据目录
-│   ├── uploads/             # 上传文件存储
-│   └── guild.db             # SQLite 数据库
-├── middleware/              # 中间件
-│   └── auth.js              # JWT 认证中间件
-├── public/                  # 静态资源
-│   ├── css/                 # 样式文件
-│   ├── js/                  # JavaScript 文件
-│   ├── pages/               # 页面文件
-│   ├── download/            # 下载文件
-│   └── index.html           # 首页
+├── server.js                # 后端入口（Express + 静态托管）
+├── database.js              # SQLite 数据库连接封装
 ├── routes/                  # API 路由
-│   ├── auth.js              # 认证接口
-│   ├── posts.js             # 内容接口
+│   ├── auth.js              # 认证 / 用户 / QQ 登录 / 邮箱绑定
+│   ├── posts.js             # 内容管理
+│   ├── upload.js            # 图片上传（七牛凭证 + 传统上传）
+│   ├── shop.js              # 商城
+│   ├── titles.js            # 称号
+│   ├── claims.js            # 贡献点申报
+│   ├── checkin.js           # 每日签到
+│   ├── rankings.js          # 排行榜
+│   ├── banners.js           # 轮播图
 │   ├── admin.js             # 管理接口
-│   ├── stock.js             # 股票接口
-│   ├── checkin.js           # 筛到接口
-│   ├── upload.js            # 上传接口
-│   ├── oauth.js             # OAuth授权接口
-│   └── notifications.js     # 通知接口
-├── scripts/                 # 工具脚本
-│   ├── init-db.js           # 数据库初始化
-│   ├── backup.sh            # 自动备份脚本
-│   └── install-backup.sh    # 备份系统部署
-├── server.js                # 服务器入口
-├── database.js              # 数据库模块
-├── package.json             # 项目配置
-├── Dockerfile               # Docker 配置
-├── docker-compose.yml       # Docker Compose 配置
-├── README.md                # 项目文档
-└── 股市机制.md              # 虚拟股市机制说明
+│   ├── oauth.js             # OAuth 2.0
+│   └── notifications.js     # 通知中心
+├── middleware/auth.js       # JWT 认证中间件
+├── lib/qiniu.js             # 七牛云上传凭证（零依赖 HMAC）
+├── scripts/                 # 初始化 / 迁移 / 备份脚本
+├── frontend/                # React 前端工程（Vite）
+│   ├── src/                 # 前端源码（pages / components / api）
+│   └── dist/                # 构建产物
+├── public/                  # 站点静态资源（横幅图、图标等）
+└── data/                    # SQLite 数据库与上传目录
 ```
 
 ---
 
 ## 快速开始
 
-### 方式一：Docker 部署（推荐）
+### 本地开发
 
 ```bash
-# 克隆项目
-git clone https://github.com/yourusername/xuanjian-guild-website.git
-cd xuanjian-guild-website
+# 1. 安装后端依赖
+npm install
 
-# 启动服务
-docker-compose up -d
+# 2. 配置环境变量
+cp .env.example .env
+# 编辑 .env 设置 JWT_SECRET、QQ_LOGIN_TOKEN 等
 
-# 访问 http://localhost:3000
-```
-
-### 方式二：传统部署
-
-```bash
-# 1. 安装依赖
-npm install --production
-
-# 2. 初始化数据库
+# 3. 初始化数据库
 npm run init-db
 
-# 3. 配置环境变量
-cp .env.example .env
-# 编辑 .env 设置 JWT_SECRET 和 ADMIN_PASSWORD
+# 4. 启动后端（开发模式）
+npm run dev
 
-# 4. 启动服务
-npm start
-
-# 或使用 PM2 启动（推荐生产环境）
-pm2 start server.js --name "xuanjian-guild"
-pm2 save
-pm2 startup
-```
-
-### 方式三：开发模式
-
-```bash
+# 5. 另开终端，安装并启动前端
+cd frontend
 npm install
 npm run dev
+```
+
+### 生产构建
+
+```bash
+# 构建前端
+cd frontend && npm run build
+
+# 启动服务
+pm2 start server.js --name "xuanjian-guild"
+pm2 save
 ```
 
 ---
 
 ## 环境变量
 
-创建 `.env` 文件：
-
 ```env
 # 服务器配置
 PORT=3000
 NODE_ENV=production
+SITE_URL=https://xuanjian.top
 
-# JWT 密钥（请修改为随机字符串）
-JWT_SECRET=your-super-secret-key-here
+# JWT 密钥
+JWT_SECRET=your-secret-key
 
-# 管理员初始密码（部署后请立即修改）
-ADMIN_PASSWORD=xuanjian123
+# 管理员初始密码
+ADMIN_PASSWORD=your-admin-password
 
-# 邮箱配置（企业微信邮箱）
-SMTP_HOST=smtp.exmail.qq.com
-SMTP_PORT=465
-SMTP_USER=your-email@domain.com
-SMTP_PASS=your-password
+# 邮件配置（腾讯企业邮箱）
+SMTP_USER=xuanjian_guild@xuanjian.top
+SMTP_PASS=your-smtp-password
+
+# QQ 登录 Token
+QQ_LOGIN_TOKEN=your-qq-login-token
+
+# 七牛云对象存储
+QINIU_ACCESS_KEY=your-access-key
+QINIU_SECRET_KEY=your-secret-key
+QINIU_BUCKET=xuanjian-top
+QINIU_DOMAIN=https://cdn.xuanjian.top
+QINIU_UPLOAD_URL=https://up-as0.qiniup.com
 ```
 
 ---
 
-## 默认账号
+## 图片存储（七牛云）
 
-| 字段 | 值 |
+- 域名：cdn.xuanjian.top（公开读），bucket：xuanjian-top，新加坡区域（as0）
+- 前端通过 `POST /api/upload/token` 获取上传凭证，XHR 直传 `up-as0.qiniup.com`，`xhr.upload.onprogress` 实时回调上传进度
+- 历史本地图片已通过 `scripts/migrate-to-qiniu.js` 迁移至七牛并更新数据库路径
+
+---
+
+## API 概览
+
+| 模块 | 说明 |
 |:---|:---|
-| **用户名** | `admin` |
-| **密码** | `xuanjian123` |
-| **等级** | 超级管理员 (2级) |
-
-> **安全提示**: 部署后请立即修改默认密码！
-
----
-
-## API 接口
-
-### 认证接口
-
-| 方法 | 路径 | 说明 |
-|:---:|:---|:---|
-| POST | `/api/auth/register` | 用户注册 |
-| POST | `/api/auth/login` | 用户登录 |
-| GET | `/api/auth/me` | 获取当前用户信息 |
-| PUT | `/api/auth/profile` | 更新用户资料 |
-| POST | `/api/auth/send-code` | 发送邮箱验证码 |
-
-### 内容接口
-
-| 方法 | 路径 | 说明 |
-|:---:|:---|:---|
-| GET | `/api/posts` | 获取内容列表 |
-| GET | `/api/posts/:id` | 获取内容详情 |
-| POST | `/api/posts` | 发布内容 |
-| PUT | `/api/posts/:id` | 更新内容 |
-| DELETE | `/api/posts/:id` | 删除内容 |
-| POST | `/api/posts/:id/like` | 点赞 |
-| POST | `/api/posts/:id/comments` | 发表评论 |
-
-### 通知接口
-
-| 方法 | 路径 | 说明 |
-|:---:|:---|:---|
-| GET | `/api/notifications` | 获取通知列表 |
-| PUT | `/api/notifications/:id/read` | 标记已读 |
-| PUT | `/api/notifications/read-all` | 全部已读 |
-| DELETE | `/api/notifications/:id` | 删除通知 |
-
-### 上传接口
-
-| 方法 | 路径 | 说明 |
-|:---:|:---|:---|
-| POST | `/api/upload/image` | 上传单张图片 |
-| POST | `/api/upload/images` | 上传多张图片 |
-
-### 管理接口
-
-| 方法 | 路径 | 说明 |
-|:---:|:---|:---|
-| GET | `/api/admin/stats` | 获取统计数据 |
-| GET | `/api/admin/users` | 获取用户列表 |
-| PUT | `/api/admin/users/:id` | 更新用户信息 |
-| GET | `/api/admin/posts` | 获取所有内容 |
-| POST | `/api/admin/announcements` | 创建公告 |
-| PUT | `/api/admin/announcements/:id` | 更新公告 |
-| DELETE | `/api/admin/announcements/:id` | 删除公告 |
-
-### 股票接口
-
-| 方法 | 路径 | 说明 |
-|:---:|:---|:---|
-| GET | `/api/stock/stocks` | 获取股票列表（活跃） |
-| GET | `/api/stock/stocks/all` | 获取所有股票（管理） |
-| GET | `/api/stock/stocks/:id` | 获取股票详情 |
-| GET | `/api/stock/stocks/:id/history` | 获取股票历史价格 |
-| POST | `/api/stock/stocks/:id/buy` | 买入股票 |
-| POST | `/api/stock/stocks/:id/sell` | 卖出股票 |
-| POST | `/api/stock/stocks/:id/restore` | 恢复停用股票 |
-| DELETE | `/api/stock/stocks/:id` | 删除股票 |
-| GET | `/api/stock/portfolio` | 获取投资组合 |
-| GET | `/api/stock/transactions` | 获取交易记录 |
-| POST | `/api/stock/stocks` | 创建股票（管理） |
-| PUT | `/api/stock/stocks/:id` | 更新股票（管理） |
-| POST | `/api/stock/trigger-update` | 触发价格更新（管理） |
-
-### 签到接口
-
-| 方法 | 路径 | 说明 |
-|:---:|:---|:---|
-| GET | `/api/checkin/status` | 获取签到状态 |
-| POST | `/api/checkin/checkin` | 执行签到 |
-| POST | `/api/checkin/makeup` | 补签 |
-| POST | `/api/checkin/buy-makeup-card` | 购买补签卡 |
-| GET | `/api/checkin/rewards` | 获取签到奖励配置 |
-| GET | `/api/checkin/ranking` | 获取签到排行榜 |
-
-### 称号接口
-
-| 方法 | 路径 | 说明 |
-|:---:|:---|:---|
-| GET | `/api/titles` | 获取称号列表 |
-| GET | `/api/titles/all` | 获取所有称号（管理） |
-| GET | `/api/titles/my` | 获取我的称号 |
-| POST | `/api/titles/:id/buy` | 购买称号 |
-| PUT | `/api/titles/equip` | 装备称号 |
-| POST | `/api/titles` | 创建称号（管理） |
-| PUT | `/api/titles/:id` | 更新称号（管理） |
-| DELETE | `/api/titles/:id` | 删除称号（管理） |
-
-### 商城接口
-
-| 方法 | 路径 | 说明 |
-|:---:|:---|:---|
-| GET | `/api/shop/items` | 获取商品列表 |
-| GET | `/api/shop/items/:id` | 获取商品详情 |
-| POST | `/api/shop/items/:id/buy` | 购买商品 |
-| GET | `/api/shop/my-items` | 获取我的商品 |
-| POST | `/api/shop/items` | 创建商品（管理） |
-| PUT | `/api/shop/items/:id` | 更新商品（管理） |
-| DELETE | `/api/shop/items/:id` | 删除商品（管理） |
-
-### 申报接口
-
-| 方法 | 路径 | 说明 |
-|:---:|:---|:---|
-| GET | `/api/claims` | 获取申报列表 |
-| GET | `/api/claims/:id` | 获取申报详情 |
-| POST | `/api/claims` | 提交申报 |
-| PUT | `/api/claims/:id/review` | 审核申报（管理） |
-
-### 排行榜接口
-
-| 方法 | 路径 | 说明 |
-|:---:|:---|:---|
-| GET | `/api/rankings/contribution` | 贡献点排行榜 |
-| GET | `/api/rankings/posts-views` | 帖子阅读排行榜 |
-| GET | `/api/rankings/posts-likes` | 帖子点赞排行榜 |
-| GET | `/api/rankings/checkin` | 签到排行榜 |
-| GET | `/api/rankings/stock` | 股票盈亏排行榜 |
-
-### 密码重置接口
-
-| 方法 | 路径 | 说明 |
-|:---:|:---|:---|
-| POST | `/api/password/forgot-password` | 发送重置邮件 |
-| POST | `/api/password/reset-password` | 重置密码 |
-| GET | `/api/password/verify-reset-token/:token` | 验证重置链接 |
-
-### OAuth授权接口
-
-| 方法 | 路径 | 说明 |
-|:---:|:---|:---|
-| GET | `/api/oauth/authorize` | 授权确认页面 |
-| POST | `/api/oauth/authorize` | 生成授权码(code) |
-| POST | `/api/oauth/token` | 用授权码换取访问令牌 |
-| GET | `/api/oauth/verify` | 验证访问令牌有效性 |
-| GET | `/api/oauth/userinfo` | 获取授权用户详细信息 |
-
----
-
-## 页面路由
-
-| 路径 | 页面 | 说明 |
-|:---|:---|:---|
-| `/` | 首页 | 公会介绍、最新内容 |
-| `/daily` | 公会日报 | 管理员发布，全员浏览 |
-| `/decision` | 决策公告 | 重要决策公示 |
-| `/forum` | 公会贴吧 | 全员可发帖交流 |
-| `/social` | 社交媒体 | 社交账号链接 |
-| `/stock` | 虚拟股票 | 股票市场、买卖交易 |
-| `/checkin` | 每日签到 | 签到、补签、排行榜 |
-| `/shop` | 商城 | 购买称号和道具 |
-| `/rankings` | 排行榜 | 贡献点、帖子、签到排行 |
-| `/claims` | 贡献点申报 | 提交和审核申报 |
-| `/notifications` | 通知中心 | 查看所有通知 |
-| `/post/:id` | 内容详情 | 查看具体内容 |
-| `/editor` | 内容编辑器 | 发布/编辑内容 |
-| `/profile` | 用户主页 | 个人资料管理 |
-| `/profile/:username` | 用户档案 | 查看他人资料 |
-| `/settings` | 账号设置 | 修改资料密码 |
-| `/admin` | 管理后台 | 系统管理 |
-| `/login` | 登录 | 用户登录 |
-| `/register` | 注册 | 用户注册 |
-| `/forgot-password` | 忘记密码 | 发送重置邮件 |
-| `/reset-password` | 重置密码 | 设置新密码 |
-
----
-
-## 虚拟股市系统
-
-### 核心机制
-
-虚拟股市采用**交易驱动模型**，价格由用户买卖行为决定：
-
-```
-价格变动 = 交易驱动因子 × 60% + 随机因子 × 30% + 趋势因子 × 10%
-```
-
-### 风险控制
-
-| 机制 | 说明 |
-|:---|:---|
-| **价格熔断** | 单次涨跌幅限制 10% |
-| **交易上限** | 单次交易不超过总股本 5% |
-| **交易冷却** | 同一股票买卖间隔 1 小时 |
-| **做市商** | 系统自动提供基础流动性 |
-
-### 交易规则
-
-- **货币**: 贡献点（通过签到获取）
-- **交易时间**: 24小时不间断
-- **价格更新**: 每分钟自动更新
-- **持仓限制**: 无上限
-
-> 详细机制说明请查看 [股市机制.md](./股市机制.md)
-
----
-
-## OAuth授权系统
-
-玄剑公会官网支持OAuth 2.0授权码模式，第三方应用可以使用公会账号登录，获取用户基本信息。
-
-### 授权流程
-
-```
-第三方应用                    玄剑公会官网                     用户
-    │                              │                           │
-    │ 1. 发起授权请求               │                           │
-    │─────────────────────────────>│                           │
-    │                              │ 2. 显示授权页面            │
-    │                              │──────────────────────────>│
-    │                              │                           │
-    │                              │ 3. 用户同意授权            │
-    │                              │<──────────────────────────│
-    │                              │                           │
-    │ 4. 重定向+授权码              │                           │
-    │<─────────────────────────────│                           │
-    │                              │                           │
-    │ 5. 用授权码换取令牌           │                           │
-    │─────────────────────────────>│                           │
-    │                              │                           │
-    │ 6. 返回访问令牌               │                           │
-    │<─────────────────────────────│                           │
-    │                              │                           │
-    │ 7. 用令牌获取用户信息         │                           │
-    │─────────────────────────────>│                           │
-    │                              │                           │
-    │ 8. 返回用户数据               │                           │
-    │<─────────────────────────────│                           │
-```
-
-### 使用示例
-
-#### 1. 发起授权请求
-
-```javascript
-// 第三方应用发起授权
-const authUrl = `https://xuanjian.top/api/oauth/authorize?client_id=your_app_id&redirect_uri=https://your-app.com/callback&response_type=code&state=random_state`;
-window.location.href = authUrl;
-```
-
-#### 2. 用户同意后获取授权码
-
-用户登录并同意授权后，会重定向到回调地址：
-```
-https://your-app.com/callback?code=AUTHORIZATION_CODE&state=random_state
-```
-
-#### 3. 用授权码换取访问令牌
-
-```javascript
-const response = await fetch('https://xuanjian.top/api/oauth/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-        code: 'AUTHORIZATION_CODE',
-        client_id: 'your_app_id',
-        client_secret: 'your_client_secret',
-        redirect_uri: 'https://your-app.com/callback',
-        grant_type: 'authorization_code'
-    })
-});
-
-const { access_token } = await response.json();
-```
-
-#### 4. 获取用户信息
-
-```javascript
-const userResponse = await fetch('https://xuanjian.top/api/oauth/userinfo', {
-    headers: { 'Authorization': `Bearer ${access_token}` }
-});
-
-const user = await userResponse.json();
-// 返回: { id, username, level, title, contribution, checkin, created_at }
-```
-
-### 返回数据结构
-
-| 字段 | 说明 |
-|:---|:---|
-| `id` | 用户ID |
-| `username` | 用户名 |
-| `email_verified` | 邮箱是否验证 |
-| `level` | 用户等级（0-2） |
-| `title` | 当前佩戴的称号 |
-| `contribution` | 贡献点数量 |
-| `checkin` | 签到信息（总天数、连续天数） |
-| `created_at` | 注册时间 |
-
-### 安全说明
-
-- 授权码有效期：**5分钟**，一次性使用
-- 访问令牌有效期：**7天**
-- 生产环境建议将授权码存储到数据库而非内存
-- 建议实现 client_secret 验证机制
-
----
-
-## 部署文档
-
-- [Docker 部署指南](./DOCKER_DEPLOY.md)
-- [SSH 部署指南](./SSH_DEPLOY.md)
-- [宝塔面板部署指南](./BT_PANEL_DEPLOY.md)
-- [运维手册](./OPS_GUIDE.md)
-
----
-
-## 常见问题
-
-### Q: 头像上传失败？
-**A:** 
-- 检查 `data/uploads` 目录是否存在且有写入权限
-- 确认文件大小不超过 5MB
-- 确认文件格式为 JPG、PNG、GIF 或 WEBP
-
-### Q: 时间显示不正确？
-**A:** 
-- 确保服务器时区设置正确
-- 客户端会自动根据本地时区显示时间
-
-### Q: 数据库错误？
-**A:** 
-- 运行 `npm run init-db` 初始化数据库
-- 检查 `data` 目录权限
-
-### Q: 如何备份数据？
-**A:** 
-- 数据库文件：`data/guild.db`
-- 上传文件：`data/uploads/`
-- 系统已配置自动备份，详见 [运维手册](./OPS_GUIDE.md)
-
-### Q: 桌面应用如何更新？
-**A:** 
-- 桌面应用启动时会自动检测更新
-- 也可手动下载最新版本覆盖安装
-
-### Q: 股票交易提示冷却中？
-**A:** 
-- 同一股票买入后需等待 1 小时才能卖出
-- 同一股票卖出后需等待 1 小时才能买入
-
----
-
-## 社交媒体
-
-- **官网**: https://xuanjian.top
-- **抖音**: https://v.douyin.com/pNyb7PYyn3s/
-- **B站**: https://space.bilibili.com/678742876
-- **QQ群**: http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=_gw12An9YHGh949KbwjRv03G4FN8KC3p
-- **邮箱**: xuanjian_guild@xuanjian.top
+| /api/auth/* | 登录、QQ 授权、用户资料、邮箱绑定、密码 |
+| /api/posts/* | 内容发布、列表、详情、评论、点赞 |
+| /api/upload/token | 七牛上传凭证 |
+| /api/titles/* | 称号列表、购买、装备 |
+| /api/shop/* | 商城商品、购买、我的库存 |
+| /api/claims/* | 贡献点申报、审核 |
+| /api/checkin/* | 签到、补签、排行 |
+| /api/rankings/* | 各类排行榜 |
+| /api/banners/* | 轮播图 |
+| /api/notifications/* | 通知中心 |
+| /api/oauth/* | OAuth 2.0 授权 |
+| /api/admin/* | 管理后台 |
 
 ---
 
 ## 更新日志
 
-### v2.1.1 (2026-7-9)
-- **OAuth授权系统**
-  - 新增OAuth 2.0授权码模式支持
-  - 第三方应用可使用公会账号登录
-  - 授权码有效期5分钟，访问令牌有效期7天
-  - 支持获取用户基本信息、称号、签到记录等
-- **全站主题切换**
-  - 管理后台可一键切换全站配色
-  - 新增春节主题（中国红+金色配色）
-  - 灯笼动画装饰效果
-- **图片查看器增强**
-  - 添加缩放功能（滚轮、双击、按钮）
-  - 支持拖拽移动查看大图
-  - 多端触摸手势支持
-- **水印优化**
-  - 水印大小缩小至图片宽度1%
-  - 水印图片资源更新
+### v2.0.0（2026-08-06）
 
-### v2.0.9 (2026-3-29)
-- **四级用户权限体系**
-  - 0级：普通用户
-  - 1级：管理员（可发布日报、决策，访问管理后台）
-  - 2级：超级管理员（可设置用户等级）
-  - 3级：认证报社（可发布日报，不可发布决策，不可访问管理后台）
-- **权限控制优化**
-  - 3级用户档案页显示"认证报社"标识
-  - 3级用户隐藏管理系统入口按钮
-  - 3级用户禁止访问管理后台页面
-  - 3级用户禁止发布决策公告
-- **前端权限判断统一**
-  - isAdmin() 函数排除3级用户
-  - canPublishDaily() 函数支持3级用户
-  - canPublishDecision() 函数排除3级用户
-
-### v2.0.8 (2026-3-9)
-- **称号系统**
-  - 支持购买和装备称号，显示在用户名后
-  - 称号显示在帖子和评论作者名后
-  - 个人主页用户级别旁显示佩戴的称号
-  - 自定义称号支持在仓库中编辑名称和颜色
-  - 称号管理支持预设/自定义类型设置
-  - 称号管理直接上架商城功能
-- **商城系统**
-  - 贡献点商城，可购买称号和其他道具
-  - 商城称号从称号管理中获取，无需重复添加
-  - 购买商品自动生成核销码
-- **用户仓库**
-  - 显示用户购买的商品和称号
-  - 称号装备/卸下功能
-  - 自定义称号编辑功能
-- **核销功能**
-  - 商品核销码生成
-  - 管理员核销验证
-- **排行榜系统** - 贡献点、帖子阅读/点赞、签到、股票盈亏排行榜
-- **贡献点申报** - 用户可申报贡献点，管理员审核后发放
-- **密码重置** - 支持通过邮箱验证重置忘记的密码
-- **邮件系统修复**
-  - 统一邮件发送配置
-  - 申报审核邮件提醒
-  - 密码重置邮件
-- **导航栏统一**
-  - 所有页面导航栏同步
-  - 添加股市、商城、排行榜入口
-  - 添加主题切换和通知按钮
-- **管理后台优化** - 新增称号管理、商城管理、申报审核、核销模块
-- **Bug修复**
-  - 修复申报提交提示问题
-  - 修复管理页面审核显示失败
-  - 修复我的申报显示别人申报
-  - 修复时间显示时区问题
-  - 移除个人主页虚拟股票入口
-
-### v2.0.7 (2026-3-4)
-#### 下设Alpha & Beta两个测试版
-- **虚拟股市系统** - 交易驱动价格、做市商机制、熔断保护
-- **每日签到** - 连续签到奖励递增、补签卡购买、签到排行榜
-- **管理后台扩展** - 新增股票管理、签到奖励配置
-- **时区修复** - 修复数据库时间比北京时间慢8小时的问题
-- **UI优化** - 移除网页emoji改用SVG图标、优化按钮布局
-- **深色模式修复** - 修复股票页面深色模式下颜色不明显
-- **桌面版修复** - 修复Windows桌面版图片上传后未正确使用的问题
-- **交易冷却** - 同一股票买卖需间隔1小时
-
-### v2.0.5 (2026-2-21)
-- **通知系统** - 新增通知中心，支持日报/决策更新、评论、点赞通知
-- **桌面版通知** - 侧边栏添加通知入口，实时显示未读数量
-- **移动端应用** - 新增 Android 版本，支持可收起侧边栏
-- **邮箱状态同步** - 修复桌面版邮箱验证状态不同步问题
-- **版本显示修复** - 修复桌面版版本号显示问题
-
-### v2.0.4 (2026-2-21)
-- **评论回复功能** - 支持楼中楼回复，最多3层嵌套
-- **邮箱验证码注册** - 新用户注册需验证邮箱，提升账号安全性
-- **邮箱验证限制** - 未验证邮箱用户无法评论、点赞、发布内容
-- **邮箱绑定功能** - 已注册用户可在设置页面绑定/验证邮箱
-- **企业邮箱集成** - 使用企业微信邮箱发送验证码
-
-### v2.0.3 (2026-2-19)
-- **暗色主题** - 支持明暗两种主题切换
-- **自动检测** - 根据系统主题自动切换
-- **记忆功能** - 保存用户主题偏好
-- **主题按钮** - 导航栏添加主题切换按钮
-- **分享功能** - 帖子详情页添加分享按钮
-
-### v2.0.2 (2026-2-19)
-- **账号设置页面** - 新增独立的账号设置页面
-- **修改头像** - 支持在设置页面更换头像
-- **修改密码** - 支持在设置页面修改密码
-- **修改资料** - 支持修改昵称和邮箱
-- **修复退出登录** - 清除所有用户数据，导航栏正确显示登录按钮
-- **修复图片加载** - 使用相对路径解决 HTTPS 混合内容问题
-
-### v2.0.1 (2026-2-19)
-- **修复档案页帖子加载** - 修复用户档案页最近发布显示为空的问题
-- **管理员快捷入口** - 管理员用户档案页显示管理系统按钮
-- **修复用户名显示** - 修复内容详情页作者用户名显示错误
-- **富文本样式修复** - 修复换行、加粗等格式不显示的问题
-- **缩略信息优化** - 修复列表页显示 HTML 标签的问题
-- **发布按钮样式** - 使用独立紫色样式，更加醒目
-- **编辑器悬停提示** - 富文本编辑器工具栏添加悬停功能说明
-
-### v2.0.0 (2026-2-19)
-- **富文本编辑器** - 支持格式化文本、图片插入、代码块等
-- **帖子二次编辑** - 作者可随时编辑已发布的内容
-- **用户档案系统** - 点击头像查看用户详细资料和发布历史
-- **@用户名格式** - 类似 Twitter 的用户标识方式
-- **图片存储优化** - 将 Base64 图片转为文件存储，大幅提升性能
-- **API 优化** - 返回完整图片 URL，支持外部应用访问
-- **UI 优化** - 简化发布流程，移除发布到选择
-
-### v1.1.0 (2026-2-16)
-- 新增桌面客户端支持
-- 新增自动备份系统
-- 优化弹窗按钮样式
-- 改进移动端适配
-- 修复若干已知问题
-
-### v1.0.0 (2026-2-11)
-- 初始版本发布
-- 完整的内容管理系统
-- 用户权限管理
-- 评论和点赞功能
-- Docker 支持
-- 响应式设计
+- **React 重构**：前端由原生 HTML 重构为 React 19 + Vite 8 单页应用
+- **七牛云对象存储**：图片迁移至 cdn.xuanjian.top，上传支持实时进度回调
+- **上传进度**：编辑器、申报、设置、管理后台上传均展示百分比进度
+- **贡献点商城**：标题更新为贡献点商城，使用贡献点兑换称号与权限
+- **清理与基线**：移除旧版多页站、桌面 / 移动端旧应用源码，确立 2.0 基线（tag v2.0）
 
 ---
 
-## 贡献指南
+## 开发团队
 
-欢迎提交 Issue 和 Pull Request！
+北域工作室 Northland Studio
 
-1. Fork 本仓库
-2. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
-4. 推送分支 (`git push origin feature/AmazingFeature`)
-5. 创建 Pull Request
-
----
-
-## 开源协议
+## 许可证
 
 本项目基于 [MIT License](LICENSE) 开源。
-
----
 
 <div align="center">
 
 **我的世界玄剑公会** - 官方网站
 
-*Made by 北域工作室网络工程组*
+*由 北域工作室 Northland Studio 出品*
 
 </div>
