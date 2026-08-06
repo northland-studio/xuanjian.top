@@ -342,11 +342,6 @@ router.post('/stocks/:id/buy', authMiddleware, async (req, res) => {
             return res.status(400).json({ error: '购买数量必须大于0' });
         }
         
-        const cooldownTrade = await checkTradeCooldown(req.userId, parseInt(id), 'buy');
-        if (cooldownTrade) {
-            return res.status(400).json({ error: '卖出后需等待1小时才能买入该股票' });
-        }
-        
         const stock = await db.get('SELECT * FROM stocks WHERE id = ? AND is_active = 1', [id]);
         if (!stock) {
             return res.status(404).json({ error: '股票不存在' });
@@ -432,11 +427,6 @@ router.post('/stocks/:id/sell', authMiddleware, async (req, res) => {
         
         if (!shares || shares <= 0) {
             return res.status(400).json({ error: '卖出数量必须大于0' });
-        }
-        
-        const cooldownTrade = await checkTradeCooldown(req.userId, parseInt(id), 'sell');
-        if (cooldownTrade) {
-            return res.status(400).json({ error: '买入后需等待1小时才能卖出该股票' });
         }
         
         const stock = await db.get('SELECT * FROM stocks WHERE id = ? AND is_active = 1', [id]);

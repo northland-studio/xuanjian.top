@@ -149,6 +149,18 @@ router.get('/authorize', async (req, res) => {
             40% { content: '..'; }
             60%, 100% { content: '...'; }
         }
+        .switch-account {
+            display: inline-block;
+            color: #94979a;
+            font-size: 13px;
+            margin-top: 16px;
+            cursor: pointer;
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+        .switch-account:hover {
+            color: #fff;
+        }
         .oauth-notice {
             color: #6b7280;
             font-size: 12px;
@@ -196,6 +208,7 @@ router.get('/authorize', async (req, res) => {
                             <div class="user-name">\${data.username}</div>
                             <div class="user-label">当前登录账号</div>
                         </div>
+                        <a class="switch-account" onclick="switchAccount()">切换账号</a>
                         <div class="oauth-buttons">
                             <button class="btn btn-deny" onclick="denyAuth()">拒绝</button>
                             <button class="btn btn-allow" onclick="allowAuth()">允许授权</button>
@@ -237,6 +250,13 @@ router.get('/authorize', async (req, res) => {
         
         function denyAuth() {
             window.location.href = redirectUri + '?error=access_denied&state=' + (state || '');
+        }
+
+        function switchAccount() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            const loginUrl = '/login?redirect=/api/oauth/authorize&client_id=' + clientId + '&redirect_uri=' + encodeURIComponent(redirectUri) + '&state=' + (state || '');
+            window.location.href = loginUrl;
         }
     </script>
 </body>
