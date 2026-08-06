@@ -1,7 +1,8 @@
 const jwt = require('jsonwebtoken');
+const logger = require('../lib/logger');
 
 if (!process.env.JWT_SECRET) {
-    console.error('错误: 未配置 JWT_SECRET 环境变量，请在 .env 文件中设置');
+    logger.error('错误: 未配置 JWT_SECRET 环境变量，请在 .env 文件中设置');
     process.exit(1);
 }
 

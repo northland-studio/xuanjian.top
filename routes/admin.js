@@ -1,4 +1,5 @@
 const express = require('express');
+const logger = require('../lib/logger');
 const bcrypt = require('bcryptjs');
 const db = require('../database');
 const { getLocalTimestamp } = require('../database');
@@ -39,7 +40,7 @@ router.get('/users', authMiddleware, adminMiddleware, async (req, res) => {
             totalPages: Math.ceil(countResult.total / limit)
         });
     } catch (error) {
-        console.error('获取用户列表错误:', error);
+        logger.error('获取用户列表错误:', error);
         res.status(500).json({ error: '获取用户列表失败' });
     }
 });
@@ -82,7 +83,7 @@ router.put('/users/:id', authMiddleware, adminMiddleware, async (req, res) => {
         
         res.json({ message: '用户信息更新成功' });
     } catch (error) {
-        console.error('更新用户信息错误:', error);
+        logger.error('更新用户信息错误:', error);
         res.status(500).json({ error: '更新用户信息失败' });
     }
 });
@@ -104,7 +105,7 @@ router.put('/users/:id/level', authMiddleware, superAdminMiddleware, async (req,
         
         res.json({ message: '用户等级设置成功' });
     } catch (error) {
-        console.error('设置用户等级错误:', error);
+        logger.error('设置用户等级错误:', error);
         res.status(500).json({ error: '设置用户等级失败' });
     }
 });
@@ -150,7 +151,7 @@ router.get('/posts', authMiddleware, adminMiddleware, async (req, res) => {
             totalPages: Math.ceil(countResult.total / limit)
         });
     } catch (error) {
-        console.error('获取内容列表错误:', error);
+        logger.error('获取内容列表错误:', error);
         res.status(500).json({ error: '获取内容列表失败' });
     }
 });
@@ -168,7 +169,7 @@ router.put('/posts/:id/pin', authMiddleware, adminMiddleware, async (req, res) =
         
         res.json({ message: isPinned ? '置顶成功' : '取消置顶成功' });
     } catch (error) {
-        console.error('置顶操作错误:', error);
+        logger.error('置顶操作错误:', error);
         res.status(500).json({ error: '操作失败' });
     }
 });
@@ -185,7 +186,7 @@ router.get('/announcements', authMiddleware, adminMiddleware, async (req, res) =
         
         res.json(announcements);
     } catch (error) {
-        console.error('获取公告列表错误:', error);
+        logger.error('获取公告列表错误:', error);
         res.status(500).json({ error: '获取公告列表失败' });
     }
 });
@@ -209,7 +210,7 @@ router.post('/announcements', authMiddleware, adminMiddleware, async (req, res) 
             announcementId: result.id
         });
     } catch (error) {
-        console.error('创建公告错误:', error);
+        logger.error('创建公告错误:', error);
         res.status(500).json({ error: '创建公告失败' });
     }
 });
@@ -227,7 +228,7 @@ router.put('/announcements/:id', authMiddleware, adminMiddleware, async (req, re
         
         res.json({ message: '公告更新成功' });
     } catch (error) {
-        console.error('更新公告错误:', error);
+        logger.error('更新公告错误:', error);
         res.status(500).json({ error: '更新公告失败' });
     }
 });
@@ -241,7 +242,7 @@ router.delete('/announcements/:id', authMiddleware, adminMiddleware, async (req,
         
         res.json({ message: '公告删除成功' });
     } catch (error) {
-        console.error('删除公告错误:', error);
+        logger.error('删除公告错误:', error);
         res.status(500).json({ error: '删除公告失败' });
     }
 });
@@ -275,7 +276,7 @@ router.get('/statistics', authMiddleware, adminMiddleware, async (req, res) => {
             recentPosts
         });
     } catch (error) {
-        console.error('获取统计数据错误:', error);
+        logger.error('获取统计数据错误:', error);
         res.status(500).json({ error: '获取统计数据失败' });
     }
 });
@@ -286,7 +287,7 @@ router.get('/theme', async (req, res) => {
         const setting = await db.get('SELECT value FROM settings WHERE key = ?', ['site_theme']);
         res.json({ theme: setting?.value || 'default' });
     } catch (error) {
-        console.error('获取主题设置错误:', error);
+        logger.error('获取主题设置错误:', error);
         res.status(500).json({ error: '获取主题设置失败' });
     }
 });
@@ -309,7 +310,7 @@ router.put('/theme', authMiddleware, adminMiddleware, async (req, res) => {
         
         res.json({ message: '主题设置成功', theme });
     } catch (error) {
-        console.error('设置主题错误:', error);
+        logger.error('设置主题错误:', error);
         res.status(500).json({ error: '设置主题失败' });
     }
 });

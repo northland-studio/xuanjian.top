@@ -1,4 +1,5 @@
 const express = require('express');
+const logger = require('../lib/logger');
 const db = require('../database');
 const { getLocalTimestamp } = require('../database');
 const { authMiddleware, adminMiddleware } = require('../middleware/auth');
@@ -52,7 +53,7 @@ router.get('/', authMiddleware, async (req, res) => {
         
         res.json({ claims });
     } catch (error) {
-        console.error('获取申报列表错误:', error);
+        logger.error('获取申报列表错误:', error);
         res.status(500).json({ error: '获取申报列表失败' });
     }
 });
@@ -84,7 +85,7 @@ router.get('/:id', authMiddleware, async (req, res) => {
         
         res.json({ claim });
     } catch (error) {
-        console.error('获取申报详情错误:', error);
+        logger.error('获取申报详情错误:', error);
         res.status(500).json({ error: '获取申报详情失败' });
     }
 });
@@ -132,14 +133,14 @@ router.post('/', authMiddleware, async (req, res) => {
                     });
                     console.log(`已发送通知邮件到: ${admin.email}`);
                 } catch (emailErr) {
-                    console.error(`发送邮件到 ${admin.email} 失败:`, emailErr.message);
+                    logger.error(`发送邮件到 ${admin.email} 失败:`, emailErr.message);
                 }
             }
         }
         
         res.status(201).json({ message: '申报提交成功，请等待管理员审核', claimId: result.id });
     } catch (error) {
-        console.error('提交申报错误:', error);
+        logger.error('提交申报错误:', error);
         res.status(500).json({ error: '提交申报失败' });
     }
 });
@@ -178,7 +179,7 @@ router.put('/:id/review', authMiddleware, adminMiddleware, async (req, res) => {
         
         if (status === 'approved') {
             await db.run(
-                'UPDATE users SET contribution = contribution + ? WHERE id = ?',
+                'UPDATE users SET contribution = COALESCE(contribution, 0) + ? WHERE id = ?',
                 [claim.amount, claim.user_id]
             );
         }
@@ -190,7 +191,7 @@ router.put('/:id/review', authMiddleware, adminMiddleware, async (req, res) => {
                 await sendClaimResult(claim.email, claim, status, reviewNote);
                 console.log(`已发送审核结果邮件到: ${claim.email}`);
             } catch (emailErr) {
-                console.error(`发送审核结果邮件失败:`, emailErr.message);
+                logger.error(`发送审核结果邮件失败:`, emailErr.message);
             }
         }
         
@@ -202,12 +203,12 @@ router.put('/:id/review', authMiddleware, adminMiddleware, async (req, res) => {
                 content: `您申报的 ${claim.amount} 贡献点${statusText}${reviewNote ? `，原因：${reviewNote}` : ''}`
             });
         } catch (notifErr) {
-            console.error('创建通知失败:', notifErr.message);
+            logger.error('创建通知失败:', notifErr.message);
         }
         
         res.json({ success: true, message: '审核完成' });
     } catch (error) {
-        console.error('审核申报错误:', error);
+        logger.error('审核申报错误:', error);
         res.status(500).json({ error: '审核失败' });
     }
 });

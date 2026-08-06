@@ -1,4 +1,5 @@
 const express = require('express');
+const logger = require('../lib/logger');
 const db = require('../database');
 const router = express.Router();
 
@@ -25,7 +26,7 @@ router.get('/contribution', async (req, res) => {
             }))
         });
     } catch (error) {
-        console.error('获取贡献点排行榜错误:', error);
+        logger.error('获取贡献点排行榜错误:', error);
         res.status(500).json({ error: '获取排行榜失败' });
     }
 });
@@ -62,7 +63,7 @@ router.get('/posts-views', async (req, res) => {
             }))
         });
     } catch (error) {
-        console.error('获取帖子排行榜错误:', error);
+        logger.error('获取帖子排行榜错误:', error);
         res.status(500).json({ error: '获取排行榜失败' });
     }
 });
@@ -99,7 +100,7 @@ router.get('/posts-likes', async (req, res) => {
             }))
         });
     } catch (error) {
-        console.error('获取点赞排行榜错误:', error);
+        logger.error('获取点赞排行榜错误:', error);
         res.status(500).json({ error: '获取排行榜失败' });
     }
 });
@@ -130,7 +131,7 @@ router.get('/checkin', async (req, res) => {
             }))
         });
     } catch (error) {
-        console.error('获取签到排行榜错误:', error);
+        logger.error('获取签到排行榜错误:', error);
         res.status(500).json({ error: '获取排行榜失败' });
     }
 });
@@ -164,7 +165,7 @@ router.get('/stock', async (req, res) => {
             }))
         });
     } catch (error) {
-        console.error('获取股票排行榜错误:', error);
+        logger.error('获取股票排行榜错误:', error);
         res.status(500).json({ error: '获取排行榜失败' });
     }
 });

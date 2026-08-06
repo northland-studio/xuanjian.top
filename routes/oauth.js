@@ -1,4 +1,5 @@
 const express = require('express');
+const logger = require('../lib/logger');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
 const database = require('../database');
@@ -264,7 +265,7 @@ router.get('/authorize', async (req, res) => {
 </html>
         `);
     } catch (err) {
-        console.error('OAuth authorize error:', err);
+        logger.error('OAuth authorize error:', err);
         res.status(500).json({ error: '服务器错误' });
     }
 });
@@ -306,7 +307,7 @@ router.post('/authorize', async (req, res) => {
 
         res.json({ code, state });
     } catch (err) {
-        console.error('OAuth authorize POST error:', err);
+        logger.error('OAuth authorize POST error:', err);
         res.status(500).json({ error: '服务器错误' });
     }
 });
@@ -359,7 +360,7 @@ router.post('/token', async (req, res) => {
             scope: 'read_user'
         });
     } catch (err) {
-        console.error('OAuth token error:', err);
+        logger.error('OAuth token error:', err);
         res.status(500).json({ error: 'server_error' });
     }
 });
@@ -434,7 +435,7 @@ router.get('/verify', async (req, res) => {
             }
         });
     } catch (err) {
-        console.error('OAuth verify error:', err);
+        logger.error('OAuth verify error:', err);
         res.status(500).json({ valid: false, error: 'server_error' });
     }
 });
@@ -491,7 +492,7 @@ router.get('/userinfo', async (req, res) => {
             created_at: user.created_at
         });
     } catch (err) {
-        console.error('OAuth userinfo error:', err);
+        logger.error('OAuth userinfo error:', err);
         res.status(500).json({ error: 'server_error' });
     }
 });

@@ -1,4 +1,5 @@
 const express = require('express');
+const logger = require('../lib/logger');
 const db = require('../database');
 const { getLocalTimestamp } = require('../database');
 const { authMiddleware, adminMiddleware } = require('../middleware/auth');
@@ -12,7 +13,7 @@ router.get('/', async (req, res) => {
         );
         res.json({ banners });
     } catch (error) {
-        console.error('获取轮播图错误:', error);
+        logger.error('获取轮播图错误:', error);
         res.status(500).json({ error: '获取轮播图失败' });
     }
 });
@@ -23,7 +24,7 @@ router.get('/all', authMiddleware, adminMiddleware, async (req, res) => {
         const banners = await db.all('SELECT * FROM banners ORDER BY sort_order ASC, id ASC');
         res.json({ banners });
     } catch (error) {
-        console.error('获取全部轮播图错误:', error);
+        logger.error('获取全部轮播图错误:', error);
         res.status(500).json({ error: '获取轮播图失败' });
     }
 });
@@ -44,7 +45,7 @@ router.post('/', authMiddleware, adminMiddleware, async (req, res) => {
 
         res.status(201).json({ message: '轮播图创建成功', bannerId: result.id });
     } catch (error) {
-        console.error('创建轮播图错误:', error);
+        logger.error('创建轮播图错误:', error);
         res.status(500).json({ error: '创建轮播图失败' });
     }
 });
@@ -67,7 +68,7 @@ router.put('/:id', authMiddleware, adminMiddleware, async (req, res) => {
 
         res.json({ message: '轮播图更新成功' });
     } catch (error) {
-        console.error('更新轮播图错误:', error);
+        logger.error('更新轮播图错误:', error);
         res.status(500).json({ error: '更新轮播图失败' });
     }
 });
@@ -79,7 +80,7 @@ router.delete('/:id', authMiddleware, adminMiddleware, async (req, res) => {
         await db.run('DELETE FROM banners WHERE id = ?', [id]);
         res.json({ message: '轮播图删除成功' });
     } catch (error) {
-        console.error('删除轮播图错误:', error);
+        logger.error('删除轮播图错误:', error);
         res.status(500).json({ error: '删除轮播图失败' });
     }
 });

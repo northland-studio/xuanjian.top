@@ -1,4 +1,5 @@
 const express = require('express');
+const logger = require('../lib/logger');
 const crypto = require('crypto');
 const db = require('../database');
 const { getLocalTimestamp } = require('../database');
@@ -31,7 +32,7 @@ router.get('/items', async (req, res) => {
         const items = await db.all(sql, params);
         res.json({ items });
     } catch (error) {
-        console.error('获取商品列表错误:', error);
+        logger.error('获取商品列表错误:', error);
         res.status(500).json({ error: '获取商品列表失败' });
     }
 });
@@ -48,7 +49,7 @@ router.get('/items/:id', async (req, res) => {
         
         res.json({ item });
     } catch (error) {
-        console.error('获取商品详情错误:', error);
+        logger.error('获取商品详情错误:', error);
         res.status(500).json({ error: '获取商品详情失败' });
     }
 });
@@ -59,7 +60,7 @@ router.get('/admin/items', authMiddleware, adminMiddleware, async (req, res) => 
         const items = await db.all('SELECT * FROM shop_items ORDER BY created_at DESC');
         res.json({ items });
     } catch (error) {
-        console.error('获取全部商品错误:', error);
+        logger.error('获取全部商品错误:', error);
         res.status(500).json({ error: '获取商品列表失败' });
     }
 });
@@ -90,7 +91,7 @@ router.post('/items/:id/buy', authMiddleware, async (req, res) => {
         
         await db.transaction(async () => {
             await db.run(
-                'UPDATE users SET contribution = contribution - ? WHERE id = ?',
+                'UPDATE users SET contribution = COALESCE(contribution, 0) - ? WHERE id = ?',
                 [totalPrice, req.userId]
             );
             
@@ -124,7 +125,7 @@ router.post('/items/:id/buy', authMiddleware, async (req, res) => {
         
         res.json({ message: '购买成功', totalPrice, purchasedItems });
     } catch (error) {
-        console.error('购买商品错误:', error);
+        logger.error('购买商品错误:', error);
         res.status(500).json({ error: '购买失败' });
     }
 });
@@ -142,7 +143,7 @@ router.get('/my-items', authMiddleware, async (req, res) => {
         
         res.json({ items });
     } catch (error) {
-        console.error('获取我的商品错误:', error);
+        logger.error('获取我的商品错误:', error);
         res.status(500).json({ error: '获取我的商品失败' });
     }
 });
@@ -165,7 +166,7 @@ router.get('/my-titles', authMiddleware, async (req, res) => {
             equippedTitle: user.equipped_title 
         });
     } catch (error) {
-        console.error('获取我的称号错误:', error);
+        logger.error('获取我的称号错误:', error);
         res.status(500).json({ error: '获取我的称号失败' });
     }
 });
@@ -211,7 +212,7 @@ router.post('/verify', authMiddleware, adminMiddleware, async (req, res) => {
             }
         });
     } catch (error) {
-        console.error('验证核销码错误:', error);
+        logger.error('验证核销码错误:', error);
         res.status(500).json({ error: '验证失败' });
     }
 });
@@ -247,7 +248,7 @@ router.post('/confirm', authMiddleware, adminMiddleware, async (req, res) => {
         
         res.json({ message: '核销成功', itemName: item.name });
     } catch (error) {
-        console.error('核销错误:', error);
+        logger.error('核销错误:', error);
         res.status(500).json({ error: '核销失败' });
     }
 });
@@ -267,7 +268,7 @@ router.post('/items', authMiddleware, adminMiddleware, async (req, res) => {
         
         res.status(201).json({ message: '商品创建成功', itemId: result.id });
     } catch (error) {
-        console.error('创建商品错误:', error);
+        logger.error('创建商品错误:', error);
         res.status(500).json({ error: '创建商品失败' });
     }
 });
@@ -284,7 +285,7 @@ router.put('/items/:id', authMiddleware, adminMiddleware, async (req, res) => {
         
         res.json({ message: '商品更新成功' });
     } catch (error) {
-        console.error('更新商品错误:', error);
+        logger.error('更新商品错误:', error);
         res.status(500).json({ error: '更新商品失败' });
     }
 });
@@ -297,7 +298,7 @@ router.delete('/items/:id', authMiddleware, adminMiddleware, async (req, res) =>
         
         res.json({ message: '商品删除成功' });
     } catch (error) {
-        console.error('删除商品错误:', error);
+        logger.error('删除商品错误:', error);
         res.status(500).json({ error: '删除商品失败' });
     }
 });

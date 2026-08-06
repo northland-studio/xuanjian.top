@@ -362,6 +362,8 @@ function AnnouncementManager({ showToast }) {
   const [announcements, setAnnouncements] = useState([]);
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
+  const [isPopup, setIsPopup] = useState(false);
+  const [isActive, setIsActive] = useState(true);
   const [loading, setLoading] = useState(true);
 
   const fetchList = () => {
@@ -377,10 +379,12 @@ function AnnouncementManager({ showToast }) {
   const create = async () => {
     if (!title.trim() || !content.trim()) { showToast('标题和内容不能为空', 'error'); return; }
     try {
-      await api.post('/api/admin/announcements', { title: title.trim(), content: content.trim() });
+      await api.post('/api/admin/announcements', { title: title.trim(), content: content.trim(), isPopup, isActive });
       showToast('公告发布成功', 'success');
       setTitle('');
       setContent('');
+      setIsPopup(false);
+      setIsActive(true);
       fetchList();
     } catch (e) {
       showToast(e.message, 'error');
@@ -410,6 +414,16 @@ function AnnouncementManager({ showToast }) {
           <label className="form-label">内容</label>
           <textarea className="form-textarea" value={content} onChange={e => setContent(e.target.value)} placeholder="公告内容" style={{ minHeight: 140 }} />
         </div>
+        <div className="flex" style={{ gap: 16, marginBottom: 16 }}>
+          <label className="flex" style={{ gap: 6, alignItems: 'center', fontSize: 14, cursor: 'pointer' }}>
+            <input type="checkbox" checked={isPopup} onChange={e => setIsPopup(e.target.checked)} style={{ accentColor: 'var(--primary)', width: 16, height: 16 }} />
+            设为弹窗公告
+          </label>
+          <label className="flex" style={{ gap: 6, alignItems: 'center', fontSize: 14, cursor: 'pointer' }}>
+            <input type="checkbox" checked={isActive} onChange={e => setIsActive(e.target.checked)} style={{ accentColor: 'var(--primary)', width: 16, height: 16 }} />
+            立即启用
+          </label>
+        </div>
         <button className="btn btn-primary btn-block" onClick={create}>发布公告</button>
       </div>
       <div className="card" style={{ padding: 24 }}>
@@ -423,7 +437,11 @@ function AnnouncementManager({ showToast }) {
             {announcements.map(a => (
               <div key={a.id} className="card" style={{ padding: 14, background: 'var(--input-bg)' }}>
                 <div className="flex-between mb-1">
-                  <span style={{ fontWeight: 700 }}>{a.title}</span>
+                  <div className="flex" style={{ gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <span style={{ fontWeight: 700 }}>{a.title}</span>
+                    {a.is_popup ? <span className="badge badge-success">弹窗</span> : <span className="badge badge-gray">普通</span>}
+                    {a.is_active ? <span className="badge badge-success">启用</span> : <span className="badge badge-gray">停用</span>}
+                  </div>
                   <button className="link-btn" style={{ color: 'var(--danger)' }} onClick={() => remove(a.id)}>删除</button>
                 </div>
                 <div className="text-secondary" style={{ fontSize: 13, lineHeight: 1.6 }}>{a.content}</div>

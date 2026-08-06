@@ -1,4 +1,5 @@
 const express = require('express');
+const logger = require('../lib/logger');
 const db = require('../database');
 const { authMiddleware } = require('../middleware/auth');
 const router = express.Router();
@@ -39,7 +40,7 @@ router.get('/', authMiddleware, async (req, res) => {
             }
         });
     } catch (error) {
-        console.error('获取通知错误:', error);
+        logger.error('获取通知错误:', error);
         res.status(500).json({ error: '获取通知失败' });
     }
 });
@@ -56,7 +57,7 @@ router.put('/:id/read', authMiddleware, async (req, res) => {
         
         res.json({ message: '已标记为已读' });
     } catch (error) {
-        console.error('标记通知已读错误:', error);
+        logger.error('标记通知已读错误:', error);
         res.status(500).json({ error: '操作失败' });
     }
 });
@@ -71,7 +72,7 @@ router.put('/read-all', authMiddleware, async (req, res) => {
         
         res.json({ message: '已全部标记为已读' });
     } catch (error) {
-        console.error('标记所有通知已读错误:', error);
+        logger.error('标记所有通知已读错误:', error);
         res.status(500).json({ error: '操作失败' });
     }
 });
@@ -88,7 +89,7 @@ router.delete('/:id', authMiddleware, async (req, res) => {
         
         res.json({ message: '删除成功' });
     } catch (error) {
-        console.error('删除通知错误:', error);
+        logger.error('删除通知错误:', error);
         res.status(500).json({ error: '删除失败' });
     }
 });
@@ -102,7 +103,7 @@ async function createNotification({ userId, type, title, content, postId, commen
             [userId, type, title, content, postId, commentId, actorId]
         );
     } catch (error) {
-        console.error('创建通知错误:', error);
+        logger.error('创建通知错误:', error);
     }
 }
 

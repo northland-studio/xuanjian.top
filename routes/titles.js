@@ -1,4 +1,5 @@
 const express = require('express');
+const logger = require('../lib/logger');
 const db = require('../database');
 const { getLocalTimestamp } = require('../database');
 const { authMiddleware, adminMiddleware } = require('../middleware/auth');
@@ -11,7 +12,7 @@ router.get('/', async (req, res) => {
         );
         res.json({ titles });
     } catch (error) {
-        console.error('获取称号列表错误:', error);
+        logger.error('获取称号列表错误:', error);
         res.status(500).json({ error: '获取称号列表失败' });
     }
 });
@@ -23,7 +24,7 @@ router.get('/all', authMiddleware, adminMiddleware, async (req, res) => {
         );
         res.json({ titles });
     } catch (error) {
-        console.error('获取称号列表错误:', error);
+        logger.error('获取称号列表错误:', error);
         res.status(500).json({ error: '获取称号列表失败' });
     }
 });
@@ -46,7 +47,7 @@ router.get('/my', authMiddleware, async (req, res) => {
             equippedTitle: user.equipped_title 
         });
     } catch (error) {
-        console.error('获取我的称号错误:', error);
+        logger.error('获取我的称号错误:', error);
         res.status(500).json({ error: '获取我的称号失败' });
     }
 });
@@ -74,7 +75,7 @@ router.post('/:id/buy', authMiddleware, async (req, res) => {
         }
         
         await db.run(
-            'UPDATE users SET contribution = contribution - ? WHERE id = ?',
+            'UPDATE users SET contribution = COALESCE(contribution, 0) - ? WHERE id = ?',
             [title.price, req.userId]
         );
         
@@ -85,7 +86,7 @@ router.post('/:id/buy', authMiddleware, async (req, res) => {
         
         res.json({ message: '购买成功', title });
     } catch (error) {
-        console.error('购买称号错误:', error);
+        logger.error('购买称号错误:', error);
         res.status(500).json({ error: '购买失败' });
     }
 });
@@ -111,7 +112,7 @@ router.put('/equip', authMiddleware, async (req, res) => {
         
         res.json({ message: titleId ? '装备成功' : '已卸下称号' });
     } catch (error) {
-        console.error('装备称号错误:', error);
+        logger.error('装备称号错误:', error);
         res.status(500).json({ error: '装备失败' });
     }
 });
@@ -131,7 +132,7 @@ router.post('/', authMiddleware, adminMiddleware, async (req, res) => {
         
         res.status(201).json({ message: '创建成功', titleId: result.id });
     } catch (error) {
-        console.error('创建称号错误:', error);
+        logger.error('创建称号错误:', error);
         res.status(500).json({ error: '创建失败' });
     }
 });
@@ -148,7 +149,7 @@ router.put('/:id', authMiddleware, adminMiddleware, async (req, res) => {
         
         res.json({ message: '更新成功' });
     } catch (error) {
-        console.error('更新称号错误:', error);
+        logger.error('更新称号错误:', error);
         res.status(500).json({ error: '更新失败' });
     }
 });
@@ -162,7 +163,7 @@ router.delete('/:id', authMiddleware, adminMiddleware, async (req, res) => {
         
         res.json({ message: '删除成功' });
     } catch (error) {
-        console.error('删除称号错误:', error);
+        logger.error('删除称号错误:', error);
         res.status(500).json({ error: '删除失败' });
     }
 });

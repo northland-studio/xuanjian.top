@@ -3,6 +3,7 @@ const path = require('path');
 const helmet = require('helmet');
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
+const logger = require('./lib/logger');
 require('dotenv').config();
 
 const authRoutes = require('./routes/auth');
@@ -70,10 +71,8 @@ app.use('/api/', limiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-app.use((req, res, next) => {
-    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
-    next();
-});
+// 请求日志（写入控制台与 data/logs/ 文件）
+app.use(logger.requestLogger);
 
 // 静态文件服务 - 共享图片等资源（index关闭，避免抢占React入口）
 app.use(express.static(path.join(__dirname, 'public'), {
@@ -130,7 +129,7 @@ app.use((req, res) => {
 
 // 错误处理
 app.use((err, req, res, next) => {
-    console.error('服务器错误:', err);
+    logger.error('服务器错误', { url: req.originalUrl, message: err.message, stack: err.stack });
     res.status(500).json({ error: '服务器内部错误' });
 });
 

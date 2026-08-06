@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="h:\chengxuyuanma\NLDocs\icon.png" width="200" height="200" alt="玄剑公会 Logo">
+  <img src="https://xuanjian.top/icon.png" width="200" height="200" alt="玄剑公会 Logo">
 </div>
 
 <div align="center">
@@ -14,7 +14,7 @@ xuanjian.top 2.0 - React 重构版
 ![Vite](https://img.shields.io/badge/Vite-8-646CFF?style=flat-square)
 ![SQLite](https://img.shields.io/badge/SQLite-3-003B49?style=flat-square)
 ![Qiniu](https://img.shields.io/badge/Qiniu-Kodo-0080FF?style=flat-square)
-![Version](https://img.shields.io/badge/Version-v2.0.0-blue?style=flat-square)
+![Version](https://img.shields.io/badge/Version-v2.0.1-blue?style=flat-square)
 ![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
 
 **在线地址**: https://xuanjian.top
@@ -54,14 +54,16 @@ xuanjian.top 2.0 - React 重构版
 
 ### 管理后台
 
-- 轮播图管理、用户管理（等级调整）、内容管理、公告管理
+- 轮播图管理、用户管理（等级调整）、内容管理、公告管理（支持弹窗公告）
 - 商城管理（商品上下架、库存、价格）、申报审核
 
 ### 系统能力
 
-- 通知中心：日报 / 决策更新、评论、点赞实时提醒
+- 通知中心：日报 / 决策更新、评论、点赞、申报审核结果实时提醒
+- 弹窗公告：管理后台发布后可全站弹窗展示，按公告 ID 记忆已读
 - OAuth 2.0 授权码模式：第三方应用可使用公会账号登录
 - 七牛云对象存储：前端 XHR 直传，实时上传进度回调
+- 日志系统：控制台 + 按天滚动文件日志（data/logs/app-YYYYMMDD.log）
 - 亮色 / 暗色主题切换，SVG 图标，品牌色 #004AAD
 
 ---
@@ -104,6 +106,7 @@ xuanjian-guild-website/
 │   └── notifications.js     # 通知中心
 ├── middleware/auth.js       # JWT 认证中间件
 ├── lib/qiniu.js             # 七牛云上传凭证（零依赖 HMAC）
+├── lib/logger.js            # 日志系统（控制台 + 按天滚动文件）
 ├── scripts/                 # 初始化 / 迁移 / 备份脚本
 ├── frontend/                # React 前端工程（Vite）
 │   ├── src/                 # 前端源码（pages / components / api）
@@ -204,12 +207,20 @@ QINIU_UPLOAD_URL=https://up-as0.qiniup.com
 | /api/rankings/* | 各类排行榜 |
 | /api/banners/* | 轮播图 |
 | /api/notifications/* | 通知中心 |
+| /api/announcements/* | 公告（/popup 弹窗公告） |
 | /api/oauth/* | OAuth 2.0 授权 |
 | /api/admin/* | 管理后台 |
 
 ---
 
 ## 更新日志
+
+### v2.0.1（2026-08-07）
+
+- **弹窗公告**：管理后台可发布弹窗公告（弹窗 / 启用开关），前端新增弹窗展示组件，全站公告发布后自动弹出，按公告 ID 记忆已读
+- **贡献点修复**：修复 contribution 为 NULL 的用户（如 number516567）申报到账后贡献点仍为空的 bug，所有贡献点增减改为 COALESCE 处理，新注册用户默认 0
+- **通知中心修复**：重建 notifications 表，CHECK 约束加入 claim_result，修复申报审核结果通知创建失败（SQLITE_CONSTRAINT）
+- **日志系统**：新增 lib/logger.js（控制台 + 按天滚动文件日志），全项目替换 console.error，请求日志记录方法 / 地址 / 状态 / 耗时
 
 ### v2.0.0（2026-08-06）
 

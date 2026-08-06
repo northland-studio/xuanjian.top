@@ -1,4 +1,5 @@
 const express = require('express');
+const logger = require('../lib/logger');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
@@ -90,7 +91,7 @@ router.post('/token', authMiddleware, (req, res) => {
             uploadUrl: qiniu.QINIU_UPLOAD_URL
         });
     } catch (error) {
-        console.error('生成上传凭证错误:', error);
+        logger.error('生成上传凭证错误:', error);
         res.status(500).json({ error: error.message || '生成上传凭证失败' });
     }
 });
@@ -114,7 +115,7 @@ router.post('/image', authMiddleware, upload.single('image'), async (req, res) =
             filename: filename
         });
     } catch (error) {
-        console.error('上传错误:', error);
+        logger.error('上传错误:', error);
         res.status(500).json({ error: '上传失败' });
     }
 });
@@ -140,7 +141,7 @@ router.post('/images', authMiddleware, upload.array('images', 10), async (req, r
             urls
         });
     } catch (error) {
-        console.error('上传错误:', error);
+        logger.error('上传错误:', error);
         res.status(500).json({ error: '上传失败' });
     }
 });

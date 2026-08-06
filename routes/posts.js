@@ -1,4 +1,5 @@
 const express = require('express');
+const logger = require('../lib/logger');
 const db = require('../database');
 const { getLocalTimestamp } = require('../database');
 const { authMiddleware, adminMiddleware } = require('../middleware/auth');
@@ -28,7 +29,7 @@ router.get('/public-stats', async (req, res) => {
             comments: commentCount.count
         });
     } catch (error) {
-        console.error('获取统计数据错误:', error);
+        logger.error('获取统计数据错误:', error);
         res.status(500).json({ error: '获取统计数据失败' });
     }
 });
@@ -99,7 +100,7 @@ router.get('/', async (req, res) => {
             totalPages: Math.ceil(countResult.total / limit)
         });
     } catch (error) {
-        console.error('获取内容列表错误:', error);
+        logger.error('获取内容列表错误:', error);
         res.status(500).json({ error: '获取内容列表失败' });
     }
 });
@@ -184,7 +185,7 @@ router.get('/:id', async (req, res) => {
         
         res.json({ post, comments });
     } catch (error) {
-        console.error('获取内容详情错误:', error);
+        logger.error('获取内容详情错误:', error);
         res.status(500).json({ error: '获取内容详情失败' });
     }
 });
@@ -213,7 +214,7 @@ router.post('/', authMiddleware, async (req, res) => {
             [title, content, type, req.userId, tags, JSON.stringify(images || []), getLocalTimestamp(), getLocalTimestamp()]
         );
 
-        await db.run('UPDATE users SET contribution = contribution + 5 WHERE id = ?', [req.userId]);
+        await db.run('UPDATE users SET contribution = COALESCE(contribution, 0) + 5 WHERE id = ?', [req.userId]);
 
         if (type === 'daily' || type === 'decision') {
             const typeText = type === 'daily' ? '日报' : '决策';
@@ -235,7 +236,7 @@ router.post('/', authMiddleware, async (req, res) => {
             postId: result.id
         });
     } catch (error) {
-        console.error('发布内容错误:', error);
+        logger.error('发布内容错误:', error);
         res.status(500).json({ error: '发布内容失败' });
     }
 });
@@ -262,7 +263,7 @@ router.put('/:id', authMiddleware, async (req, res) => {
         
         res.json({ message: '更新成功' });
     } catch (error) {
-        console.error('更新内容错误:', error);
+        logger.error('更新内容错误:', error);
         res.status(500).json({ error: '更新内容失败' });
     }
 });
@@ -285,7 +286,7 @@ router.delete('/:id', authMiddleware, async (req, res) => {
         
         res.json({ message: '删除成功' });
     } catch (error) {
-        console.error('删除内容错误:', error);
+        logger.error('删除内容错误:', error);
         res.status(500).json({ error: '删除内容失败' });
     }
 });
@@ -322,7 +323,7 @@ router.post('/:id/like', authMiddleware, async (req, res) => {
             res.json({ liked: true });
         }
     } catch (error) {
-        console.error('点赞错误:', error);
+        logger.error('点赞错误:', error);
         res.status(500).json({ error: '操作失败' });
     }
 });
@@ -343,7 +344,7 @@ router.post('/:id/comments', authMiddleware, async (req, res) => {
 
         await db.run('UPDATE posts SET comments_count = comments_count + 1 WHERE id = ?', [id]);
 
-        await db.run('UPDATE users SET contribution = contribution + 1 WHERE id = ?', [req.userId]);
+        await db.run('UPDATE users SET contribution = COALESCE(contribution, 0) + 1 WHERE id = ?', [req.userId]);
 
         const post = await db.get('SELECT author_id, title FROM posts WHERE id = ?', [id]);
         if (post && post.author_id !== req.userId) {
@@ -378,7 +379,7 @@ router.post('/:id/comments', authMiddleware, async (req, res) => {
             commentId: result.id
         });
     } catch (error) {
-        console.error('添加评论错误:', error);
+        logger.error('添加评论错误:', error);
         res.status(500).json({ error: '评论失败' });
     }
 });
@@ -402,7 +403,7 @@ router.delete('/:postId/comments/:commentId', authMiddleware, async (req, res) =
         
         res.json({ message: '删除成功' });
     } catch (error) {
-        console.error('删除评论错误:', error);
+        logger.error('删除评论错误:', error);
         res.status(500).json({ error: '删除评论失败' });
     }
 });

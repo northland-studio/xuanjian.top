@@ -1,7 +1,8 @@
 const nodemailer = require('nodemailer');
+const logger = require('../lib/logger');
 
 if (!process.env.SMTP_PASS) {
-    console.error('错误: 未配置 SMTP_PASS 环境变量，请在 .env 文件中设置');
+    logger.error('错误: 未配置 SMTP_PASS 环境变量，请在 .env 文件中设置');
     process.exit(1);
 }
 

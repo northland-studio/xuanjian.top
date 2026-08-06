@@ -1,4 +1,5 @@
 const express = require('express');
+const logger = require('../lib/logger');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const db = require('../database');
@@ -37,7 +38,7 @@ router.post('/forgot-password', async (req, res) => {
         
         res.json({ message: '重置邮件已发送，请查收邮箱' });
     } catch (error) {
-        console.error('忘记密码错误:', error);
+        logger.error('忘记密码错误:', error);
         res.status(500).json({ error: '发送重置邮件失败' });
     }
 });
@@ -77,7 +78,7 @@ router.post('/reset-password', async (req, res) => {
         
         res.json({ message: '密码重置成功，请使用新密码登录' });
     } catch (error) {
-        console.error('重置密码错误:', error);
+        logger.error('重置密码错误:', error);
         res.status(500).json({ error: '重置密码失败' });
     }
 });
@@ -97,7 +98,7 @@ router.get('/verify-reset-token/:token', async (req, res) => {
         
         res.json({ valid: true });
     } catch (error) {
-        console.error('验证token错误:', error);
+        logger.error('验证token错误:', error);
         res.status(500).json({ valid: false, error: '验证失败' });
     }
 });

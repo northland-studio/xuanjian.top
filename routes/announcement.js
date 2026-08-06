@@ -1,4 +1,5 @@
 const express = require('express');
+const logger = require('../lib/logger');
 const db = require('../database');
 const router = express.Router();
 
@@ -14,7 +15,7 @@ router.get('/popup', async (req, res) => {
         
         res.json(announcement || null);
     } catch (error) {
-        console.error('获取公告错误:', error);
+        logger.error('获取公告错误:', error);
         res.status(500).json({ error: '获取公告失败' });
     }
 });
@@ -30,7 +31,7 @@ router.get('/', async (req, res) => {
         
         res.json(announcements);
     } catch (error) {
-        console.error('获取公告列表错误:', error);
+        logger.error('获取公告列表错误:', error);
         res.status(500).json({ error: '获取公告列表失败' });
     }
 });

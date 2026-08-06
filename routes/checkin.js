@@ -1,4 +1,5 @@
 const express = require('express');
+const logger = require('../lib/logger');
 const db = require('../database');
 const { getLocalTimestamp } = require('../database');
 const { authMiddleware, adminMiddleware } = require('../middleware/auth');
@@ -60,7 +61,7 @@ router.post('/checkin', authMiddleware, async (req, res) => {
             );
             
             await db.run(
-                'UPDATE users SET contribution = contribution + ? WHERE id = ?',
+                'UPDATE users SET contribution = COALESCE(contribution, 0) + ? WHERE id = ?',
                 [rewardPoints, req.userId]
             );
         });
@@ -75,7 +76,7 @@ router.post('/checkin', authMiddleware, async (req, res) => {
             isNewRecord: continuousDays > 1
         });
     } catch (error) {
-        console.error('签到错误:', error);
+        logger.error('签到错误:', error);
         res.status(500).json({ error: '签到失败' });
     }
 });
@@ -162,7 +163,7 @@ router.post('/makeup', authMiddleware, async (req, res) => {
             );
             
             await db.run(
-                'UPDATE users SET contribution = contribution + ? WHERE id = ?',
+                'UPDATE users SET contribution = COALESCE(contribution, 0) + ? WHERE id = ?',
                 [rewardPoints, req.userId]
             );
             
@@ -200,7 +201,7 @@ router.post('/makeup', authMiddleware, async (req, res) => {
             totalContribution: user.contribution
         });
     } catch (error) {
-        console.error('补签错误:', error);
+        logger.error('补签错误:', error);
         res.status(500).json({ error: '补签失败' });
     }
 });
@@ -218,7 +219,7 @@ router.post('/buy-makeup-card', authMiddleware, async (req, res) => {
         
         await db.transaction(async () => {
             await db.run(
-                'UPDATE users SET contribution = contribution - ? WHERE id = ?',
+                'UPDATE users SET contribution = COALESCE(contribution, 0) - ? WHERE id = ?',
                 [cost, req.userId]
             );
             
@@ -251,7 +252,7 @@ router.post('/buy-makeup-card', authMiddleware, async (req, res) => {
             totalContribution: updatedUser.contribution
         });
     } catch (error) {
-        console.error('购买补签卡错误:', error);
+        logger.error('购买补签卡错误:', error);
         res.status(500).json({ error: '购买失败' });
     }
 });
@@ -328,7 +329,7 @@ router.get('/status', authMiddleware, async (req, res) => {
             todayReward: todayCheckin ? todayCheckin.reward_points : await getRewardForDays(continuousDays + 1)
         });
     } catch (error) {
-        console.error('获取签到状态错误:', error);
+        logger.error('获取签到状态错误:', error);
         res.status(500).json({ error: '获取签到状态失败' });
     }
 });
@@ -352,7 +353,7 @@ router.get('/history', authMiddleware, async (req, res) => {
         
         res.json({ checkins });
     } catch (error) {
-        console.error('获取签到历史错误:', error);
+        logger.error('获取签到历史错误:', error);
         res.status(500).json({ error: '获取签到历史失败' });
     }
 });
@@ -382,7 +383,7 @@ router.get('/leaderboard', async (req, res) => {
         
         res.json({ leaderboard, type });
     } catch (error) {
-        console.error('获取排行榜错误:', error);
+        logger.error('获取排行榜错误:', error);
         res.status(500).json({ error: '获取排行榜失败' });
     }
 });
@@ -402,7 +403,7 @@ router.post('/rewards', authMiddleware, adminMiddleware, async (req, res) => {
         
         res.json({ message: '奖励设置成功' });
     } catch (error) {
-        console.error('设置奖励错误:', error);
+        logger.error('设置奖励错误:', error);
         res.status(500).json({ error: '设置奖励失败' });
     }
 });
@@ -415,7 +416,7 @@ router.get('/rewards', async (req, res) => {
         
         res.json({ rewards });
     } catch (error) {
-        console.error('获取奖励列表错误:', error);
+        logger.error('获取奖励列表错误:', error);
         res.status(500).json({ error: '获取奖励列表失败' });
     }
 });

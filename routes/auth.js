@@ -1,4 +1,5 @@
 const express = require('express');
+const logger = require('../lib/logger');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
@@ -56,7 +57,7 @@ router.post('/send-code', async (req, res) => {
         
         res.json({ message: '验证码已发送' });
     } catch (error) {
-        console.error('发送验证码错误:', error);
+        logger.error('发送验证码错误:', error);
         res.status(500).json({ error: '发送验证码失败' });
     }
 });
@@ -121,7 +122,7 @@ router.post('/login', async (req, res) => {
             user
         });
     } catch (error) {
-        console.error('登录错误:', error);
+        logger.error('登录错误:', error);
         res.status(500).json({ error: '登录失败，请稍后重试' });
     }
 });
@@ -145,7 +146,7 @@ router.get('/me', authMiddleware, async (req, res) => {
 
         res.json(user);
     } catch (error) {
-        console.error('获取用户信息错误:', error);
+        logger.error('获取用户信息错误:', error);
         res.status(500).json({ error: '获取用户信息失败' });
     }
 });
@@ -179,7 +180,7 @@ router.put('/profile', authMiddleware, async (req, res) => {
         
         res.json({ message: '用户信息更新成功' });
     } catch (error) {
-        console.error('更新用户信息错误:', error);
+        logger.error('更新用户信息错误:', error);
         res.status(500).json({ error: '更新用户信息失败' });
     }
 });
@@ -220,7 +221,7 @@ router.put('/username', authMiddleware, async (req, res) => {
 
         res.json({ message: 'ID修改成功', username: finalUsername });
     } catch (error) {
-        console.error('修改ID错误:', error);
+        logger.error('修改ID错误:', error);
         res.status(500).json({ error: '修改ID失败' });
     }
 });
@@ -249,7 +250,7 @@ router.put('/password', authMiddleware, async (req, res) => {
 
         res.json({ message: '密码修改成功' });
     } catch (error) {
-        console.error('修改密码错误:', error);
+        logger.error('修改密码错误:', error);
         res.status(500).json({ error: '修改密码失败' });
     }
 });
@@ -295,7 +296,7 @@ router.post('/send-bind-code', authMiddleware, async (req, res) => {
 
         res.json({ message: '验证码已发送' });
     } catch (error) {
-        console.error('发送绑定验证码错误:', error);
+        logger.error('发送绑定验证码错误:', error);
         res.status(500).json({ error: '发送验证码失败' });
     }
 });
@@ -329,7 +330,7 @@ router.post('/verify-email', authMiddleware, async (req, res) => {
 
         res.json({ message: '邮箱验证成功' });
     } catch (error) {
-        console.error('验证邮箱错误:', error);
+        logger.error('验证邮箱错误:', error);
         res.status(500).json({ error: '验证邮箱失败' });
     }
 });
@@ -373,7 +374,7 @@ router.get('/user/:username', async (req, res) => {
             }
         });
     } catch (error) {
-        console.error('获取用户信息错误:', error);
+        logger.error('获取用户信息错误:', error);
         res.status(500).json({ error: '获取用户信息失败' });
     }
 });
@@ -448,7 +449,7 @@ router.get('/qq/bind', async (req, res) => {
         const url = `https://qq.wch666.com/api/qq.php?token=${encodeURIComponent(qqToken)}&msg=${encodeURIComponent('bind_' + decoded.userId)}`;
         res.redirect(url);
     } catch (error) {
-        console.error('QQ绑定跳转错误:', error);
+        logger.error('QQ绑定跳转错误:', error);
         res.status(500).json({ error: '服务器错误' });
     }
 });
@@ -463,13 +464,13 @@ router.get('/qq/callback', async (req, res) => {
 
         const data = await fetchQQUserInfo(code);
         if (data.error) {
-            console.error('获取QQ用户信息失败:', data.error);
+            logger.error('获取QQ用户信息失败:', data.error);
             return res.redirect('/login?error=' + encodeURIComponent('QQ登录失败：获取用户信息出错'));
         }
 
         const { openid, nickname, avatar } = extractQQUserInfo(data);
         if (!openid) {
-            console.error('QQ返回数据缺少openid:', JSON.stringify(data));
+            logger.error('QQ返回数据缺少openid:', JSON.stringify(data));
             return res.redirect('/login?error=' + encodeURIComponent('QQ登录失败：未获取到用户标识'));
         }
 
@@ -524,8 +525,8 @@ router.get('/qq/callback', async (req, res) => {
             }
 
             const result = await db.run(
-                `INSERT INTO users (username, nickname, email, password, avatar, openid, email_verified, password_set, created_at, updated_at)
-                 VALUES (?, ?, ?, ?, ?, ?, 0, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+                `INSERT INTO users (username, nickname, email, password, avatar, openid, contribution, email_verified, password_set, created_at, updated_at)
+                 VALUES (?, ?, ?, ?, ?, ?, 0, 0, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
                 [username, nickname, null, hashedPassword, avatar || '/images/default-avatar.png', openid]
             );
 
@@ -566,7 +567,7 @@ router.get('/qq/callback', async (req, res) => {
 </body>
 </html>`);
     } catch (error) {
-        console.error('QQ登录回调错误:', error);
+        logger.error('QQ登录回调错误:', error);
         res.status(500).send('QQ登录处理失败');
     }
 });

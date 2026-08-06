@@ -488,6 +488,84 @@ img {
   justify-content: flex-end;
 }
 
+/* 弹窗公告 */
+.announcement-popup-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 5000;
+  animation: fadeIn 0.25s ease-out;
+}
+
+.announcement-popup {
+  position: relative;
+  background: var(--card);
+  border-radius: var(--radius-lg);
+  max-width: 520px;
+  width: 100%;
+  max-height: 80vh;
+  overflow-y: auto;
+  padding: 28px 28px 24px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+  animation: slideUp 0.3s ease-out;
+  border-top: 4px solid var(--primary);
+}
+
+.announcement-popup-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-secondary);
+  padding: 6px;
+  border-radius: 8px;
+  line-height: 1;
+}
+
+.announcement-popup-close:hover {
+  background: var(--bg);
+  color: var(--text);
+}
+
+.announcement-popup-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--primary);
+  margin-bottom: 14px;
+  padding-right: 32px;
+}
+
+.announcement-popup-body {
+  font-size: 15px;
+  line-height: 1.8;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin-bottom: 20px;
+}
+
+.announcement-popup-btn {
+  width: 100%;
+  padding: 10px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--primary);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.announcement-popup-btn:hover {
+  background: var(--primary-dark);
+}
+
 /* 加载状态 */
 .loading {
   display: flex;

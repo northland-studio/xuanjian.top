@@ -1,4 +1,5 @@
 const express = require('express');
+const logger = require('../lib/logger');
 const db = require('../database');
 const { getLocalTimestamp } = require('../database');
 const { authMiddleware, adminMiddleware } = require('../middleware/auth');
@@ -140,7 +141,7 @@ async function updateStockPrices() {
             );
         }
     } catch (err) {
-        console.error('更新股票价格失败:', err);
+        logger.error('更新股票价格失败:', err);
     }
 }
 
@@ -153,11 +154,11 @@ async function saveOhlcToDb(stockId, ohlc) {
             [stockId, timeStr, ohlc.open, ohlc.high, ohlc.low, ohlc.close, ohlc.volume]
         );
     } catch (err) {
-        console.error('保存OHLC数据失败:', err);
+        logger.error('保存OHLC数据失败:', err);
     }
 }
 
-setInterval(() => updateStockPrices().catch(err => console.error('股票价格更新定时任务错误:', err)), 60000);
+setInterval(() => updateStockPrices().catch(err => logger.error('股票价格更新定时任务错误:', err)), 60000);
 
 router.get('/stocks', async (req, res) => {
     try {
@@ -167,7 +168,7 @@ router.get('/stocks', async (req, res) => {
         
         res.json({ stocks });
     } catch (error) {
-        console.error('获取股票列表错误:', error);
+        logger.error('获取股票列表错误:', error);
         res.status(500).json({ error: '获取股票列表失败' });
     }
 });
@@ -180,7 +181,7 @@ router.get('/stocks/all', authMiddleware, adminMiddleware, async (req, res) => {
         
         res.json({ stocks });
     } catch (error) {
-        console.error('获取股票列表错误:', error);
+        logger.error('获取股票列表错误:', error);
         res.status(500).json({ error: '获取股票列表失败' });
     }
 });
@@ -205,7 +206,7 @@ router.get('/stocks/:id', async (req, res) => {
         
         res.json({ stock, prices: prices.reverse() });
     } catch (error) {
-        console.error('获取股票详情错误:', error);
+        logger.error('获取股票详情错误:', error);
         res.status(500).json({ error: '获取股票详情失败' });
     }
 });
@@ -222,7 +223,7 @@ router.get('/stocks/:id/history', async (req, res) => {
         
         res.json({ prices: prices.reverse() });
     } catch (error) {
-        console.error('获取股票历史错误:', error);
+        logger.error('获取股票历史错误:', error);
         res.status(500).json({ error: '获取股票历史失败' });
     }
 });
@@ -288,7 +289,7 @@ router.get('/stocks/:id/kline', async (req, res) => {
         
         res.json({ kline: klineData });
     } catch (error) {
-        console.error('获取K线数据错误:', error);
+        logger.error('获取K线数据错误:', error);
         res.status(500).json({ error: '获取K线数据失败' });
     }
 });
@@ -328,7 +329,7 @@ router.get('/portfolio', authMiddleware, async (req, res) => {
             totalProfit
         });
     } catch (error) {
-        console.error('获取投资组合错误:', error);
+        logger.error('获取投资组合错误:', error);
         res.status(500).json({ error: '获取投资组合失败' });
     }
 });
@@ -365,7 +366,7 @@ router.post('/stocks/:id/buy', authMiddleware, async (req, res) => {
         
         await db.transaction(async () => {
             await db.run(
-                'UPDATE users SET contribution = contribution - ? WHERE id = ?',
+                'UPDATE users SET contribution = COALESCE(contribution, 0) - ? WHERE id = ?',
                 [totalCost, req.userId]
             );
             
@@ -415,7 +416,7 @@ router.post('/stocks/:id/buy', authMiddleware, async (req, res) => {
             totalCost
         });
     } catch (error) {
-        console.error('购买股票错误:', error);
+        logger.error('购买股票错误:', error);
         res.status(500).json({ error: '购买失败' });
     }
 });
@@ -452,7 +453,7 @@ router.post('/stocks/:id/sell', authMiddleware, async (req, res) => {
         
         await db.transaction(async () => {
             await db.run(
-                'UPDATE users SET contribution = contribution + ? WHERE id = ?',
+                'UPDATE users SET contribution = COALESCE(contribution, 0) + ? WHERE id = ?',
                 [totalValue, req.userId]
             );
             
@@ -493,7 +494,7 @@ router.post('/stocks/:id/sell', authMiddleware, async (req, res) => {
             totalValue
         });
     } catch (error) {
-        console.error('卖出股票错误:', error);
+        logger.error('卖出股票错误:', error);
         res.status(500).json({ error: '卖出失败' });
     }
 });
@@ -514,7 +515,7 @@ router.get('/transactions', authMiddleware, async (req, res) => {
         
         res.json({ transactions });
     } catch (error) {
-        console.error('获取交易记录错误:', error);
+        logger.error('获取交易记录错误:', error);
         res.status(500).json({ error: '获取交易记录失败' });
     }
 });
@@ -537,7 +538,7 @@ router.post('/stocks', authMiddleware, adminMiddleware, async (req, res) => {
             stockId: result.id
         });
     } catch (error) {
-        console.error('创建股票错误:', error);
+        logger.error('创建股票错误:', error);
         if (error.message && error.message.includes('UNIQUE constraint failed')) {
             return res.status(400).json({ error: '股票代码已存在' });
         }
@@ -557,7 +558,7 @@ router.put('/stocks/:id', authMiddleware, adminMiddleware, async (req, res) => {
         
         res.json({ message: '股票更新成功' });
     } catch (error) {
-        console.error('更新股票错误:', error);
+        logger.error('更新股票错误:', error);
         res.status(500).json({ error: '更新股票失败' });
     }
 });
@@ -567,7 +568,7 @@ router.post('/trigger-update', authMiddleware, adminMiddleware, async (req, res)
         await updateStockPrices();
         res.json({ message: '股票价格更新触发成功' });
     } catch (error) {
-        console.error('触发更新错误:', error);
+        logger.error('触发更新错误:', error);
         res.status(500).json({ error: '触发更新失败' });
     }
 });
@@ -588,7 +589,7 @@ router.post('/stocks/:id/restore', authMiddleware, adminMiddleware, async (req, 
         
         res.json({ message: '股票已恢复', stockId: id });
     } catch (error) {
-        console.error('恢复股票错误:', error);
+        logger.error('恢复股票错误:', error);
         res.status(500).json({ error: '恢复股票失败' });
     }
 });
@@ -614,7 +615,7 @@ router.delete('/stocks/:id', authMiddleware, adminMiddleware, async (req, res) =
         
         res.json({ message: '股票已删除' });
     } catch (error) {
-        console.error('删除股票错误:', error);
+        logger.error('删除股票错误:', error);
         res.status(500).json({ error: '删除股票失败' });
     }
 });
