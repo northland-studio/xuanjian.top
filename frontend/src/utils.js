@@ -50,3 +50,11 @@ export function parseTags(tags) {
   if (Array.isArray(tags)) return tags.filter(Boolean);
   return tags.split(',').map(t => t.trim()).filter(Boolean);
 }
+
+// HTML 转纯文本（用于列表摘要）
+export function stripHtml(html) {
+  if (!html) return '';
+  const div = document.createElement('div');
+  div.innerHTML = html;
+  return (div.textContent || div.innerText || '').replace(/\s+/g, ' ').trim();
+}

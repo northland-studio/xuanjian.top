@@ -3,6 +3,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { api, uploadImages } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/UI';
+import RichTextEditor from '../components/RichTextEditor';
 import { requireLogin } from '../utils';
 
 const TYPES = [
@@ -126,8 +127,9 @@ export default function Editor() {
         </div>
 
         <div className="form-group">
-          <label className="form-label">内容</label>
-          <textarea className="form-textarea" style={{ minHeight: 220 }} value={content} onChange={e => setContent(e.target.value)} placeholder="请输入正文内容..." />
+          <label className="form-label">内容（支持富文本）</label>
+          <RichTextEditor value={content} onChange={setContent} />
+          <div className="text-secondary" style={{ fontSize: 12, marginTop: 8 }}>支持标题、加粗、引用、列表、链接、代码块等格式</div>
         </div>
 
         <div className="form-group">

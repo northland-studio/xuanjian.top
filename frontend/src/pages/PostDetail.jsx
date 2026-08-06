@@ -210,8 +210,8 @@ export default function PostDetail() {
           )}
         </div>
 
-        <div className="post-content" style={{ fontSize: 15, lineHeight: 1.9, wordBreak: 'break-word' }}>
-          {post.content.split('\n').map((line, i) => line ? <p key={i} style={{ marginBottom: 10 }}>{line}</p> : <br key={i} />)}
+        <div className="rich-content">
+          <div dangerouslySetInnerHTML={{ __html: post.content }} />
         </div>
 
         {post.images && post.images.length > 0 && (
