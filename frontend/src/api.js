@@ -57,29 +57,65 @@ export const api = {
   delete: (url) => request(url, { method: 'DELETE' })
 };
 
-// 上传图片
-export async function uploadImage(file) {
-  const formData = new FormData();
-  formData.append('image', file);
-  const response = await fetch(`${API_BASE}/api/upload/image`, {
+// 七牛云上传地址（亚太-新加坡区域 as0）
+const QINIU_UPLOAD_URL = 'https://up-as0.qiniup.com/';
+
+// 获取七牛上传凭证
+async function getQiniuToken(filename) {
+  return request('/api/upload/token', {
     method: 'POST',
-    headers: { Authorization: `Bearer ${getToken()}` },
-    body: formData
+    body: JSON.stringify({ filename })
   });
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.error || '上传失败');
-  return data.url;
 }
 
-export async function uploadImages(files) {
-  const formData = new FormData();
-  files.forEach(f => formData.append('images', f));
-  const response = await fetch(`${API_BASE}/api/upload/images`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${getToken()}` },
-    body: formData
+// 通过 XHR 直传七牛云，支持进度回调（0-100）
+function xhrUpload(uploadToken, key, file, onProgress) {
+  return new Promise((resolve, reject) => {
+    const formData = new FormData();
+    formData.append('token', uploadToken);
+    formData.append('key', key);
+    formData.append('file', file);
+
+    const xhr = new XMLHttpRequest();
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) onProgress?.(Math.round((e.loaded / e.total) * 100));
+    };
+    xhr.onload = () => {
+      if (xhr.status === 200) {
+        try {
+          const r = JSON.parse(xhr.responseText);
+          resolve(r.key || key);
+        } catch {
+          resolve(key);
+        }
+      } else {
+        let msg = `上传失败: HTTP ${xhr.status}`;
+        try {
+          const r = JSON.parse(xhr.responseText);
+          if (r.error) msg = r.error;
+        } catch { /* 忽略解析错误 */ }
+        reject(new Error(msg));
+      }
+    };
+    xhr.onerror = () => reject(new Error('网络错误'));
+    xhr.open('POST', QINIU_UPLOAD_URL);
+    xhr.send(formData);
   });
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.error || '上传失败');
-  return data.urls;
+}
+
+// 上传图片（单张），onProgress 回调 0-100
+export async function uploadImage(file, onProgress) {
+  const { uploadToken, key, domain } = await getQiniuToken(file.name);
+  await xhrUpload(uploadToken, key, file, onProgress);
+  return `${domain}/${key}`;
+}
+
+// 上传多张图片（顺序上传），onProgress(doneCount, currentPercent, totalCount)
+export async function uploadImages(files, onProgress) {
+  const urls = [];
+  for (let i = 0; i < files.length; i++) {
+    const url = await uploadImage(files[i], (p) => onProgress?.(i, p, files.length));
+    urls.push(url);
+  }
+  return urls;
 }

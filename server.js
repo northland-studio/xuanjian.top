@@ -46,7 +46,7 @@ app.use(helmet({
             scriptSrcAttr: ["'unsafe-inline'"],
             styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
             imgSrc: ["'self'", "data:", "https:"],
-            connectSrc: ["'self'", "https://xuanjian.top", "https://cdn.jsdelivr.net"],
+            connectSrc: ["'self'", "https://xuanjian.top", "https://cdn.jsdelivr.net", "https://up-as0.qiniup.com"],
             fontSrc: ["'self'", "https://cdn.jsdelivr.net"],
         }
     },

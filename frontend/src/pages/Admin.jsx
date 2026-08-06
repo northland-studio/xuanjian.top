@@ -66,6 +66,7 @@ function BannerManager({ showToast }) {
   const [editing, setEditing] = useState(null); // null=新增, {} 表示编辑中
   const [form, setForm] = useState({ title: '', subtitle: '', image: '', link: '', sort_order: 0, is_active: true });
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(null);
   const fileInput = useRef(null);
 
   const fetchBanners = () => {
@@ -92,14 +93,16 @@ function BannerManager({ showToast }) {
     const file = e.target.files?.[0];
     if (!file) return;
     setUploading(true);
+    setUploadProgress(0);
     try {
-      const url = await uploadImage(file);
+      const url = await uploadImage(file, p => setUploadProgress(p));
       setForm(f => ({ ...f, image: url }));
       showToast('图片上传成功', 'success');
     } catch (err) {
       showToast(err.message || '上传失败', 'error');
     } finally {
       setUploading(false);
+      setUploadProgress(null);
       e.target.value = '';
     }
   };
@@ -448,6 +451,7 @@ function ShopManager({ showToast }) {
   const [editing, setEditing] = useState(null); // null=列表，{} = 新增
   const [form, setForm] = useState(EMPTY_ITEM);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(null);
   const fileInput = useRef(null);
 
   const fetchItems = () => {
@@ -483,14 +487,16 @@ function ShopManager({ showToast }) {
     const file = e.target.files?.[0];
     if (!file) return;
     setUploading(true);
+    setUploadProgress(0);
     try {
-      const url = await uploadImage(file);
+      const url = await uploadImage(file, p => setUploadProgress(p));
       setForm(f => ({ ...f, image: url }));
       showToast('图片上传成功', 'success');
     } catch (err) {
       showToast(err.message || '上传失败', 'error');
     } finally {
       setUploading(false);
+      setUploadProgress(null);
       e.target.value = '';
     }
   };
@@ -578,7 +584,7 @@ function ShopManager({ showToast }) {
               <div className="flex-center" style={{ width: 120, height: 80, background: 'var(--input-bg)', borderRadius: 8, color: 'var(--text-secondary)', fontSize: 12 }}>暂无图片</div>
             )}
             <button type="button" className="btn btn-secondary btn-sm" onClick={() => fileInput.current.click()} disabled={uploading}>
-              {uploading ? '上传中...' : (form.image ? '更换图片' : '上传图片')}
+              {uploading ? (uploadProgress !== null ? `上传中 ${uploadProgress}%` : '上传中...') : (form.image ? '更换图片' : '上传图片')}
             </button>
             <label className="flex" style={{ gap: 6, alignItems: 'center', fontSize: 14, cursor: 'pointer', marginLeft: 8 }}>
               <input type="checkbox" checked={form.is_active} onChange={e => setForm(f => ({ ...f, is_active: e.target.checked }))} style={{ accentColor: 'var(--primary)', width: 16, height: 16 }} />

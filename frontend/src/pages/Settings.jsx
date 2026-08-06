@@ -23,6 +23,7 @@ export default function Settings() {
   const [loading, setLoading] = useState(false);
   const [codeLoading, setCodeLoading] = useState(false);
   const [idLoading, setIdLoading] = useState(false);
+  const [uploading, setUploading] = useState(null); // null=空闲, 0-100=上传进度
 
   useEffect(() => {
     if (user) {
@@ -39,24 +40,30 @@ export default function Settings() {
   const handleAvatarUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
+    setUploading(0);
     try {
-      const url = await uploadImage(file);
+      const url = await uploadImage(file, p => setUploading(p));
       setAvatar(url);
       showToast('头像上传成功', 'success');
     } catch (err) {
       showToast(err.message, 'error');
+    } finally {
+      setUploading(null);
     }
   };
 
   const handleCoverUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
+    setUploading(0);
     try {
-      const url = await uploadImage(file);
+      const url = await uploadImage(file, p => setUploading(p));
       setCover(url);
       showToast('封面上传成功，记得保存', 'success');
     } catch (err) {
       showToast(err.message, 'error');
+    } finally {
+      setUploading(null);
     }
   };
 
@@ -201,7 +208,9 @@ export default function Settings() {
           />
           <input ref={coverRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleCoverUpload} />
           <div className="flex mt-2" style={{ gap: 8 }}>
-            <button className="btn btn-secondary btn-sm" onClick={() => coverRef.current.click()}>上传封面</button>
+            <button className="btn btn-secondary btn-sm" onClick={() => coverRef.current.click()} disabled={uploading !== null}>
+              {uploading !== null ? `上传中 ${uploading}%` : '上传封面'}
+            </button>
             {cover && <button className="btn btn-secondary btn-sm" onClick={() => setCover('')}>移除封面</button>}
           </div>
           <p className="text-secondary" style={{ fontSize: 12, marginTop: 6 }}>建议尺寸 1200×300，未设置时展示品牌渐变色</p>
@@ -215,7 +224,9 @@ export default function Settings() {
           />
           <div>
             <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleAvatarUpload} />
-            <button className="btn btn-secondary btn-sm" onClick={() => fileRef.current.click()}>更换头像</button>
+            <button className="btn btn-secondary btn-sm" onClick={() => fileRef.current.click()} disabled={uploading !== null}>
+              {uploading !== null ? `上传中 ${uploading}%` : '更换头像'}
+            </button>
           </div>
         </div>
         <div className="form-group">

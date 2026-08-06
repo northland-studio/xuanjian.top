@@ -22,6 +22,7 @@ export default function Claims() {
   const [reason, setReason] = useState('');
   const [evidence, setEvidence] = useState([]);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState('pending');
@@ -47,14 +48,18 @@ export default function Claims() {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
     setUploading(true);
+    setUploadProgress(0);
     try {
-      const urls = await uploadImages(files);
+      const urls = await uploadImages(files, (done, pct, total) => {
+        setUploadProgress(Math.round(((done + pct / 100) / total) * 100));
+      });
       setEvidence(prev => [...prev, ...urls]);
       showToast('图片上传成功', 'success');
     } catch (err) {
       showToast(err.message || '上传失败', 'error');
     } finally {
       setUploading(false);
+      setUploadProgress(null);
       e.target.value = '';
     }
   };
@@ -116,7 +121,7 @@ export default function Claims() {
             <label className="form-label">证明材料（图片，可选）</label>
             <input ref={fileInput} type="file" accept="image/*" multiple hidden onChange={handleImages} />
             <button type="button" className="btn btn-secondary" onClick={() => fileInput.current.click()} disabled={uploading}>
-              {uploading ? '上传中...' : '+ 上传证明材料'}
+              {uploading ? (uploadProgress !== null ? `上传中 ${uploadProgress}%` : '上传中...') : '+ 上传证明材料'}
             </button>
             {evidence.length > 0 && (
               <div className="flex" style={{ gap: 8, flexWrap: 'wrap', marginTop: 12 }}>

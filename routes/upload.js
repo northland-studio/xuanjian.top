@@ -5,6 +5,7 @@ const fs = require('fs');
 const sharp = require('sharp');
 const { v4: uuidv4 } = require('uuid');
 const { authMiddleware } = require('../middleware/auth');
+const qiniu = require('../lib/qiniu');
 const router = express.Router();
 
 // 水印图片路径
@@ -72,6 +73,25 @@ const upload = multer({
     fileFilter,
     limits: {
         fileSize: 5 * 1024 * 1024 // 5MB
+    }
+});
+
+// 生成七牛云上传凭证（前端 XHR 直传，带进度回调）
+router.post('/token', authMiddleware, (req, res) => {
+    try {
+        const originalname = (req.body && req.body.filename) || '';
+        const ext = path.extname(originalname).toLowerCase() || '.jpg';
+        const key = `images/${uuidv4()}${ext}`;
+        const uploadToken = qiniu.generateUploadToken(key);
+        res.json({
+            uploadToken,
+            key,
+            domain: qiniu.QINIU_DOMAIN,
+            uploadUrl: qiniu.QINIU_UPLOAD_URL
+        });
+    } catch (error) {
+        console.error('生成上传凭证错误:', error);
+        res.status(500).json({ error: error.message || '生成上传凭证失败' });
     }
 });
 

@@ -46,8 +46,8 @@ export default function Shop() {
     <div className="fade-in-up">
       <div className="page-banner" style={{ backgroundImage: 'linear-gradient(rgba(0,0,0,0.45), rgba(0,0,0,0.45)), url(/7.png)' }}>
         <div className="page-banner-content">
-          <h1>会员商城</h1>
-          <p>使用贡献点兑换专属称号与好物，享受会员特权</p>
+          <h1>贡献点商城</h1>
+          <p>使用贡献点兑换称号与权限</p>
           <div className="flex" style={{ gap: 10 }}>
             <Link to={myItemsUrl} className="btn btn-primary">我的库存</Link>
             <Link to="/claims" className="btn btn-ghost" style={{ color: '#fff', borderColor: 'rgba(255,255,255,0.4)' }}>贡献点申报</Link>

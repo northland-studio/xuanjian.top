@@ -26,6 +26,7 @@ export default function Editor() {
   const [tags, setTags] = useState('');
   const [images, setImages] = useState([]);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(!!id);
 
@@ -48,14 +49,18 @@ export default function Editor() {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
     setUploading(true);
+    setUploadProgress(0);
     try {
-      const urls = await uploadImages(files);
+      const urls = await uploadImages(files, (done, pct, total) => {
+        setUploadProgress(Math.round(((done + pct / 100) / total) * 100));
+      });
       setImages(prev => [...prev, ...urls]);
       showToast('图片上传成功', 'success');
     } catch (err) {
       showToast(err.message || '图片上传失败', 'error');
     } finally {
       setUploading(false);
+      setUploadProgress(null);
       e.target.value = '';
     }
   };
@@ -141,7 +146,7 @@ export default function Editor() {
           <label className="form-label">图片（可选，支持多图）</label>
           <input ref={fileInput} type="file" accept="image/*" multiple hidden onChange={handleImageUpload} />
           <button type="button" className="btn btn-secondary" onClick={() => fileInput.current.click()} disabled={uploading}>
-            {uploading ? '上传中...' : '+ 添加图片'}
+            {uploading ? (uploadProgress !== null ? `上传中 ${uploadProgress}%` : '上传中...') : '+ 添加图片'}
           </button>
           {images.length > 0 && (
             <div className="flex" style={{ gap: 10, flexWrap: 'wrap', marginTop: 12 }}>
