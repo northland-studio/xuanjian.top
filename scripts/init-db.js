@@ -29,6 +29,7 @@ const initTables = () => {
                     level INTEGER DEFAULT 0,
                     contribution INTEGER DEFAULT 0,
                     email_verified INTEGER DEFAULT 0,
+                    openid TEXT,
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
                 )

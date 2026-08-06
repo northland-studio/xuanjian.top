@@ -6,6 +6,17 @@ const { sendClaimNotification, sendClaimResult } = require('../config/mail');
 const { createNotification } = require('./notifications');
 const router = express.Router();
 
+// 解析证据字段为图片URL数组（兼容JSON数组和旧字符串格式）
+function parseEvidence(evidence) {
+    if (!evidence) return [];
+    try {
+        const parsed = JSON.parse(evidence);
+        return Array.isArray(parsed) ? parsed : [evidence];
+    } catch (e) {
+        return [evidence];
+    }
+}
+
 router.get('/', authMiddleware, async (req, res) => {
     try {
         const { status, limit = 20, offset = 0 } = req.query;
@@ -33,6 +44,11 @@ router.get('/', authMiddleware, async (req, res) => {
         params.push(parseInt(limit), parseInt(offset));
         
         const claims = await db.all(sql, params);
+        
+        // 解析证据为图片数组
+        claims.forEach(c => {
+            c.evidenceImages = parseEvidence(c.evidence);
+        });
         
         res.json({ claims });
     } catch (error) {
@@ -64,6 +80,8 @@ router.get('/:id', authMiddleware, async (req, res) => {
             return res.status(403).json({ error: '无权查看此申报' });
         }
         
+        claim.evidenceImages = parseEvidence(claim.evidence);
+        
         res.json({ claim });
     } catch (error) {
         console.error('获取申报详情错误:', error);
@@ -73,7 +91,7 @@ router.get('/:id', authMiddleware, async (req, res) => {
 
 router.post('/', authMiddleware, async (req, res) => {
     try {
-        const { amount, reason, evidence } = req.body;
+        const { amount, reason, evidence, evidenceImages } = req.body;
         
         if (!amount || amount <= 0) {
             return res.status(400).json({ error: '申报数量必须大于0' });
@@ -83,9 +101,17 @@ router.post('/', authMiddleware, async (req, res) => {
             return res.status(400).json({ error: '申报原因至少10个字符' });
         }
         
+        // 支持图片证明材料（多图URL数组），兼容旧的字符串evidence
+        let evidenceStr = '';
+        if (Array.isArray(evidenceImages) && evidenceImages.length > 0) {
+            evidenceStr = JSON.stringify(evidenceImages.filter(u => u && u.startsWith('/uploads/')));
+        } else if (evidence && typeof evidence === 'string') {
+            evidenceStr = evidence;
+        }
+        
         const result = await db.run(
             'INSERT INTO contribution_claims (user_id, amount, reason, evidence) VALUES (?, ?, ?, ?)',
-            [req.userId, amount, reason.trim(), evidence || '']
+            [req.userId, amount, reason.trim(), evidenceStr]
         );
         
         const user = await db.get('SELECT nickname, username FROM users WHERE id = ?', [req.userId]);

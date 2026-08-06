@@ -197,7 +197,12 @@ router.post('/', authMiddleware, async (req, res) => {
             return res.status(400).json({ error: '标题、内容和类型不能为空' });
         }
         
-        const user = await db.get('SELECT level FROM users WHERE id = ?', [req.userId]);
+        const user = await db.get('SELECT level, openid, email FROM users WHERE id = ?', [req.userId]);
+
+        // 未绑定QQ（无openid）或未绑定邮箱的用户无法发帖
+        if (!user.openid || !user.email) {
+            return res.status(403).json({ error: '请先绑定QQ和邮箱后再发布内容' });
+        }
         
         if ((type === 'daily' || type === 'decision') && user.level < 1) {
             return res.status(403).json({ error: '权限不足，无法发布此类型内容' });

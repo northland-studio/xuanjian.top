@@ -74,57 +74,9 @@ async function verifyCode(email, code, type) {
     return false;
 }
 
-// 用户注册
+// 用户注册（已关闭：新用户必须通过QQ登录注册）
 router.post('/register', async (req, res) => {
-    try {
-        const { username, nickname, email, password, verificationCode } = req.body;
-
-        // 验证输入
-        if (!username || !nickname || !email || !password || !verificationCode) {
-            return res.status(400).json({ error: '请填写所有必填字段，包括验证码' });
-        }
-
-        // 验证邮箱格式
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(email)) {
-            return res.status(400).json({ error: '邮箱格式不正确' });
-        }
-
-        // 验证验证码
-        const isCodeValid = await verifyCode(email, verificationCode, 'register');
-        if (!isCodeValid) {
-            return res.status(400).json({ error: '验证码无效或已过期' });
-        }
-
-        // 检查用户名是否已存在
-        const existingUser = await db.get('SELECT id FROM users WHERE username = ?', [username]);
-        if (existingUser) {
-            return res.status(400).json({ error: '用户名已被使用' });
-        }
-
-        // 检查邮箱是否已存在
-        const existingEmail = await db.get('SELECT id FROM users WHERE email = ?', [email]);
-        if (existingEmail) {
-            return res.status(400).json({ error: '邮箱已被注册' });
-        }
-
-        // 加密密码
-        const hashedPassword = await bcrypt.hash(password, 10);
-
-        // 创建用户（邮箱已验证）
-        const result = await db.run(
-            'INSERT INTO users (username, nickname, email, password, email_verified) VALUES (?, ?, ?, ?, ?)',
-            [username, nickname, email, hashedPassword, 1]
-        );
-
-        res.status(201).json({
-            message: '注册成功',
-            userId: result.id
-        });
-    } catch (error) {
-        console.error('注册错误:', error);
-        res.status(500).json({ error: '注册失败，请稍后重试' });
-    }
+    return res.status(403).json({ error: '新用户注册仅支持QQ登录，请使用QQ登录' });
 });
 
 // 用户登录
@@ -178,13 +130,18 @@ router.post('/login', async (req, res) => {
 router.get('/me', authMiddleware, async (req, res) => {
     try {
         const user = await db.get(
-            'SELECT id, username, nickname, email, level, contribution, avatar, email_verified, created_at FROM users WHERE id = ?',
+            'SELECT id, username, nickname, email, level, contribution, avatar, email_verified, openid, created_at FROM users WHERE id = ?',
             [req.userId]
         );
 
         if (!user) {
             return res.status(404).json({ error: '用户不存在' });
         }
+
+        // 补充绑定状态字段
+        user.qq_bound = !!(user.openid && user.openid !== '');
+        user.email_bound = !!(user.email && user.email.trim() !== '');
+        delete user.openid;
 
         res.json(user);
     } catch (error) {
@@ -374,6 +331,181 @@ router.get('/user/:username', async (req, res) => {
     } catch (error) {
         console.error('获取用户信息错误:', error);
         res.status(500).json({ error: '获取用户信息失败' });
+    }
+});
+
+// ============ QQ登录（心月互联） ============
+
+// 调用心月互联获取QQ用户信息
+async function fetchQQUserInfo(code) {
+    const url = `https://qq.wch666.com/api/get_user_info.php?code=${encodeURIComponent(code)}`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
+    const text = await res.text();
+
+    // 尝试JSON解析
+    try {
+        const data = JSON.parse(text);
+        if (data && typeof data === 'object') return data;
+    } catch (e) { /* 非JSON格式 */ }
+
+    // 尝试 "key=value&..." 格式
+    try {
+        const data = {};
+        text.split(/[&;\n]/).forEach(pair => {
+            const [k, v] = pair.split('=');
+            if (k && v) data[k.trim()] = decodeURIComponent(v.trim());
+        });
+        if (Object.keys(data).length > 0) return data;
+    } catch (e) { /* 解析失败 */ }
+
+    return { error: text };
+}
+
+// 从心月互联返回的数据中提取标准用户信息
+function extractQQUserInfo(data) {
+    const openid = data.openid || data.uid || data.id || data.open_id;
+    const nickname = data.nickname || data.nick || data.name || 'QQ用户';
+    const avatar = data.avatar || data.figureurl_qq_2 || data.figureurl_qq_1 || data.headimgurl || '';
+    return { openid: String(openid || ''), nickname: String(nickname), avatar: String(avatar || '') };
+}
+
+// QQ登录：跳转到心月互联授权页
+router.get('/qq/login', (req, res) => {
+    const token = process.env.QQ_LOGIN_TOKEN;
+    if (!token) {
+        return res.status(500).send('QQ登录未配置：请在 .env 中设置 QQ_LOGIN_TOKEN');
+    }
+    const redirect = req.query.redirect || '';
+    const url = `https://qq.wch666.com/api/qq.php?token=${encodeURIComponent(token)}&msg=${encodeURIComponent(redirect)}`;
+    res.redirect(url);
+});
+
+// QQ绑定：已登录用户绑定QQ（跳转到心月互联授权页）
+router.get('/qq/bind', authMiddleware, (req, res) => {
+    const token = process.env.QQ_LOGIN_TOKEN;
+    if (!token) {
+        return res.status(500).send('QQ登录未配置：请在 .env 中设置 QQ_LOGIN_TOKEN');
+    }
+    // msg 携带绑定标识：bind_<userId>
+    const url = `https://qq.wch666.com/api/qq.php?token=${encodeURIComponent(token)}&msg=${encodeURIComponent('bind_' + req.userId)}`;
+    res.redirect(url);
+});
+
+// QQ登录回调：换取用户信息并登录/注册
+router.get('/qq/callback', async (req, res) => {
+    try {
+        const { code, msg } = req.query;
+        if (!code) {
+            return res.redirect('/login?error=' + encodeURIComponent('QQ登录失败：缺少授权码'));
+        }
+
+        const data = await fetchQQUserInfo(code);
+        if (data.error) {
+            console.error('获取QQ用户信息失败:', data.error);
+            return res.redirect('/login?error=' + encodeURIComponent('QQ登录失败：获取用户信息出错'));
+        }
+
+        const { openid, nickname, avatar } = extractQQUserInfo(data);
+        if (!openid) {
+            console.error('QQ返回数据缺少openid:', JSON.stringify(data));
+            return res.redirect('/login?error=' + encodeURIComponent('QQ登录失败：未获取到用户标识'));
+        }
+
+        // ===== 绑定流程：msg 为 bind_<userId> =====
+        if (msg && msg.startsWith('bind_')) {
+            const bindUserId = parseInt(msg.slice(5));
+            if (!bindUserId) {
+                return res.redirect('/settings?error=' + encodeURIComponent('绑定参数无效'));
+            }
+
+            // 检查该openid是否已被其他用户绑定
+            const existingBind = await db.get('SELECT id FROM users WHERE openid = ? AND id != ?', [openid, bindUserId]);
+            if (existingBind) {
+                return res.redirect('/settings?error=' + encodeURIComponent('该QQ已绑定其他账号，无法重复绑定'));
+            }
+
+            await db.run('UPDATE users SET openid = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [openid, bindUserId]);
+
+            return res.send(`<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>绑定成功 - 玄剑公会</title>
+    <style>body{background:#0f172a;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;color:#fff;font-family:sans-serif;}</style>
+</head>
+<body>
+    <div style="text-align:center;">
+        <div style="font-size:40px;margin-bottom:16px;">✓</div>
+        <p>QQ绑定成功，正在跳转...</p>
+    </div>
+    <script>
+        window.location.href = '/settings';
+    </script>
+</body>
+</html>`);
+        }
+
+        // ===== 登录流程 =====
+        // 查找是否已有绑定该openid的用户
+        let user = await db.get('SELECT * FROM users WHERE openid = ?', [openid]);
+
+        if (!user) {
+            // 创建新用户（邮箱留空，待用户手动绑定）
+            const randomPassword = crypto.randomBytes(24).toString('hex');
+            const hashedPassword = await bcrypt.hash(randomPassword, 10);
+            let username = 'qq_' + openid.slice(-10);
+
+            // 处理用户名冲突
+            const existing = await db.get('SELECT id FROM users WHERE username = ?', [username]);
+            if (existing) {
+                username = username + '_' + Math.floor(Math.random() * 10000);
+            }
+
+            const result = await db.run(
+                `INSERT INTO users (username, nickname, email, password, avatar, openid, email_verified, created_at, updated_at)
+                 VALUES (?, ?, ?, ?, ?, ?, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+                [username, nickname, null, hashedPassword, avatar || '/uploads/default-avatar.png', openid]
+            );
+
+            user = await db.get('SELECT * FROM users WHERE id = ?', [result.id]);
+        }
+
+        // 签发JWT（QQ登录固定30天有效）
+        const token = jwt.sign(
+            { userId: user.id, username: user.username, level: user.level },
+            JWT_SECRET,
+            { expiresIn: '30d' }
+        );
+
+        const safeUser = { ...user };
+        delete safeUser.password;
+        safeUser.qq_bound = true;
+        safeUser.email_bound = !!(user.email && user.email.trim() !== '');
+
+        // 返回HTML页面，前端自动保存登录态后跳转
+        const redirect = msg || '/';
+        res.send(`<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>登录成功 - 玄剑公会</title>
+    <style>body{background:#0f172a;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;color:#fff;font-family:sans-serif;}</style>
+</head>
+<body>
+    <div style="text-align:center;">
+        <div style="font-size:40px;margin-bottom:16px;">✓</div>
+        <p>登录成功，正在跳转...</p>
+    </div>
+    <script>
+        localStorage.setItem('token', ${JSON.stringify(token)});
+        localStorage.setItem('user', ${JSON.stringify(JSON.stringify(safeUser))});
+        window.location.href = ${JSON.stringify(redirect)};
+    </script>
+</body>
+</html>`);
+    } catch (error) {
+        console.error('QQ登录回调错误:', error);
+        res.status(500).send('QQ登录处理失败');
     }
 });
 
