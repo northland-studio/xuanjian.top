@@ -58,16 +58,34 @@ export default function Profile() {
   return (
     <div className="fade-in-up">
       {/* 用户信息卡 */}
-      <div className="profile-hero card" style={{ overflow: 'hidden', padding: 0, border: 'none', boxShadow: 'var(--shadow-lg)' }}>
-        <div className="profile-cover" style={{ height: 130, background: 'linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%)' }} />
+      <div className="card" style={{ overflow: 'hidden', padding: 0, border: 'none', boxShadow: 'var(--shadow-lg)' }}>
+        {/* 封面：用户上传的背景图，未设置时展示品牌渐变 */}
+        <div
+          className="profile-cover"
+          style={{
+            height: 160,
+            backgroundImage: u.cover
+              ? `url(${u.cover})`
+              : 'linear-gradient(135deg, #004AAD 0%, #0066cc 100%)'
+          }}
+        />
+
         <div style={{ padding: '0 24px 24px', position: 'relative' }}>
-          <img
-            src={u.avatar || '/images/default-avatar.png'}
-            alt="头像"
-            style={{ width: 96, height: 96, borderRadius: '50%', objectFit: 'cover', border: '4px solid var(--card)', position: 'absolute', top: -48, left: 24, boxShadow: 'var(--shadow)' }}
-          />
-          <div className="flex-between" style={{ alignItems: 'flex-end', marginTop: 56 }}>
-            <div>
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 16, marginTop: -48 }}>
+            <img
+              src={u.avatar || '/images/default-avatar.png'}
+              alt="头像"
+              style={{
+                width: 96,
+                height: 96,
+                borderRadius: '50%',
+                objectFit: 'cover',
+                border: '4px solid var(--card)',
+                boxShadow: 'var(--shadow)',
+                flexShrink: 0
+              }}
+            />
+            <div style={{ flex: 1, minWidth: 0, paddingBottom: 2 }}>
               <div className="flex" style={{ gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
                 <h1 style={{ fontSize: 24, fontWeight: 800 }}>{u.nickname || u.username}</h1>
                 {u.title_name && (
@@ -82,7 +100,12 @@ export default function Profile() {
               </div>
             </div>
             {isSelf && (
-              <Link to="/settings" className="btn btn-secondary btn-sm">编辑资料</Link>
+              <div className="flex" style={{ gap: 8, paddingBottom: 2, flexShrink: 0 }}>
+                {u.level >= 1 && (
+                  <Link to="/admin" className="btn btn-primary btn-sm">管理后台</Link>
+                )}
+                <Link to="/settings" className="btn btn-secondary btn-sm">编辑资料</Link>
+              </div>
             )}
           </div>
 

@@ -130,7 +130,7 @@ router.post('/login', async (req, res) => {
 router.get('/me', authMiddleware, async (req, res) => {
     try {
         const user = await db.get(
-            'SELECT id, username, nickname, email, level, contribution, avatar, email_verified, openid, created_at FROM users WHERE id = ?',
+            'SELECT id, username, nickname, email, level, contribution, avatar, cover, email_verified, openid, created_at FROM users WHERE id = ?',
             [req.userId]
         );
 
@@ -150,10 +150,10 @@ router.get('/me', authMiddleware, async (req, res) => {
     }
 });
 
-// 更新用户信息
+// 更新用户信息（昵称/头像/封面）
 router.put('/profile', authMiddleware, async (req, res) => {
     try {
-        const { nickname, email, avatar, currentPassword, newPassword } = req.body;
+        const { nickname, email, avatar, cover, currentPassword, newPassword } = req.body;
         
         // 如果要修改密码
         if (newPassword) {
@@ -164,13 +164,13 @@ router.put('/profile', authMiddleware, async (req, res) => {
             }
             const hashedPassword = await bcrypt.hash(newPassword, 10);
             await db.run(
-                'UPDATE users SET nickname = ?, email = ?, avatar = ?, password = ?, updated_at = ? WHERE id = ?',
-                [nickname, email, avatar, hashedPassword, getLocalTimestamp(), req.userId]
+                'UPDATE users SET nickname = ?, email = ?, avatar = ?, cover = ?, password = ?, updated_at = ? WHERE id = ?',
+                [nickname, email, avatar, cover || '', hashedPassword, getLocalTimestamp(), req.userId]
             );
         } else {
             await db.run(
-                'UPDATE users SET nickname = ?, email = ?, avatar = ?, updated_at = ? WHERE id = ?',
-                [nickname, email, avatar, getLocalTimestamp(), req.userId]
+                'UPDATE users SET nickname = ?, email = ?, avatar = ?, cover = ?, updated_at = ? WHERE id = ?',
+                [nickname, email, avatar, cover || '', getLocalTimestamp(), req.userId]
             );
         }
         
@@ -178,6 +178,47 @@ router.put('/profile', authMiddleware, async (req, res) => {
     } catch (error) {
         console.error('更新用户信息错误:', error);
         res.status(500).json({ error: '更新用户信息失败' });
+    }
+});
+
+// 修改自定义ID（用户名）
+router.put('/username', authMiddleware, async (req, res) => {
+    try {
+        const { username } = req.body;
+
+        if (!username || typeof username !== 'string') {
+            return res.status(400).json({ error: '请填写新的ID' });
+        }
+
+        // 仅允许字母/数字/下划线/中文，2-20位
+        const usernameRegex = /^[a-zA-Z0-9_\u4e00-\u9fa5]{2,20}$/;
+        if (!usernameRegex.test(username.trim())) {
+            return res.status(400).json({ error: 'ID需为2-20位字母、数字、下划线或中文' });
+        }
+
+        const finalUsername = username.trim();
+
+        // 检查是否已被他人使用
+        const existing = await db.get('SELECT id FROM users WHERE username = ? AND id != ?', [finalUsername, req.userId]);
+        if (existing) {
+            return res.status(400).json({ error: '该ID已被其他用户使用' });
+        }
+
+        // 与当前ID相同则直接成功
+        const current = await db.get('SELECT username FROM users WHERE id = ?', [req.userId]);
+        if (current && current.username === finalUsername) {
+            return res.json({ message: 'ID未发生变化', username: finalUsername });
+        }
+
+        await db.run(
+            'UPDATE users SET username = ?, updated_at = ? WHERE id = ?',
+            [finalUsername, getLocalTimestamp(), req.userId]
+        );
+
+        res.json({ message: 'ID修改成功', username: finalUsername });
+    } catch (error) {
+        console.error('修改ID错误:', error);
+        res.status(500).json({ error: '修改ID失败' });
     }
 });
 
@@ -296,7 +337,7 @@ router.get('/user/:username', async (req, res) => {
         const { username } = req.params;
         
         const user = await db.get(
-            `SELECT u.id, u.username, u.nickname, u.email, u.avatar, u.level, u.contribution, u.created_at,
+            `SELECT u.id, u.username, u.nickname, u.email, u.avatar, u.cover, u.level, u.contribution, u.created_at,
                     t.name as title_name, t.color as title_color
              FROM users u
              LEFT JOIN titles t ON u.equipped_title = t.id
@@ -464,7 +505,7 @@ router.get('/qq/callback', async (req, res) => {
             const result = await db.run(
                 `INSERT INTO users (username, nickname, email, password, avatar, openid, email_verified, created_at, updated_at)
                  VALUES (?, ?, ?, ?, ?, ?, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
-                [username, nickname, null, hashedPassword, avatar || '/uploads/default-avatar.png', openid]
+                [username, nickname, null, hashedPassword, avatar || '/images/default-avatar.png', openid]
             );
 
             user = await db.get('SELECT * FROM users WHERE id = ?', [result.id]);
@@ -498,7 +539,7 @@ router.get('/qq/callback', async (req, res) => {
     </div>
     <script>
         localStorage.setItem('token', ${JSON.stringify(token)});
-        localStorage.setItem('user', ${JSON.stringify(JSON.stringify(safeUser))});
+        localStorage.setItem('user', ${JSON.stringify(safeUser)});
         window.location.href = ${JSON.stringify(redirect)};
     </script>
 </body>

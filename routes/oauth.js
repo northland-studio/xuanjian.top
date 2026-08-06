@@ -75,7 +75,7 @@ router.get('/authorize', async (req, res) => {
             display: inline-flex;
             align-items: center;
             gap: 8px;
-            background: rgba(99, 102, 241, 0.2);
+            background: rgba(0, 74, 173, 0.3);
             color: #fff;
             padding: 10px 16px;
             border-radius: 8px;
@@ -123,11 +123,11 @@ router.get('/authorize', async (req, res) => {
             border: none;
         }
         .btn-allow {
-            background: #6366f1;
+            background: #004AAD;
             color: white;
         }
         .btn-allow:hover {
-            background: #4f46e5;
+            background: #003a87;
         }
         .btn-deny {
             background: rgba(255,255,255,0.1);
@@ -183,9 +183,13 @@ router.get('/authorize', async (req, res) => {
         
         const token = localStorage.getItem('token');
         
+        function buildLoginUrl() {
+            const oauthRedirect = '/api/oauth/authorize?client_id=' + encodeURIComponent(clientId) + '&redirect_uri=' + encodeURIComponent(redirectUri) + '&state=' + encodeURIComponent(state || '');
+            return '/login?redirect=' + encodeURIComponent(oauthRedirect);
+        }
+        
         if (!token) {
-            const loginUrl = '/login?redirect=/api/oauth/authorize&client_id=' + clientId + '&redirect_uri=' + encodeURIComponent(redirectUri) + '&state=' + (state || '');
-            window.location.href = loginUrl;
+            window.location.href = buildLoginUrl();
         } else {
             fetch('/api/auth/me', {
                 headers: { 'Authorization': 'Bearer ' + token }
@@ -193,7 +197,7 @@ router.get('/authorize', async (req, res) => {
             .then(r => r.json())
             .then(data => {
                 if (data.id) {
-                    const avatarUrl = data.avatar || '/uploads/default-avatar.png';
+                    const avatarUrl = data.avatar || '/images/default-avatar.png';
                     document.getElementById('status').outerHTML = \`
                         <p class="oauth-subtitle">第三方应用请求访问您的账号</p>
                         <div class="app-badge">
@@ -204,7 +208,7 @@ router.get('/authorize', async (req, res) => {
                             \${clientId}
                         </div>
                         <div class="user-info">
-                            <img class="user-avatar-img" src="\${avatarUrl}" alt="头像" onerror="this.src='/uploads/default-avatar.png'">
+                            <img class="user-avatar-img" src="\${avatarUrl}" alt="头像" onerror="this.src='/images/default-avatar.png'">
                             <div class="user-name">\${data.username}</div>
                             <div class="user-label">当前登录账号</div>
                         </div>
@@ -217,14 +221,12 @@ router.get('/authorize', async (req, res) => {
                     \`;
                 } else {
                     localStorage.removeItem('token');
-                    const loginUrl = '/login?redirect=/api/oauth/authorize&client_id=' + clientId + '&redirect_uri=' + encodeURIComponent(redirectUri) + '&state=' + (state || '');
-                    window.location.href = loginUrl;
+                    window.location.href = buildLoginUrl();
                 }
             })
             .catch(err => {
                 localStorage.removeItem('token');
-                const loginUrl = '/login?redirect=/api/oauth/authorize&client_id=' + clientId + '&redirect_uri=' + encodeURIComponent(redirectUri) + '&state=' + (state || '');
-                window.location.href = loginUrl;
+                window.location.href = buildLoginUrl();
             });
         }
         
@@ -255,8 +257,7 @@ router.get('/authorize', async (req, res) => {
         function switchAccount() {
             localStorage.removeItem('token');
             localStorage.removeItem('user');
-            const loginUrl = '/login?redirect=/api/oauth/authorize&client_id=' + clientId + '&redirect_uri=' + encodeURIComponent(redirectUri) + '&state=' + (state || '');
-            window.location.href = loginUrl;
+            window.location.href = buildLoginUrl();
         }
     </script>
 </body>

@@ -21,13 +21,27 @@ export default function Login() {
     try {
       await login(username, password, remember);
       showToast('登录成功', 'success');
-      const redirect = params.get('redirect');
-      setTimeout(() => navigate(redirect || '/'), 500);
+      setTimeout(() => navigate(getRedirectTarget()), 500);
     } catch (err) {
       setError(err.message || '登录失败');
     } finally {
       setLoading(false);
     }
+  };
+
+  // 兼容OAuth跳转：redirect可能是完整编码URL或旧格式
+  const getRedirectTarget = () => {
+    const redirect = params.get('redirect');
+    if (!redirect) return '/';
+    // 新格式：redirect 已含完整 query（如 /api/oauth/authorize?client_id=...）
+    if (redirect.startsWith('/api/oauth/authorize') || redirect.startsWith('http')) {
+      return redirect;
+    }
+    // 旧格式兜底：补齐 client_id 等参数
+    if (params.get('client_id')) {
+      return `${redirect}?client_id=${encodeURIComponent(params.get('client_id'))}&redirect_uri=${encodeURIComponent(params.get('redirect_uri') || '')}&state=${encodeURIComponent(params.get('state') || '')}`;
+    }
+    return redirect;
   };
 
   const qqLogin = () => {

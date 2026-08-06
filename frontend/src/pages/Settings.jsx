@@ -7,20 +7,26 @@ export default function Settings() {
   const { user, updateUser } = useAuth();
   const { showToast } = useToast();
   const fileRef = useRef(null);
+  const coverRef = useRef(null);
 
   const [nickname, setNickname] = useState('');
   const [avatar, setAvatar] = useState('');
+  const [cover, setCover] = useState('');
+  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [codeLoading, setCodeLoading] = useState(false);
+  const [idLoading, setIdLoading] = useState(false);
 
   useEffect(() => {
     if (user) {
       setNickname(user.nickname || '');
       setAvatar(user.avatar || '');
+      setCover(user.cover || '');
+      setUsername(user.username || '');
       setEmail(user.email || '');
     }
   }, [user]);
@@ -39,16 +45,45 @@ export default function Settings() {
     }
   };
 
+  const handleCoverUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    try {
+      const url = await uploadImage(file);
+      setCover(url);
+      showToast('封面上传成功，记得保存', 'success');
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  };
+
   const saveProfile = async () => {
     setLoading(true);
     try {
-      await api.put('/api/auth/profile', { nickname, avatar });
-      await updateUser({ ...user, nickname, avatar });
+      await api.put('/api/auth/profile', { nickname, avatar, cover });
+      const me = await api.get('/api/auth/me');
+      await updateUser(me);
       showToast('资料保存成功', 'success');
     } catch (err) {
       showToast(err.message, 'error');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const changeUsername = async () => {
+    const val = username.trim();
+    if (!val) { showToast('请输入新的ID', 'error'); return; }
+    setIdLoading(true);
+    try {
+      const data = await api.put('/api/auth/username', { username: val });
+      const me = await api.get('/api/auth/me');
+      await updateUser(me);
+      showToast(data.message || 'ID修改成功', 'success');
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setIdLoading(false);
     }
   };
 
@@ -134,6 +169,27 @@ export default function Settings() {
           </svg>
           基本信息
         </h3>
+
+        {/* 个人主页封面 */}
+        <div className="form-group">
+          <label className="form-label">个人主页封面</label>
+          <div
+            className="profile-cover"
+            style={{
+              borderRadius: 12,
+              backgroundImage: cover
+                ? `linear-gradient(rgba(0,0,0,0.15), rgba(0,0,0,0.15)), url(${cover})`
+                : 'linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%)'
+            }}
+          />
+          <input ref={coverRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleCoverUpload} />
+          <div className="flex mt-2" style={{ gap: 8 }}>
+            <button className="btn btn-secondary btn-sm" onClick={() => coverRef.current.click()}>上传封面</button>
+            {cover && <button className="btn btn-secondary btn-sm" onClick={() => setCover('')}>移除封面</button>}
+          </div>
+          <p className="text-secondary" style={{ fontSize: 12, marginTop: 6 }}>建议尺寸 1200×300，未设置时展示品牌渐变色</p>
+        </div>
+
         <div className="flex" style={{ gap: 16, alignItems: 'center', marginBottom: 16 }}>
           <img
             src={avatar || '/images/default-avatar.png'}
@@ -150,6 +206,32 @@ export default function Settings() {
           <input className="form-input" value={nickname} onChange={e => setNickname(e.target.value)} placeholder="请输入昵称" />
         </div>
         <button className="btn btn-primary" onClick={saveProfile} disabled={loading}>保存资料</button>
+      </div>
+
+      {/* 自定义ID */}
+      <div className="card mb-4" style={{ marginBottom: 20 }}>
+        <h3 style={sectionTitle}>
+          <svg width="20" height="20" fill="none" stroke="var(--primary)" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+          </svg>
+          自定义ID
+        </h3>
+        <p className="text-secondary" style={{ fontSize: 13, marginBottom: 12 }}>
+          修改后个人主页地址将变为 /profile/你的ID，仅限字母、数字、下划线或中文（2-20位）
+        </p>
+        <div className="flex" style={{ gap: 8 }}>
+          <input
+            className="form-input"
+            value={username}
+            onChange={e => setUsername(e.target.value)}
+            placeholder="输入新的ID"
+            style={{ flex: 1 }}
+            maxLength={20}
+          />
+          <button className="btn btn-primary" onClick={changeUsername} disabled={idLoading} style={{ whiteSpace: 'nowrap' }}>
+            {idLoading ? '提交中...' : '修改ID'}
+          </button>
+        </div>
       </div>
 
       {/* 绑定信息 */}
