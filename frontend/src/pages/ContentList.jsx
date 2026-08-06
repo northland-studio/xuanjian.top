@@ -45,7 +45,7 @@ export default function ContentList({ type, title }) {
     navigate(`/editor?type=${type}`);
   };
 
-  const bgImage = type === 'daily' ? '/2.png' : type === 'decision' ? '/3.png' : '/4.png';
+  const bgImage = type === 'daily' ? '/2.png?v=20260806' : type === 'decision' ? '/3.png?v=20260806' : '/4.png?v=20260806';
 
   return (
     <div className="fade-in-up">

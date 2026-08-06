@@ -28,7 +28,7 @@ export default function Rankings() {
 
   return (
     <div className="fade-in-up">
-      <div className="page-banner" style={{ backgroundImage: 'linear-gradient(rgba(0,0,0,0.45), rgba(0,0,0,0.45)), url(/2.png)' }}>
+      <div className="page-banner" style={{ backgroundImage: 'linear-gradient(rgba(0,0,0,0.45), rgba(0,0,0,0.45)), url(/2.png?v=20260806)' }}>
         <div className="page-banner-content">
           <h1>成员排行榜</h1>
           <p>见证大家的付出与荣耀，争做公会之星</p>

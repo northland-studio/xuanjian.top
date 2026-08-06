@@ -4,10 +4,10 @@ import { api } from '../api';
 
 // 兜底默认轮播图（复用现有图片资源，管理后台未配置时展示）
 const DEFAULT_BANNERS = [
-  { id: 0, title: '玄剑公会', subtitle: '探索无限可能，创造属于我们的世界', image: '/1.png', link: '/' },
-  { id: 1, title: '公会贴吧', subtitle: '自由交流 · 分享经验 · 展示作品', image: '/4.png', link: '/forum' },
-  { id: 2, title: '会员商城', subtitle: '使用贡献点兑换专属好物', image: '/7.png', link: '/shop' },
-  { id: 3, title: '每日签到', subtitle: '连续签到赢取丰厚贡献点', image: '/3.png', link: '/checkin' }
+  { id: 0, title: '玄剑公会', subtitle: '探索无限可能，创造属于我们的世界', image: '/1.png?v=20260806', link: '/' },
+  { id: 1, title: '公会贴吧', subtitle: '自由交流 · 分享经验 · 展示作品', image: '/4.png?v=20260806', link: '/forum' },
+  { id: 2, title: '会员商城', subtitle: '使用贡献点兑换专属好物', image: '/7.png?v=20260806', link: '/shop' },
+  { id: 3, title: '每日签到', subtitle: '连续签到赢取丰厚贡献点', image: '/3.png?v=20260806', link: '/checkin' }
 ];
 
 function normalizeLink(link) {

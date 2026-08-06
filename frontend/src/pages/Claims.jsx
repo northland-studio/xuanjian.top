@@ -98,7 +98,7 @@ export default function Claims() {
 
   return (
     <div className="fade-in-up">
-      <div className="page-banner" style={{ backgroundImage: 'linear-gradient(rgba(0,0,0,0.45), rgba(0,0,0,0.45)), url(/7.png)' }}>
+      <div className="page-banner" style={{ backgroundImage: 'linear-gradient(rgba(0,0,0,0.45), rgba(0,0,0,0.45)), url(/7.png?v=20260806)' }}>
         <div className="page-banner-content">
           <h1>贡献点申报</h1>
           <p>申报你的公会贡献，支持上传图片作为证明材料</p>

@@ -29,7 +29,7 @@ const PLATFORMS = [
 export default function Social() {
   return (
     <div className="fade-in-up">
-      <div className="page-banner" style={{ backgroundImage: 'linear-gradient(rgba(0,0,0,0.45), rgba(0,0,0,0.45)), url(/4.png)' }}>
+      <div className="page-banner" style={{ backgroundImage: 'linear-gradient(rgba(0,0,0,0.45), rgba(0,0,0,0.45)), url(/4.png?v=20260806)' }}>
         <div className="page-banner-content">
           <h1>社交媒体</h1>
           <p>关注公会各平台官方账号，不错过任何精彩瞬间</p>

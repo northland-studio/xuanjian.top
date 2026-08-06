@@ -51,7 +51,7 @@ export default function Checkin() {
 
   return (
     <div className="fade-in-up">
-      <div className="page-banner" style={{ backgroundImage: 'linear-gradient(rgba(0,0,0,0.45), rgba(0,0,0,0.45)), url(/3.png)' }}>
+      <div className="page-banner" style={{ backgroundImage: 'linear-gradient(rgba(0,0,0,0.45), rgba(0,0,0,0.45)), url(/3.png?v=20260806)' }}>
         <div className="page-banner-content">
           <h1>每日签到</h1>
           <p>坚持签到，连续天数越多奖励越丰厚</p>

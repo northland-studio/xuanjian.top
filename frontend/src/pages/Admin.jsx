@@ -36,7 +36,7 @@ export default function Admin() {
 
   return (
     <div className="fade-in-up">
-      <div className="page-banner" style={{ backgroundImage: 'linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url(/1.png)' }}>
+      <div className="page-banner" style={{ backgroundImage: 'linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url(/1.png?v=20260806)' }}>
         <div className="page-banner-content">
           <h1>管理后台</h1>
           <p>站点内容与配置管理</p>

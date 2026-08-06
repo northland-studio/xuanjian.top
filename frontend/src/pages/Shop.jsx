@@ -44,7 +44,7 @@ export default function Shop() {
 
   return (
     <div className="fade-in-up">
-      <div className="page-banner" style={{ backgroundImage: 'linear-gradient(rgba(0,0,0,0.45), rgba(0,0,0,0.45)), url(/7.png)' }}>
+      <div className="page-banner" style={{ backgroundImage: 'linear-gradient(rgba(0,0,0,0.45), rgba(0,0,0,0.45)), url(/7.png?v=20260806)' }}>
         <div className="page-banner-content">
           <h1>贡献点商城</h1>
           <p>使用贡献点兑换称号与权限</p>
