@@ -53,6 +53,8 @@ export default function Admin() {
       {tab === 'users' && <UserManager showToast={showToast} isSuper={user.level >= 2} />}
       {tab === 'posts' && <PostManager showToast={showToast} />}
       {tab === 'announcements' && <AnnouncementManager showToast={showToast} />}
+      {tab === 'shop' && <ShopManager showToast={showToast} />}
+      {tab === 'claims' && <ClaimReview showToast={showToast} />}
     </div>
   );
 }
