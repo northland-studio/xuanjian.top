@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/UI';
+import { QQIcon } from '../components/Icons';
 
 export default function Login() {
   const { login } = useAuth();
@@ -111,9 +112,7 @@ export default function Login() {
           className="btn btn-block"
           style={{ background: '#fff', color: '#333', border: '1px solid var(--border)' }}
         >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="#12B7F5">
-            <path d="M21.9 17.5c-.4-1.2-1.2-1.9-2.1-2.6-.6-.5-1.2-.9-1.6-1.4-.1-.1-.2-.3-.2-.5l.1-1.9c.1-1.2-.3-2.4-1.1-3.4-1.4-1.7-3.5-2.4-5.5-2.5h-.5c-2 0-4.1.8-5.5 2.5-.8 1-1.2 2.2-1.1 3.4l.1 1.9c0 .2-.1.4-.2.5-.4.5-1 1-1.6 1.4-.9.7-1.7 1.4-2.1 2.6-.2.6-.3 1.4 0 2 .3.6.9 1 1.6 1 .9 0 1.9-.3 2.8-.6.5-.2 1-.4 1.4-.4.5 0 1 .1 1.5.3.5.3 1 .6 1.5 1 .5.4 1 .9 1.5 1.3.4.3 1.1.3 1.5 0 .5-.4 1-.9 1.5-1.3.5-.4 1-.7 1.5-1 .5-.2 1-.3 1.5-.3.4 0 .9.2 1.4.4.9.3 1.9.6 2.8.6.7 0 1.3-.4 1.6-1 .3-.6.2-1.4 0-2z" />
-          </svg>
+          <QQIcon size={20} color="#12B7F5" />
           QQ登录
         </button>
 

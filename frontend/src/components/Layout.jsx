@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { AdminIcon } from './Icons';
 
 export default function Layout({ children }) {
   const { user, logout } = useAuth();
@@ -124,9 +125,7 @@ export default function Layout({ children }) {
                       </Link>
                       {user.level >= 1 && (
                         <Link to="/admin" className="user-menu-item" onClick={() => setUserMenuOpen(false)}>
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0zm-7 5a1 1 0 11-2 0 1 1 0 012 0z" />
-                          </svg>
+                          <AdminIcon size={16} />
                           管理后台
                         </Link>
                       )}
@@ -147,6 +146,13 @@ export default function Layout({ children }) {
           </div>
         </div>
       </nav>
+
+      {user && user.password_set === 0 && (
+        <div className="password-tip-banner">
+          <span>您还未设置密码，设置后即可使用用户名+密码登录</span>
+          <Link to="/settings" onClick={() => setUserMenuOpen(false)}>立即设置</Link>
+        </div>
+      )}
 
       <main className="main-content">
         <div className="container">{children}</div>
