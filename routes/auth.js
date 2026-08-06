@@ -90,7 +90,7 @@ router.post('/login', async (req, res) => {
 
         // 查找用户
         const user = await db.get(
-            'SELECT id, username, nickname, email, password, level, contribution, avatar, email_verified FROM users WHERE username = ?',
+            'SELECT id, username, nickname, email, password, level, contribution, avatar, email_verified, password_set FROM users WHERE username = ?',
             [username]
         );
 
@@ -130,7 +130,7 @@ router.post('/login', async (req, res) => {
 router.get('/me', authMiddleware, async (req, res) => {
     try {
         const user = await db.get(
-            'SELECT id, username, nickname, email, level, contribution, avatar, cover, email_verified, openid, created_at FROM users WHERE id = ?',
+            'SELECT id, username, nickname, email, level, contribution, avatar, cover, email_verified, openid, password_set, created_at FROM users WHERE id = ?',
             [req.userId]
         );
 
@@ -155,16 +155,19 @@ router.put('/profile', authMiddleware, async (req, res) => {
     try {
         const { nickname, email, avatar, cover, currentPassword, newPassword } = req.body;
         
-        // 如果要修改密码
+        // 如果要修改/设置密码
         if (newPassword) {
-            const user = await db.get('SELECT password FROM users WHERE id = ?', [req.userId]);
-            const isValid = await bcrypt.compare(currentPassword, user.password);
-            if (!isValid) {
-                return res.status(400).json({ error: '当前密码错误' });
+            const user = await db.get('SELECT password, password_set FROM users WHERE id = ?', [req.userId]);
+            // 已设置过密码的用户需验证当前密码；未设置密码（QQ注册）直接设置
+            if (user.password_set === 1) {
+                const isValid = await bcrypt.compare(currentPassword, user.password);
+                if (!isValid) {
+                    return res.status(400).json({ error: '当前密码错误' });
+                }
             }
             const hashedPassword = await bcrypt.hash(newPassword, 10);
             await db.run(
-                'UPDATE users SET nickname = ?, email = ?, avatar = ?, cover = ?, password = ?, updated_at = ? WHERE id = ?',
+                'UPDATE users SET nickname = ?, email = ?, avatar = ?, cover = ?, password = ?, password_set = 1, updated_at = ? WHERE id = ?',
                 [nickname, email, avatar, cover || '', hashedPassword, getLocalTimestamp(), req.userId]
             );
         } else {
@@ -422,14 +425,32 @@ router.get('/qq/login', (req, res) => {
 });
 
 // QQ绑定：已登录用户绑定QQ（跳转到心月互联授权页）
-router.get('/qq/bind', authMiddleware, (req, res) => {
-    const token = process.env.QQ_LOGIN_TOKEN;
-    if (!token) {
-        return res.status(500).send('QQ登录未配置：请在 .env 中设置 QQ_LOGIN_TOKEN');
+// 支持 Authorization header 或 ?token= 查询参数（浏览器直接跳转场景）
+router.get('/qq/bind', async (req, res) => {
+    try {
+        let token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '') || req.query.token;
+        if (!token) {
+            return res.status(401).json({ error: '未提供认证令牌' });
+        }
+
+        let decoded;
+        try {
+            decoded = jwt.verify(token, JWT_SECRET);
+        } catch (err) {
+            return res.status(401).json({ error: '认证令牌无效或已过期' });
+        }
+
+        const qqToken = process.env.QQ_LOGIN_TOKEN;
+        if (!qqToken) {
+            return res.status(500).send('QQ登录未配置：请在 .env 中设置 QQ_LOGIN_TOKEN');
+        }
+        // msg 携带绑定标识：bind_<userId>
+        const url = `https://qq.wch666.com/api/qq.php?token=${encodeURIComponent(qqToken)}&msg=${encodeURIComponent('bind_' + decoded.userId)}`;
+        res.redirect(url);
+    } catch (error) {
+        console.error('QQ绑定跳转错误:', error);
+        res.status(500).json({ error: '服务器错误' });
     }
-    // msg 携带绑定标识：bind_<userId>
-    const url = `https://qq.wch666.com/api/qq.php?token=${encodeURIComponent(token)}&msg=${encodeURIComponent('bind_' + req.userId)}`;
-    res.redirect(url);
 });
 
 // QQ登录回调：换取用户信息并登录/注册
@@ -503,8 +524,8 @@ router.get('/qq/callback', async (req, res) => {
             }
 
             const result = await db.run(
-                `INSERT INTO users (username, nickname, email, password, avatar, openid, email_verified, created_at, updated_at)
-                 VALUES (?, ?, ?, ?, ?, ?, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+                `INSERT INTO users (username, nickname, email, password, avatar, openid, email_verified, password_set, created_at, updated_at)
+                 VALUES (?, ?, ?, ?, ?, ?, 0, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
                 [username, nickname, null, hashedPassword, avatar || '/images/default-avatar.png', openid]
             );
 

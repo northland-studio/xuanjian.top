@@ -1,13 +1,16 @@
 import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/UI';
-import { api, uploadImage } from '../api';
+import { api, uploadImage, getToken } from '../api';
 
 export default function Settings() {
   const { user, updateUser } = useAuth();
   const { showToast } = useToast();
   const fileRef = useRef(null);
   const coverRef = useRef(null);
+
+  // password_set === 0 表示QQ注册后未设置密码
+  const hasPassword = user ? user.password_set !== 0 : true;
 
   const [nickname, setNickname] = useState('');
   const [avatar, setAvatar] = useState('');
@@ -123,18 +126,27 @@ export default function Settings() {
   };
 
   const changePassword = async () => {
-    if (!currentPassword || !newPassword) {
-      showToast('请填写当前密码和新密码', 'error');
+    if (!newPassword) {
+      showToast('请输入新密码', 'error');
       return;
     }
     if (newPassword.length < 6) {
       showToast('新密码至少6位', 'error');
       return;
     }
+    if (hasPassword && !currentPassword) {
+      showToast('请输入当前密码', 'error');
+      return;
+    }
     setLoading(true);
     try {
-      await api.put('/api/auth/profile', { currentPassword, newPassword });
-      showToast('密码修改成功', 'success');
+      const body = hasPassword
+        ? { currentPassword, newPassword }
+        : { newPassword };
+      await api.put('/api/auth/profile', body);
+      const me = await api.get('/api/auth/me');
+      await updateUser(me);
+      showToast(hasPassword ? '密码修改成功' : '密码设置成功', 'success');
       setCurrentPassword('');
       setNewPassword('');
     } catch (err) {
@@ -145,7 +157,12 @@ export default function Settings() {
   };
 
   const qqBind = () => {
-    window.location.href = '/api/auth/qq/bind';
+    const token = getToken();
+    if (!token) {
+      showToast('请先登录', 'error');
+      return;
+    }
+    window.location.href = '/api/auth/qq/bind?token=' + encodeURIComponent(token);
   };
 
   const sectionTitle = {
@@ -289,23 +306,32 @@ export default function Settings() {
         </div>
       </div>
 
-      {/* 修改密码 */}
+      {/* 修改/设置密码 */}
       <div className="card">
         <h3 style={sectionTitle}>
           <svg width="20" height="20" fill="none" stroke="var(--primary)" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
           </svg>
-          修改密码
+          {hasPassword ? '修改密码' : '设置密码'}
         </h3>
-        <div className="form-group">
-          <label className="form-label">当前密码</label>
-          <input type="password" className="form-input" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} placeholder="请输入当前密码" />
-        </div>
+        {!hasPassword && (
+          <div className="password-tip" style={{ marginBottom: 16 }}>
+            您还未设置密码，设置后即可使用用户名+密码登录账号
+          </div>
+        )}
+        {hasPassword && (
+          <div className="form-group">
+            <label className="form-label">当前密码</label>
+            <input type="password" className="form-input" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} placeholder="请输入当前密码" />
+          </div>
+        )}
         <div className="form-group">
           <label className="form-label">新密码</label>
           <input type="password" className="form-input" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="请输入新密码（至少6位）" />
         </div>
-        <button className="btn btn-primary" onClick={changePassword} disabled={loading}>修改密码</button>
+        <button className="btn btn-primary" onClick={changePassword} disabled={loading}>
+          {hasPassword ? '修改密码' : '设置密码'}
+        </button>
       </div>
     </div>
   );
