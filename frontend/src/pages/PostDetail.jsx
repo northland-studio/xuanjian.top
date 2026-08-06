@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/UI';
+import Lightbox from '../components/Lightbox';
 import { formatDate, TYPE_META, parseTags, requireLogin } from '../utils';
 
 function CommentItem({ comment, depth, onReply, onDelete, me }) {
@@ -94,6 +95,7 @@ export default function PostDetail() {
   const [commentText, setCommentText] = useState('');
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [lightbox, setLightbox] = useState(null); // { images: [], index }
 
   const fetchDetail = useCallback(async () => {
     setLoading(true);
@@ -136,6 +138,42 @@ export default function PostDetail() {
     } catch (e) {
       showToast(e.message, 'error');
     }
+  };
+
+  // 分享：复制【帖子题目】+ 链接
+  const sharePost = async () => {
+    const url = `${window.location.origin}/posts/${post.id}`;
+    const text = `【${post.title}】${url}`;
+    try {
+      await navigator.clipboard.writeText(text);
+      showToast('链接已复制到剪贴板', 'success');
+    } catch {
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        showToast('链接已复制到剪贴板', 'success');
+      } catch {
+        showToast('复制失败，请手动复制地址栏链接', 'error');
+      }
+    }
+  };
+
+  // 富文本内图片点击放大
+  const openRichImage = (e) => {
+    const target = e.target;
+    if (!target || target.tagName !== 'IMG') return;
+    const container = e.currentTarget;
+    const imgs = Array.from(container.querySelectorAll('img'))
+      .map(img => img.getAttribute('src') || '')
+      .filter(Boolean);
+    const idx = imgs.indexOf(target.getAttribute('src'));
+    setLightbox({ images: imgs, index: Math.max(idx, 0) });
   };
 
   const submitComment = async () => {
@@ -210,14 +248,20 @@ export default function PostDetail() {
           )}
         </div>
 
-        <div className="rich-content">
+        <div className="rich-content" onClick={openRichImage}>
           <div dangerouslySetInnerHTML={{ __html: post.content }} />
         </div>
 
         {post.images && post.images.length > 0 && (
           <div className="post-images" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10, marginTop: 16 }}>
             {post.images.map((img, i) => (
-              <img key={i} src={img} alt="" style={{ width: '100%', borderRadius: 10, border: '1px solid var(--border)' }} />
+              <img
+                key={i}
+                src={img}
+                alt=""
+                onClick={() => setLightbox({ images: post.images, index: i })}
+                style={{ width: '100%', borderRadius: 10, border: '1px solid var(--border)', cursor: 'zoom-in' }}
+              />
             ))}
           </div>
         )}
@@ -229,6 +273,12 @@ export default function PostDetail() {
         )}
 
         <div className="flex-center" style={{ gap: 12, marginTop: 24 }}>
+          <button className="btn btn-secondary" onClick={sharePost}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+            </svg>
+            分享
+          </button>
           <button className={`btn ${liked ? 'btn-primary' : 'btn-secondary'}`} onClick={handleLike}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill={liked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2">
               <path strokeLinecap="round" strokeLinejoin="round" d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5" />
@@ -237,6 +287,10 @@ export default function PostDetail() {
           </button>
         </div>
       </div>
+
+      {lightbox && (
+        <Lightbox images={lightbox.images} index={lightbox.index} onClose={() => setLightbox(null)} />
+      )}
 
       {/* 评论区 */}
       <div className="card mt-4" style={{ padding: 24 }}>
