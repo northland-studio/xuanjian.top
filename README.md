@@ -64,6 +64,8 @@ xuanjian.top 2.0 - React 重构版
 - OAuth 2.0 授权码模式：第三方应用可使用公会账号登录
 - 七牛云对象存储：前端 XHR 直传，实时上传进度回调
 - 日志系统：控制台 + 按天滚动文件日志（data/logs/app-YYYYMMDD.log）
+- PWA：离线缓存、添加到主屏幕、iOS 描述文件安装
+- 多端客户端：Electron 桌面版（自动更新）、Capacitor Android 版、iOS PWA（详见 applicant/）
 - 亮色 / 暗色主题切换，SVG 图标，品牌色 #004AAD
 
 ---
@@ -208,12 +210,20 @@ QINIU_UPLOAD_URL=https://up-as0.qiniup.com
 | /api/banners/* | 轮播图 |
 | /api/notifications/* | 通知中心 |
 | /api/announcements/* | 公告（/popup 弹窗公告） |
+| /api/updates/* | 客户端更新源（latest.yml / files / release-notes / android） |
 | /api/oauth/* | OAuth 2.0 授权 |
 | /api/admin/* | 管理后台 |
 
 ---
 
 ## 更新日志
+
+### v2.1.0（2026-08-07）
+
+- **PWA**：新增 manifest 与 Service Worker，支持离线缓存与添加到主屏幕；iOS 安装引导页与描述文件（applicant/iOS）
+- **Electron 桌面版**（applicant/Desktop）：原生标题栏、托盘、开机自启，electron-updater 双源自动更新（GitHub + 七牛 CDN），CI 自动构建
+- **Capacitor Android 版**（applicant/Android）：原生更新插件（检测 / 下载 APK / 系统安装），状态栏品牌色，CI 自动构建并发布 CDN
+- **更新源**：新增 /api/updates/* 代理接口，更新包统一存放七牛 releases/ 目录
 
 ### v2.0.1（2026-08-07）
 

@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#004AAD" />
+    <link rel="icon" type="image/png" href="/icon.png" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="玄剑公会" />
+    <title>玄剑公会 - iOS 安装</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Segoe UI", sans-serif;
+        background: #f6f8fb;
+        color: #1a1b1d;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+      }
+      .card {
+        background: #fff;
+        border-radius: 20px;
+        max-width: 420px;
+        width: 100%;
+        padding: 36px 28px;
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.08);
+        text-align: center;
+      }
+      .logo {
+        width: 88px;
+        height: 88px;
+        border-radius: 20px;
+        margin: 0 auto 20px;
+        display: block;
+      }
+      h1 { font-size: 22px; font-weight: 700; margin-bottom: 8px; }
+      .sub { font-size: 14px; color: #64748b; margin-bottom: 28px; }
+      .btn {
+        display: block;
+        width: 100%;
+        padding: 14px;
+        border: none;
+        border-radius: 14px;
+        background: #004AAD;
+        color: #fff;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+        margin-bottom: 12px;
+        text-decoration: none;
+      }
+      .btn:hover { background: #003a87; }
+      .btn.secondary { background: #eef2f7; color: #004AAD; }
+      .btn.secondary:hover { background: #e2e8f0; }
+      .steps {
+        text-align: left;
+        background: #f8fafc;
+        border-radius: 14px;
+        padding: 18px 20px;
+        margin-top: 20px;
+      }
+      .steps h2 { font-size: 14px; font-weight: 700; margin-bottom: 10px; color: #475569; }
+      .steps ol { padding-left: 18px; }
+      .steps li { font-size: 13px; color: #475569; line-height: 1.9; }
+      .tip { font-size: 12px; color: #94a3b8; margin-top: 16px; line-height: 1.7; }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <img class="logo" src="/icon.png" alt="玄剑公会" />
+      <h1>玄剑公会</h1>
+      <p class="sub">我的世界玄剑公会官网 · iOS 安装</p>
+
+      <a class="btn" href="/ios/download.plist">下载描述文件</a>
+      <a class="btn secondary" href="/">直接访问网页版</a>
+
+      <div class="steps">
+        <h2>安装到主屏幕（推荐方式）</h2>
+        <ol>
+          <li>用 Safari 打开 xuanjian.top</li>
+          <li>点击底部「分享」按钮</li>
+          <li>选择「添加到主屏幕」</li>
+          <li>在主屏幕点击图标即可全屏使用</li>
+        </ol>
+      </div>
+
+      <div class="steps">
+        <h2>通过描述文件安装（Beta 方式）</h2>
+        <ol>
+          <li>点击上方「下载描述文件」</li>
+          <li>在弹窗中选择「允许」下载</li>
+          <li>打开「设置」→「通用」→「VPN 与设备管理」</li>
+          <li>选择玄剑公会描述文件并「安装」</li>
+          <li>返回主屏幕即可看到应用图标</li>
+        </ol>
+      </div>
+
+      <p class="tip">描述文件方式适用于 iOS 12.2+，网页版为 PWA，支持离线缓存与消息提醒。</p>
+    </div>
+  </body>
+</html>

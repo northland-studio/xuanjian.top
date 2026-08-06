@@ -10,4 +10,5 @@ data/uploads/*
 .vscode/
 .idea/
 monitor/
+# applicant/ 为独立仓库（多端客户端工程），不纳入主仓库
 applicant/

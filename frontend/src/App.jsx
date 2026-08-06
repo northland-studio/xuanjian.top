@@ -1,6 +1,7 @@
 import { Routes, Route } from 'react-router-dom';
 import Layout from './components/Layout';
 import AnnouncementPopup from './components/AnnouncementPopup';
+import UpdateCheck from './components/UpdateCheck';
 import Home from './pages/Home';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -24,6 +25,7 @@ export default function App() {
   return (
     <>
       <AnnouncementPopup />
+      <UpdateCheck />
       <Layout>
         <Routes>
         <Route path="/" element={<Home />} />

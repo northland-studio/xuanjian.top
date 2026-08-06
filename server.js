@@ -22,6 +22,7 @@ const shopRoutes = require('./routes/shop');
 const rankingRoutes = require('./routes/rankings');
 const oauthRoutes = require('./routes/oauth');
 const bannerRoutes = require('./routes/banners');
+const updateRoutes = require('./routes/updates');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -30,8 +31,15 @@ const PORT = process.env.PORT || 3000;
 app.set('trust proxy', 1);
 
 // CORS配置
+const corsOrigin = process.env.SITE_URL || 'https://xuanjian.top';
 const corsOptions = {
-    origin: process.env.SITE_URL || 'https://xuanjian.top',
+    origin: (origin, callback) => {
+        // Capacitor WebView 的 origin 为 https://localhost 或 capacitor://localhost
+        if (!origin || origin === corsOrigin || origin.startsWith('https://localhost') || origin.startsWith('capacitor://')) {
+            return callback(null, true);
+        }
+        return callback(null, false);
+    },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true
@@ -107,6 +115,7 @@ app.use('/api/shop', shopRoutes);
 app.use('/api/rankings', rankingRoutes);
 app.use('/api/oauth', oauthRoutes);
 app.use('/api/banners', bannerRoutes);
+app.use('/api/updates', updateRoutes);
 
 // ============ React前端（frontend/dist）托管 ============
 const frontendDist = path.join(__dirname, 'frontend', 'dist');

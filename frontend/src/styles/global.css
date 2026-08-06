@@ -566,6 +566,31 @@ img {
   background: var(--primary-dark);
 }
 
+/* 原生客户端更新悬浮按钮 */
+.update-fab {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: none;
+  background: var(--primary);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0, 74, 173, 0.35);
+  z-index: 3000;
+  transition: transform 0.15s;
+}
+
+.update-fab:hover {
+  transform: scale(1.08);
+  background: var(--primary-dark);
+}
+
 /* 加载状态 */
 .loading {
   display: flex;

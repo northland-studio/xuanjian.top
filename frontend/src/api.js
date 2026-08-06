@@ -1,5 +1,18 @@
 // API 客户端
-const API_BASE = '';
+// 网页版同源（''）；Capacitor 原生 WebView 使用绝对地址
+function detectNative() {
+  if (typeof window === 'undefined') return { capacitor: false, electron: false };
+  return {
+    capacitor: !!window.Capacitor?.isNativePlatform?.(),
+    electron: !!window.electronAPI
+  };
+}
+
+const native = detectNative();
+const API_BASE = native.capacitor ? 'https://xuanjian.top' : '';
+
+// 平台信息（供原生能力模块使用）
+export const platformInfo = native;
 
 export function getToken() {
   return localStorage.getItem('token');
