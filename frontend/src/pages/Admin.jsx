@@ -9,7 +9,9 @@ const TABS = [
   { key: 'banners', label: '轮播图管理' },
   { key: 'users', label: '用户管理' },
   { key: 'posts', label: '内容管理' },
-  { key: 'announcements', label: '公告管理' }
+  { key: 'announcements', label: '公告管理' },
+  { key: 'shop', label: '商城管理' },
+  { key: 'claims', label: '申报审核' }
 ];
 
 const LEVEL_NAMES = { 0: '成员', 1: '管理员', 2: '超级管理员', 3: '创始人' };
@@ -261,7 +263,7 @@ function UserManager({ showToast, isSuper }) {
               <div style={{ flex: 1, minWidth: 0 }}>
                 <span style={{ fontWeight: 600 }}>{u.nickname || u.username}</span>
                 <span className="text-secondary ml-2" style={{ fontSize: 12 }}>@{u.username}</span>
-                <span className="badge ml-2" style={{ background: 'rgba(99,102,241,0.12)', color: 'var(--primary)', fontSize: 11 }}>{LEVEL_NAMES[u.level] || '成员'}</span>
+                <span className="badge ml-2" style={{ background: 'rgba(0,74,173,0.12)', color: 'var(--primary)', fontSize: 11 }}>{LEVEL_NAMES[u.level] || '成员'}</span>
               </div>
               <div className="text-secondary" style={{ fontSize: 12 }}>{u.email || '未绑定邮箱'}</div>
               {isSuper && (
@@ -337,7 +339,7 @@ function PostManager({ showToast }) {
             <div key={p.id} className="flex" style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', gap: 12, alignItems: 'center' }}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <span style={{ fontWeight: 600 }}>{p.is_pinned === 1 ? '📌 ' : ''}{p.title}</span>
-                <span className="badge ml-2" style={{ fontSize: 11, background: 'rgba(99,102,241,0.12)', color: 'var(--primary)' }}>{p.type}</span>
+                <span className="badge ml-2" style={{ fontSize: 11, background: 'rgba(0,74,173,0.12)', color: 'var(--primary)' }}>{p.type}</span>
                 <div className="text-secondary" style={{ fontSize: 12 }}>{p.nickname || p.username} · {formatDate(p.created_at)} · {p.views} 浏览</div>
               </div>
               <button className="btn btn-secondary btn-sm" onClick={() => togglePin(p.id, p.is_pinned)}>{p.is_pinned === 1 ? '取消置顶' : '置顶'}</button>
@@ -426,6 +428,321 @@ function AnnouncementManager({ showToast }) {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+/* ============ 商城管理 ============ */
+const ITEM_TYPES = [
+  { value: 'other', label: '物品' },
+  { value: 'title', label: '称号' }
+];
+
+const EMPTY_ITEM = { name: '', description: '', type: 'other', ref_id: '', price: '', image: '', stock: -1, is_active: true };
+
+function ShopManager({ showToast }) {
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState(null); // null=列表，{} = 新增
+  const [form, setForm] = useState(EMPTY_ITEM);
+  const [uploading, setUploading] = useState(false);
+  const fileInput = useRef(null);
+
+  const fetchItems = () => {
+    setLoading(true);
+    api.get('/api/shop/admin/items')
+      .then(data => setItems(data.items || []))
+      .catch(() => setItems([]))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(fetchItems, []);
+
+  const startCreate = () => {
+    setEditing({});
+    setForm(EMPTY_ITEM);
+  };
+
+  const startEdit = (item) => {
+    setEditing(item);
+    setForm({
+      name: item.name || '',
+      description: item.description || '',
+      type: item.type || 'other',
+      ref_id: item.ref_id || '',
+      price: item.price ?? '',
+      image: item.image || '',
+      stock: item.stock ?? -1,
+      is_active: !!item.is_active
+    });
+  };
+
+  const handleUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const url = await uploadImage(file);
+      setForm(f => ({ ...f, image: url }));
+      showToast('图片上传成功', 'success');
+    } catch (err) {
+      showToast(err.message || '上传失败', 'error');
+    } finally {
+      setUploading(false);
+      e.target.value = '';
+    }
+  };
+
+  const save = async () => {
+    if (!form.name.trim()) { showToast('请填写商品名称', 'error'); return; }
+    if (form.price === '' || Number(form.price) < 0) { showToast('请填写有效价格', 'error'); return; }
+    const body = {
+      name: form.name.trim(),
+      description: form.description,
+      type: form.type,
+      ref_id: form.type === 'title' && form.ref_id ? parseInt(form.ref_id) : null,
+      price: Number(form.price),
+      image: form.image,
+      stock: form.stock === '' ? -1 : parseInt(form.stock),
+      is_active: form.is_active
+    };
+    try {
+      if (editing && editing.id) {
+        await api.put(`/api/shop/items/${editing.id}`, body);
+        showToast('商品更新成功', 'success');
+      } else {
+        await api.post('/api/shop/items', body);
+        showToast('商品创建成功', 'success');
+      }
+      setEditing(null);
+      fetchItems();
+    } catch (e) {
+      showToast(e.message || '保存失败', 'error');
+    }
+  };
+
+  const remove = async (id) => {
+    if (!confirm('确定删除该商品？')) return;
+    try {
+      await api.delete(`/api/shop/items/${id}`);
+      showToast('删除成功', 'success');
+      fetchItems();
+    } catch (e) {
+      showToast(e.message, 'error');
+    }
+  };
+
+  if (editing !== null) {
+    return (
+      <div className="card" style={{ padding: 24 }}>
+        <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 16 }}>{editing.id ? '编辑商品' : '新增商品'}</h3>
+        <div className="grid grid-2" style={{ gap: 16 }}>
+          <div className="form-group" style={{ marginBottom: 0 }}>
+            <label className="form-label">名称</label>
+            <input className="form-input" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="商品名称" />
+          </div>
+          <div className="form-group" style={{ marginBottom: 0 }}>
+            <label className="form-label">类型</label>
+            <select className="form-select" value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))}>
+              {ITEM_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+            </select>
+          </div>
+          {form.type === 'title' && (
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">称号ID（ref_id）</label>
+              <input className="form-input" value={form.ref_id} onChange={e => setForm(f => ({ ...f, ref_id: e.target.value }))} placeholder="对应称号表的ID" />
+            </div>
+          )}
+          <div className="form-group" style={{ marginBottom: 0 }}>
+            <label className="form-label">价格（贡献点）</label>
+            <input type="number" className="form-input" value={form.price} onChange={e => setForm(f => ({ ...f, price: e.target.value }))} placeholder="0" />
+          </div>
+          <div className="form-group" style={{ marginBottom: 0 }}>
+            <label className="form-label">库存（-1 为不限量）</label>
+            <input type="number" className="form-input" value={form.stock} onChange={e => setForm(f => ({ ...f, stock: e.target.value }))} />
+          </div>
+        </div>
+        <div className="form-group mt-4">
+          <label className="form-label">描述</label>
+          <textarea className="form-textarea" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="商品描述" style={{ minHeight: 80 }} />
+        </div>
+        <div className="form-group mt-4">
+          <label className="form-label">商品图片</label>
+          <input ref={fileInput} type="file" accept="image/*" hidden onChange={handleUpload} />
+          <div className="flex" style={{ gap: 12, alignItems: 'center' }}>
+            {form.image ? (
+              <img src={form.image} alt="预览" style={{ width: 120, height: 80, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border)' }} />
+            ) : (
+              <div className="flex-center" style={{ width: 120, height: 80, background: 'var(--input-bg)', borderRadius: 8, color: 'var(--text-secondary)', fontSize: 12 }}>暂无图片</div>
+            )}
+            <button type="button" className="btn btn-secondary btn-sm" onClick={() => fileInput.current.click()} disabled={uploading}>
+              {uploading ? '上传中...' : (form.image ? '更换图片' : '上传图片')}
+            </button>
+            <label className="flex" style={{ gap: 6, alignItems: 'center', fontSize: 14, cursor: 'pointer', marginLeft: 8 }}>
+              <input type="checkbox" checked={form.is_active} onChange={e => setForm(f => ({ ...f, is_active: e.target.checked }))} style={{ accentColor: 'var(--primary)', width: 16, height: 16 }} />
+              上架
+            </label>
+          </div>
+        </div>
+        <div className="flex" style={{ gap: 10, justifyContent: 'flex-end', marginTop: 16 }}>
+          <button className="btn btn-secondary" onClick={() => setEditing(null)}>取消</button>
+          <button className="btn btn-primary" onClick={save}>保存</button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div className="flex-between mb-3">
+        <p className="text-secondary" style={{ fontSize: 14 }}>管理商城商品：上架/下架、库存与价格调整</p>
+        <button className="btn btn-primary btn-sm" onClick={startCreate}>+ 新增商品</button>
+      </div>
+      {loading ? (
+        <div className="loading"><div className="spinner" /></div>
+      ) : items.length === 0 ? (
+        <div className="empty-state"><p>暂无商品</p></div>
+      ) : (
+        <div className="flex-col" style={{ gap: 10 }}>
+          {items.map(item => (
+            <div key={item.id} className="card flex" style={{ padding: 14, gap: 14, alignItems: 'center' }}>
+              {item.image ? (
+                <img src={item.image} alt={item.name} style={{ width: 72, height: 48, objectFit: 'cover', borderRadius: 8, flexShrink: 0 }} />
+              ) : (
+                <div className="flex-center" style={{ width: 72, height: 48, background: 'var(--input-bg)', borderRadius: 8, fontSize: 20, flexShrink: 0 }}>📦</div>
+              )}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div className="flex" style={{ gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <span style={{ fontWeight: 700 }}>{item.name}</span>
+                  <span className="badge" style={{ fontSize: 11, background: 'rgba(0,74,173,0.12)', color: 'var(--primary)' }}>{ITEM_TYPES.find(t => t.value === item.type)?.label || item.type}</span>
+                  {item.is_active ? <span className="badge badge-success">上架</span> : <span className="badge badge-gray">下架</span>}
+                </div>
+                <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
+                  {item.price} 贡献点 · {item.stock === -1 ? '不限量' : `库存 ${item.stock}`}
+                  {item.ref_id ? ` · 称号ID ${item.ref_id}` : ''}
+                </div>
+                {item.description && <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>{item.description}</div>}
+              </div>
+              <div className="flex" style={{ gap: 8 }}>
+                <button className="btn btn-secondary btn-sm" onClick={() => startEdit(item)}>编辑</button>
+                <button className="btn btn-danger btn-sm" onClick={() => remove(item.id)}>删除</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ============ 申报审核 ============ */
+const CLAIM_STATUS = {
+  pending: { label: '待审核', color: '#f59e0b' },
+  approved: { label: '已通过', color: '#10b981' },
+  rejected: { label: '已拒绝', color: '#ef4444' }
+};
+
+function ClaimReview({ showToast }) {
+  const [status, setStatus] = useState('pending');
+  const [claims, setClaims] = useState([]);
+  const [notes, setNotes] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(null);
+
+  const fetchClaims = (s) => {
+    setLoading(true);
+    api.get(`/api/claims?status=${s}&limit=50`)
+      .then(data => setClaims(data.claims || []))
+      .catch(() => setClaims([]))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => { fetchClaims(status); }, [status]);
+
+  const review = async (id, result) => {
+    if (!confirm(`确定${result === 'approved' ? '通过' : '拒绝'}该申报？`)) return;
+    setSubmitting(id);
+    try {
+      await api.put(`/api/claims/${id}/review`, { status: result, reviewNote: (notes[id] || '').trim() });
+      showToast('审核完成', 'success');
+      fetchClaims(status);
+    } catch (e) {
+      showToast(e.message || '审核失败', 'error');
+    } finally {
+      setSubmitting(null);
+    }
+  };
+
+  return (
+    <div>
+      <div className="flex" style={{ gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
+        {Object.entries(CLAIM_STATUS).map(([k, v]) => (
+          <button key={k} className={`btn ${status === k ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setStatus(k)}>{v.label}</button>
+        ))}
+      </div>
+
+      {loading ? (
+        <div className="loading"><div className="spinner" /></div>
+      ) : claims.length === 0 ? (
+        <div className="empty-state"><p>暂无{CLAIM_STATUS[status].label}的申报</p></div>
+      ) : (
+        <div className="flex-col" style={{ gap: 12 }}>
+          {claims.map(c => (
+            <div key={c.id} className="card" style={{ padding: 18 }}>
+              <div className="flex-between mb-2" style={{ flexWrap: 'wrap', gap: 8 }}>
+                <div className="flex" style={{ gap: 10, alignItems: 'center' }}>
+                  <img src={c.avatar || '/images/default-avatar.png'} alt="" style={{ width: 34, height: 34, borderRadius: '50%', objectFit: 'cover' }} />
+                  <div>
+                    <span style={{ fontWeight: 600 }}>{c.nickname || c.username}</span>
+                    <span className="text-secondary ml-1" style={{ fontSize: 12 }}>@{c.username}</span>
+                  </div>
+                  <span className="badge" style={{ fontSize: 12, background: `${CLAIM_STATUS[c.status]?.color || '#888'}1a`, color: CLAIM_STATUS[c.status]?.color || '#888' }}>
+                    {CLAIM_STATUS[c.status]?.label || c.status}
+                  </span>
+                </div>
+                <div className="flex" style={{ gap: 14, alignItems: 'center' }}>
+                  <span style={{ fontSize: 18, fontWeight: 800, color: '#f59e0b' }}>+{c.amount} <span style={{ fontSize: 12, fontWeight: 400 }}>贡献点</span></span>
+                  <span className="text-secondary" style={{ fontSize: 12 }}>{formatDate(c.created_at)}</span>
+                </div>
+              </div>
+
+              <p className="text-secondary" style={{ fontSize: 14, lineHeight: 1.6, marginBottom: 12 }}>{c.reason}</p>
+
+              {c.evidenceImages && c.evidenceImages.length > 0 && (
+                <div className="flex" style={{ gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+                  {c.evidenceImages.map((img, i) => (
+                    <img key={i} src={img} alt="证据" style={{ width: 90, height: 68, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border)', cursor: 'zoom-in' }} onClick={() => window.open(img, '_blank')} />
+                  ))}
+                </div>
+              )}
+
+              {c.review_note && (
+                <div className="text-secondary" style={{ fontSize: 12, marginBottom: 10, background: 'var(--input-bg)', padding: '8px 12px', borderRadius: 8 }}>
+                  审核备注：{c.review_note}
+                </div>
+              )}
+
+              {status === 'pending' && (
+                <div className="flex" style={{ gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <input
+                    className="form-input"
+                    placeholder="审核备注（可选）"
+                    value={notes[c.id] || ''}
+                    onChange={e => setNotes(n => ({ ...n, [c.id]: e.target.value }))}
+                    style={{ flex: 1, minWidth: 160 }}
+                  />
+                  <button className="btn btn-success btn-sm" style={{ background: '#10b981' }} disabled={submitting === c.id} onClick={() => review(c.id, 'approved')}>
+                    通过
+                  </button>
+                  <button className="btn btn-danger btn-sm" disabled={submitting === c.id} onClick={() => review(c.id, 'rejected')}>
+                    拒绝
+                  </button>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

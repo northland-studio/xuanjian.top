@@ -53,6 +53,17 @@ router.get('/items/:id', async (req, res) => {
     }
 });
 
+// 管理端：获取全部商品（含停用）
+router.get('/admin/items', authMiddleware, adminMiddleware, async (req, res) => {
+    try {
+        const items = await db.all('SELECT * FROM shop_items ORDER BY created_at DESC');
+        res.json({ items });
+    } catch (error) {
+        console.error('获取全部商品错误:', error);
+        res.status(500).json({ error: '获取商品列表失败' });
+    }
+});
+
 router.post('/items/:id/buy', authMiddleware, async (req, res) => {
     try {
         const { id } = req.params;
