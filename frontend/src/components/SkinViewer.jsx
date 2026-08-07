@@ -6,11 +6,13 @@ import { useEffect, useRef } from 'react';
  *  - skin: 皮肤图片 URL（64x64 PNG），为空时渲染默认 Steve
  *  - width / height: 画布尺寸
  *  - autoRotate: 是否自动旋转
+ *  - animation: 'idle' 站立 | 'running' 原地跑步
+ *  - animationSpeed: 动画速度倍率（默认 1）
  *  - zoom: 相机缩放
  *  - onClick: 点击画布回调
  *  - style: 附加样式
  */
-export default function SkinViewer({ skin, width = 240, height = 320, autoRotate = true, zoom = 1.1, onClick, style }) {
+export default function SkinViewer({ skin, width = 240, height = 320, autoRotate = true, animation = 'idle', animationSpeed = 1, zoom = 1.1, onClick, style }) {
   const canvasRef = useRef(null);
   const viewerRef = useRef(null);
   const skinRef = useRef(skin);
@@ -21,9 +23,9 @@ export default function SkinViewer({ skin, width = 240, height = 320, autoRotate
     let cancelled = false;
     let viewer = null;
     import('skinview3d')
-      .then(({ SkinViewer, IdleAnimation }) => {
+      .then(({ SkinViewer: Viewer, IdleAnimation, RunningAnimation }) => {
         if (cancelled || !canvasRef.current) return;
-        viewer = new SkinViewer({
+        viewer = new Viewer({
           canvas: canvasRef.current,
           width,
           height,
@@ -32,7 +34,8 @@ export default function SkinViewer({ skin, width = 240, height = 320, autoRotate
         viewer.autoRotate = autoRotate;
         viewer.autoRotateSpeed = 1.5;
         viewer.camera.zoom = zoom;
-        viewer.animation = new IdleAnimation();
+        viewer.animation = animation === 'running' ? new RunningAnimation() : new IdleAnimation();
+        viewer.animation.speed = animationSpeed;
         viewerRef.current = viewer;
       })
       .catch(() => {});
@@ -41,7 +44,7 @@ export default function SkinViewer({ skin, width = 240, height = 320, autoRotate
       if (viewer) viewer.dispose();
       viewerRef.current = null;
     };
-  }, [width, height, autoRotate, zoom]);
+  }, [width, height, autoRotate, zoom, animation]);
 
   // 皮肤变化时热更新
   useEffect(() => {

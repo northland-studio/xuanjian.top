@@ -65,21 +65,17 @@ export default function SkinWidget() {
         </button>
       ) : (
         <div
-          className="card"
           style={{
             position: 'relative',
-            padding: 0,
-            overflow: 'hidden',
-            borderRadius: 14,
-            border: '1px solid var(--border)',
-            boxShadow: 'var(--shadow-lg)',
             width: 150,
-            background: 'linear-gradient(160deg, rgba(0,74,173,0.14), rgba(0,102,204,0.06))'
+            filter: 'drop-shadow(0 8px 20px rgba(0,0,0,0.35))',
+            cursor: 'pointer'
           }}
+          onClick={refreshSkin}
         >
           {/* 收起按钮 */}
           <button
-            onClick={() => setCollapsed(true)}
+            onClick={e => { e.stopPropagation(); setCollapsed(true); }}
             title="收起"
             aria-label="收起皮肤模型"
             style={{
@@ -105,7 +101,7 @@ export default function SkinWidget() {
           </button>
           {/* 换一换 */}
           <button
-            onClick={refreshSkin}
+            onClick={e => { e.stopPropagation(); refreshSkin(); }}
             title="换一个皮肤"
             aria-label="换一个皮肤"
             style={{
@@ -129,7 +125,7 @@ export default function SkinWidget() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
           </button>
-          <SkinViewer skin={skin || undefined} width={150} height={200} autoRotate zoom={0.95} />
+          <SkinViewer skin={skin || undefined} width={150} height={200} autoRotate={false} animation="running" animationSpeed={0.6} zoom={0.95} />
         </div>
       )}
     </div>
