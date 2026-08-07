@@ -252,8 +252,8 @@ router.put('/:id', authMiddleware, adminMiddleware, async (req, res) => {
         const { title, description, image, reward, isActive } = req.body;
 
         await db.run(
-            'UPDATE tasks SET title = ?, description = ?, image = ?, reward = ?, is_active = ?, updated_at = ? WHERE id = ?',
-            [title?.trim() || '', description?.trim() || '', image || '', parseInt(reward) || 0, isActive ? 1 : 0, getLocalTimestamp(), id]
+            'UPDATE tasks SET title = ?, description = ?, image = ?, reward = ?, is_active = ? WHERE id = ?',
+            [title?.trim() || '', description?.trim() || '', image || '', parseInt(reward) || 0, isActive ? 1 : 0, id]
         );
         res.json({ message: '任务更新成功' });
     } catch (error) {
