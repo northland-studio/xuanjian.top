@@ -1,8 +1,9 @@
 /* ===== 玄剑公会 React 前端 - 全局设计系统 ===== */
-/* 皮肤模型头顶玩家名专用字体（Minecraft 风格，由 Nametag 按需加载） */
+/* 皮肤模型头顶玩家名专用字体（Minecraft 风格，七牛 CDN 优先，本地兜底） */
 @font-face {
   font-family: 'XJ-Minecraft';
-  src: url('/fonts/1.ttf') format('truetype');
+  src: url('https://cdn.xuanjian.top/fonts/1.ttf') format('truetype'),
+       url('/fonts/1.ttf') format('truetype');
   font-display: swap;
 }
 

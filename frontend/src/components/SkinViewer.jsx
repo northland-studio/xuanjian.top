@@ -50,9 +50,9 @@ function buildAnimationPool({ FunctionAnimation, RunningAnimation }) {
   };
 }
 
-// 模型头顶玩家名专用字体（Minecraft 风格），按需加载避免 16MB 字体阻塞首屏
+// 模型头顶玩家名专用字体（Minecraft 风格），走七牛 CDN 加速，按需加载不阻塞首屏
 const NAMETAG_FONT = 'XJ-Minecraft';
-const NAMETAG_FONT_URL = '/fonts/1.ttf';
+const NAMETAG_FONT_URL = 'https://cdn.xuanjian.top/fonts/1.ttf';
 let fontReady = null;
 
 function ensureNametagFont() {
