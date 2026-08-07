@@ -87,36 +87,24 @@ export default function Profile() {
     <div className="fade-in-up">
       {/* 用户信息卡 */}
       <div className="card" style={{ position: 'relative', overflow: 'hidden', padding: 0, border: 'none', boxShadow: 'var(--shadow-lg)' }}>
-        {/* 封面：用户上传的背景图，未设置时展示品牌渐变 */}
+        {/* 封面：高度由 CSS .profile-cover 控制（桌面 240px / 移动端 180px） */}
         <div
           className="profile-cover"
           style={{
-            height: 160,
             backgroundImage: u.cover
               ? `url(${u.cover})`
               : 'linear-gradient(135deg, #004AAD 0%, #0066cc 100%)'
           }}
         />
 
-        {/* 用户皮肤模型：独立浮层（绝对定位脱离内容容器，浮在封面右下角，不遮挡头像区） */}
+        {/* 用户皮肤模型：独立浮层（absolute 定位，位置/尺寸由 CSS .profile-skin-float 控制：桌面骑跨封面底部、移动端移入封面内避让内容） */}
         {u.skin_path && (
-          <div
-            style={{
-              position: 'absolute',
-              top: 128,
-              right: 24,
-              zIndex: 2,
-              width: 165,
-              height: 110,
-              filter: 'drop-shadow(0 8px 20px rgba(0,0,0,0.35))',
-              cursor: 'pointer'
-            }}
-          >
+          <div className="profile-skin-float">
             <SkinViewer skin={u.skin_path} width={165} height={110} autoRotate={false} animation="random" animationSpeed={0.6} zoom="auto" name={u.game_id || u.username} />
           </div>
         )}
-        <div style={{ padding: '0 24px 24px' }}>
-          {/* 头像与昵称：骑跨封面与内容分界线（同加入模型前布局） */}
+        <div style={{ padding: '0 24px 24px', position: 'relative', zIndex: 1 }}>
+          {/* 头像与昵称：骑跨封面与内容分界线（同加入模型前布局），zIndex 提升避免被封面遮挡 */}
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: 16, marginTop: -48 }}>
             <img
               src={u.avatar || '/images/default-avatar.png'}
@@ -144,23 +132,22 @@ export default function Profile() {
               <div className="text-secondary" style={{ fontSize: 13, marginTop: 2 }}>
                 @{u.username} · 加入于 {formatDate(u.created_at, false)} · 粉丝 {followStatus.followers}
               </div>
+              {/* 操作按钮并入昵称下方，右侧留空给皮肤模型浮层（避免被 canvas 遮挡） */}
+              {isSelf ? (
+                <div className="flex" style={{ gap: 8, marginTop: 8 }}>
+                  {u.level >= 1 && (
+                    <Link to="/admin" className="btn btn-primary btn-sm">管理后台</Link>
+                  )}
+                  <Link to="/settings" className="btn btn-secondary btn-sm">编辑资料</Link>
+                </div>
+              ) : (
+                <div className="flex" style={{ gap: 8, marginTop: 8 }}>
+                  <button className={`btn btn-sm ${followStatus.following ? 'btn-secondary' : 'btn-primary'}`} onClick={toggleFollow} disabled={followBusy}>
+                    {followStatus.following ? '已关注' : '关注'}
+                  </button>
+                </div>
+              )}
             </div>
-            {isSelf && (
-              <div className="flex" style={{ gap: 8, paddingBottom: 2, flexShrink: 0 }}>
-                {u.level >= 1 && (
-                  <Link to="/admin" className="btn btn-primary btn-sm">管理后台</Link>
-                )}
-                <Link to="/settings" className="btn btn-secondary btn-sm">编辑资料</Link>
-              </div>
-            )}
-            {!isSelf && (
-              <div className="flex" style={{ gap: 8, paddingBottom: 2, flexShrink: 0, alignItems: 'center' }}>
-                <span className="text-secondary" style={{ fontSize: 12 }}>粉丝 {followStatus.followers}</span>
-                <button className={`btn btn-sm ${followStatus.following ? 'btn-secondary' : 'btn-primary'}`} onClick={toggleFollow} disabled={followBusy}>
-                  {followStatus.following ? '已关注' : '关注'}
-                </button>
-              </div>
-            )}
           </div>
 
           {/* 统计 */}

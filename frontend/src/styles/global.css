@@ -1188,7 +1188,7 @@ img {
 
 /* 个人主页封面 */
 .profile-cover {
-  height: 160px;
+  height: 240px;
   background-size: cover;
   background-position: center;
   position: relative;
@@ -1198,7 +1198,32 @@ img {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.05), rgba(0, 0, 0, 0.35));
+  /* 亮色模式：底部白色渐变（过渡区收窄到底部 40%，衬托骑跨分界线的深色昵称文字） */
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0) 60%, rgba(255, 255, 255, 0.45) 100%);
+}
+
+/* 深色模式：底部深色渐变（过渡区收窄到底部 40%，衬托浅色昵称文字） */
+[data-theme="dark"] .profile-cover::after {
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0) 60%, rgba(0, 0, 0, 0.45) 100%);
+}
+
+/* 个人主页皮肤模型浮层：桌面骑跨封面底部；移动端移入封面内右上，避免遮挡注册日期/编辑按钮 */
+.profile-skin-float {
+  position: absolute;
+  top: 168px;
+  right: 24px;
+  z-index: 2;
+  width: 165px;
+  height: 110px;
+  filter: drop-shadow(0 8px 20px rgba(0, 0, 0, 0.35));
+  cursor: pointer;
+}
+
+@media (max-width: 600px) {
+  .profile-skin-float {
+    top: 20px;
+    right: 12px;
+  }
 }
 
 .link-btn {
@@ -1413,7 +1438,7 @@ mark {
   }
 
   /* 头像区域自适应 */
-  .profile-cover { height: 120px; }
+  .profile-cover { height: 180px; }
 
   /* 弹窗内容自适应 */
   .modal-content {
