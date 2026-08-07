@@ -32,6 +32,18 @@ export default function Notifications() {
     } catch (e) {}
   };
 
+  // 点击通知：先标记已读，再按类型跳转
+  const handleClick = (n) => {
+    if (!n.is_read) markRead(n.id);
+    if (n.type === 'like' || n.type === 'follow') {
+      // 点赞/关注 → 跳转到点赞人/关注人的主页
+      if (n.actor_username) navigate(`/profile/${n.actor_username}`);
+    } else if (n.type === 'comment' || n.type === 'post_daily' || n.type === 'post_decision') {
+      // 评论/日报/决策更新 → 进入对应帖子
+      if (n.post_id) navigate(`/post/${n.post_id}`);
+    }
+  };
+
   if (!user) {
     return (
       <div className="empty-state">

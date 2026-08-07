@@ -31,6 +31,7 @@ export default function Settings() {
   const [idLoading, setIdLoading] = useState(false);
   const [uploading, setUploading] = useState(null); // null=空闲, 0-100=上传进度
   const [cropState, setCropState] = useState(null); // { file, aspect, target: 'avatar'|'cover' }
+  const [gameIdSaving, setGameIdSaving] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -124,6 +125,20 @@ export default function Settings() {
       showToast(err.message, 'error');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const saveGameId = async () => {
+    setGameIdSaving(true);
+    try {
+      await api.put('/api/auth/profile', { game_id: gameId.trim() });
+      const me = await api.get('/api/auth/me');
+      await updateUser(me);
+      showToast('游戏ID保存成功', 'success');
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setGameIdSaving(false);
     }
   };
 
@@ -256,13 +271,19 @@ export default function Settings() {
             </div>
             <div className="form-group" style={{ marginBottom: 10 }}>
               <label className="form-label">游戏ID（显示在模型头顶，留空默认使用用户名）</label>
-              <input
-                className="form-input"
-                value={gameId}
-                onChange={e => setGameId(e.target.value)}
-                placeholder="例如：Steve_2010"
-                maxLength={24}
-              />
+              <div className="flex" style={{ gap: 8 }}>
+                <input
+                  className="form-input"
+                  value={gameId}
+                  onChange={e => setGameId(e.target.value)}
+                  placeholder="例如：Steve_2010"
+                  maxLength={24}
+                  style={{ flex: 1 }}
+                />
+                <button className="btn btn-secondary btn-sm" onClick={saveGameId} disabled={gameIdSaving} style={{ whiteSpace: 'nowrap' }}>
+                  {gameIdSaving ? '保存中...' : '保存游戏ID'}
+                </button>
+              </div>
             </div>
             <div className="flex" style={{ gap: 8, flexWrap: 'wrap' }}>
               <input ref={skinRef} type="file" accept="image/png" style={{ display: 'none' }} onChange={handleSkinUpload} />

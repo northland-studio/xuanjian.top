@@ -187,10 +187,10 @@ router.put('/profile', authMiddleware, async (req, res) => {
                 [nickname ?? user.nickname, email ?? user.email, avatar ?? user.avatar, cover ?? user.cover, game_id ?? user.game_id, hashedPassword, getLocalTimestamp(), req.userId]
             );
         } else {
-            const me = await db.get('SELECT game_id FROM users WHERE id = ?', [req.userId]);
+            const me = await db.get('SELECT nickname, email, avatar, cover, game_id FROM users WHERE id = ?', [req.userId]);
             await db.run(
                 'UPDATE users SET nickname = ?, email = ?, avatar = ?, cover = ?, game_id = ?, updated_at = ? WHERE id = ?',
-                [nickname, email, avatar, cover || '', game_id ?? me?.game_id ?? '', getLocalTimestamp(), req.userId]
+                [nickname ?? me.nickname, email ?? me.email, avatar ?? me.avatar, cover ?? me.cover, game_id ?? me.game_id, getLocalTimestamp(), req.userId]
             );
         }
         
