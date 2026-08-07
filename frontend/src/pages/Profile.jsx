@@ -99,22 +99,23 @@ export default function Profile() {
         />
 
         <div style={{ padding: '0 24px 24px', position: 'relative' }}>
-          {/* 用户皮肤模型（有皮肤时展示，位于关注按钮区域上方） */}
+          {/* 用户皮肤模型（有皮肤时展示，位于关注按钮区域上方，扩大至 1.5 倍） */}
           {u.skin_path && (
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: -32 }}>
               <div
                 style={{
-                  width: 110,
-                  height: 146,
+                  width: 165,
+                  height: 219,
                   filter: 'drop-shadow(0 8px 20px rgba(0,0,0,0.35))',
                   cursor: 'pointer'
                 }}
               >
-                <SkinViewer skin={u.skin_path} width={110} height={146} autoRotate={false} animation="random" animationSpeed={0.6} zoom={0.85} name={u.game_id || u.username} />
+                <SkinViewer skin={u.skin_path} width={165} height={219} autoRotate={false} animation="random" animationSpeed={0.6} zoom={1.275} name={u.game_id || u.username} />
               </div>
             </div>
           )}
-          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 16, marginTop: -48 }}>
+          {/* 头像与昵称：顶部对齐模型上边框与背景图分界线 */}
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 16, marginTop: -32 }}>
             <img
               src={u.avatar || '/images/default-avatar.png'}
               alt="头像"
@@ -197,7 +198,7 @@ export default function Profile() {
       )}
 
       {/* 用户帖子 */}
-      <div className="section-head" style={{ marginTop: 8 }}>
+      <div className="section-head" style={{ marginTop: 24, paddingTop: 4 }}>
         <h2 className="section-title">{isSelf ? '我的发布' : `${u.nickname || u.username} 的发布`}</h2>
       </div>
       {posts.length === 0 ? (

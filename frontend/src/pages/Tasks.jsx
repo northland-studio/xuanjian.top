@@ -4,11 +4,13 @@ import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/UI';
 import { requireLogin, formatDate } from '../utils';
+import PlayerTasks from './PlayerTasks';
 
 export default function Tasks() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { showToast } = useToast();
+  const [scope, setScope] = useState('official'); // official 官方任务 | player 玩家任务
   const [tab, setTab] = useState('list');
   const [tasks, setTasks] = useState([]);
   const [myClaims, setMyClaims] = useState([]);
@@ -71,6 +73,15 @@ export default function Tasks() {
         </div>
       </div>
 
+      <div className="flex" style={{ gap: 10, marginBottom: 16 }}>
+        <button className={`btn ${scope === 'official' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setScope('official')}>官方任务</button>
+        <button className={`btn ${scope === 'player' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setScope('player')}>玩家任务</button>
+      </div>
+
+      {scope === 'player' ? (
+        <PlayerTasks />
+      ) : (
+      <>
       <div className="flex" style={{ gap: 10, marginBottom: 20 }}>
         <button className={`btn ${tab === 'list' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setTab('list')}>全部任务</button>
         <button className={`btn ${tab === 'mine' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setTab('mine')}>我的任务</button>
@@ -151,6 +162,8 @@ export default function Tasks() {
             </div>
           </div>
         </div>
+      )}
+      </>
       )}
     </div>
   );

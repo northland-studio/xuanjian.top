@@ -1,75 +1,34 @@
 import { useEffect, useRef } from 'react';
 
-// 自定义动画池：基于 skinview3d FunctionAnimation 编写（progress 0~1 循环），供随机播放
-// 注意：骨骼位于 player.skin.* 下（player.skin.head / rightArm / leftArm / body / rightLeg / leftLeg）
-function buildAnimationPool({ FunctionAnimation, RunningAnimation }) {
-  const TAU = Math.PI * 2;
-  return {
-    // 挥手：右臂前后摆动 + 头部轻摆
-    wave: () => new FunctionAnimation((player, p) => {
-      const t = p * TAU;
-      player.skin.rightArm.rotation.x = -1.0;
-      player.skin.rightArm.rotation.y = 1.3 * Math.sin(t);
-      player.skin.leftArm.rotation.x = 0.05;
-      player.skin.head.rotation.z = 0.12 * Math.sin(t);
-    }),
-    // 欢呼：双臂举起上下交替 + 身体轻摆
-    cheer: () => new FunctionAnimation((player, p) => {
-      const t = p * TAU;
-      player.skin.rightArm.rotation.x = -Math.PI * 0.85 + 0.35 * Math.sin(t);
-      player.skin.leftArm.rotation.x = -Math.PI * 0.85 - 0.35 * Math.sin(t);
-      player.skin.body.rotation.y = 0.2 * Math.sin(t);
-    }),
-    // 打拳：双臂交替出拳 + 身体前倾
-    punch: () => new FunctionAnimation((player, p) => {
-      const t = p * TAU;
-      const hit = Math.max(0, Math.sin(t));
-      const hitAlt = Math.max(0, Math.sin(t - Math.PI));
-      player.skin.rightArm.rotation.x = -1.5 * hit;
-      player.skin.leftArm.rotation.x = -1.2 * hitAlt;
-      player.skin.body.rotation.x = 0.12 * hit;
-    }),
-    // 跳舞：身体左右摇摆 + 双臂交替甩动 + 双腿轻点
-    dance: () => new FunctionAnimation((player, p) => {
-      const t = p * TAU;
-      player.skin.body.rotation.z = 0.35 * Math.sin(t);
-      player.skin.head.rotation.z = -0.22 * Math.sin(t);
-      player.skin.rightArm.rotation.x = -0.9 * Math.sin(2 * t);
-      player.skin.leftArm.rotation.x = 0.9 * Math.sin(2 * t);
-      player.skin.rightLeg.rotation.z = 0.15 * Math.sin(2 * t);
-      player.skin.leftLeg.rotation.z = -0.15 * Math.sin(2 * t);
-    }),
-    // 摇头：头部左右摇动
-    headshake: () => new FunctionAnimation((player, p) => {
-      const t = p * TAU;
-      player.skin.head.rotation.y = 0.7 * Math.sin(t);
-      player.skin.head.rotation.z = 0.12 * Math.sin(t * 0.5);
-    }),
-    // 原地跑步（官方动画，混入池中增加多样性）
-    running: () => new RunningAnimation()
-  };
+// 动作池：全部使用 skinview3d 官方动画，随机播放
+function buildAnimationPool(animations) {
+  const { IdleAnimation, WalkingAnimation, RunningAnimation, FlyingAnimation, WaveAnimation, CrouchAnimation, SwimAnimation } = animations;
+  return [
+    () => new IdleAnimation(),
+    () => new WalkingAnimation(),
+    () => new RunningAnimation(),
+    () => new FlyingAnimation(),
+    () => new WaveAnimation('right'),
+    () => new CrouchAnimation(),
+    () => new SwimAnimation()
+  ];
 }
 
-// 模型头顶玩家名专用字体（Minecraft 风格），走七牛 CDN 加速，按需加载不阻塞首屏
-const NAMETAG_FONT = 'XJ-Minecraft';
-const NAMETAG_FONT_URL = 'https://cdn.xuanjian.top/fonts/1.ttf';
+// 模型头顶玩家名字体：skinview3d 官方 Minecraft 字体（jsDelivr CDN，~50KB），替代 16MB 本地字体
+const NAMETAG_FONT = 'Minecraft';
+const NAMETAG_FONT_URL = 'https://cdn.jsdelivr.net/npm/skinview3d@3.4.2/assets/minecraft.woff2';
 let fontReady = null;
 
 function ensureNametagFont() {
   if (fontReady !== null) return fontReady;
   try {
-    // 15 秒超时兜底，避免字体加载挂起导致名字不显示
-    const timeout = new Promise(resolve => setTimeout(() => resolve(false), 15000));
-    fontReady = Promise.race([
-      new FontFace(NAMETAG_FONT, `url(${NAMETAG_FONT_URL})`)
-        .load()
-        .then(font => {
-          document.fonts.add(font);
-          return true;
-        })
-        .catch(() => false),
-      timeout
-    ]);
+    fontReady = new FontFace(NAMETAG_FONT, `url(${NAMETAG_FONT_URL})`)
+      .load()
+      .then(font => {
+        document.fonts.add(font);
+        return true;
+      })
+      .catch(() => false);
   } catch {
     fontReady = Promise.resolve(false);
   }
@@ -92,6 +51,10 @@ async function applyNametag(viewer, name) {
     height: 2.4,
     margin: [3, 8, 3, 8]
   });
+  // 名字贴近头顶（覆盖默认 y=20，避免放大后跑出画布）
+  viewer.nameTag.position.y = 4.5;
+  // 模型整体下移，给头顶名字留出空间（随 zoom 等比）
+  viewer.playerWrapper.position.y = -0.55 * viewer.camera.zoom;
   // 字体就绪后用指定字体重绘（不会等待，名字已先显示）
   const ok = await ensureNametagFont();
   if (!viewer || viewer.disposed || !ok) return;
@@ -102,6 +65,7 @@ async function applyNametag(viewer, name) {
     height: 2.4,
     margin: [3, 8, 3, 8]
   });
+  viewer.nameTag.position.y = 4.5;
 }
 
 /**
@@ -128,7 +92,7 @@ export default function SkinViewer({ skin, width = 240, height = 320, autoRotate
     let cancelled = false;
     let viewer = null;
     import('skinview3d')
-      .then(({ SkinViewer: Viewer, IdleAnimation, RunningAnimation, FunctionAnimation }) => {
+      .then(({ SkinViewer: Viewer, IdleAnimation, WalkingAnimation, RunningAnimation, FlyingAnimation, WaveAnimation, CrouchAnimation, SwimAnimation }) => {
         if (cancelled || !canvasRef.current) return;
         viewer = new Viewer({
           canvas: canvasRef.current,
@@ -140,10 +104,9 @@ export default function SkinViewer({ skin, width = 240, height = 320, autoRotate
         viewer.autoRotateSpeed = 1.5;
         viewer.camera.zoom = zoom;
         if (animation === 'random') {
-          // 从自定义动画池随机选一个
-          const pool = buildAnimationPool({ FunctionAnimation, RunningAnimation });
-          const keys = Object.keys(pool);
-          viewer.animation = pool[keys[Math.floor(Math.random() * keys.length)]]();
+          // 从官方动画池随机选一个
+          const pool = buildAnimationPool({ IdleAnimation, WalkingAnimation, RunningAnimation, FlyingAnimation, WaveAnimation, CrouchAnimation, SwimAnimation });
+          viewer.animation = pool[Math.floor(Math.random() * pool.length)]();
         } else {
           viewer.animation = animation === 'running' ? new RunningAnimation() : new IdleAnimation();
         }
