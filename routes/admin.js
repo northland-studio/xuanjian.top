@@ -160,7 +160,7 @@ router.get('/posts', authMiddleware, adminMiddleware, async (req, res) => {
 router.put('/posts/:id/pin', authMiddleware, adminMiddleware, async (req, res) => {
     try {
         const { id } = req.params;
-        const { isPinned } = req.body;
+        const { is_pinned: isPinned } = req.body;
         
         await db.run(
             'UPDATE posts SET is_pinned = ? WHERE id = ?',
