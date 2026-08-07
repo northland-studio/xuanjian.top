@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/UI';
 import { api, uploadImage, getToken, uploadSkin } from '../api';
 import SkinViewer from '../components/SkinViewer';
+import ImageCropModal from '../components/ImageCropModal';
 
 export default function Settings() {
   const { user, updateUser } = useAuth();
@@ -28,6 +29,7 @@ export default function Settings() {
   const [codeLoading, setCodeLoading] = useState(false);
   const [idLoading, setIdLoading] = useState(false);
   const [uploading, setUploading] = useState(null); // null=空闲, 0-100=上传进度
+  const [cropState, setCropState] = useState(null); // { file, aspect, target: 'avatar'|'cover' }
 
   useEffect(() => {
     if (user) {
@@ -45,26 +47,32 @@ export default function Settings() {
   const handleAvatarUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    setUploading(0);
-    try {
-      const url = await uploadImage(file, p => setUploading(p));
-      setAvatar(url);
-      showToast('头像上传成功', 'success');
-    } catch (err) {
-      showToast(err.message, 'error');
-    } finally {
-      setUploading(null);
-    }
+    e.target.value = '';
+    // 打开裁剪选区器（头像 1:1）
+    setCropState({ file, aspect: 1, target: 'avatar' });
   };
 
   const handleCoverUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
+    e.target.value = '';
+    // 打开裁剪选区器（封面 4:1 横幅）
+    setCropState({ file, aspect: 4, target: 'cover' });
+  };
+
+  const handleCropConfirm = async (croppedFile) => {
+    const target = cropState.target;
+    setCropState(null);
     setUploading(0);
     try {
-      const url = await uploadImage(file, p => setUploading(p));
-      setCover(url);
-      showToast('封面上传成功，记得保存', 'success');
+      const url = await uploadImage(croppedFile, p => setUploading(p));
+      if (target === 'avatar') {
+        setAvatar(url);
+        showToast('头像上传成功', 'success');
+      } else {
+        setCover(url);
+        showToast('封面上传成功，记得保存', 'success');
+      }
     } catch (err) {
       showToast(err.message, 'error');
     } finally {
@@ -419,6 +427,16 @@ export default function Settings() {
           {hasPassword ? '修改密码' : '设置密码'}
         </button>
       </div>
+
+      {/* 裁剪选区器 */}
+      {cropState && (
+        <ImageCropModal
+          file={cropState.file}
+          aspect={cropState.aspect}
+          onCancel={() => setCropState(null)}
+          onConfirm={handleCropConfirm}
+        />
+      )}
     </div>
   );
 }

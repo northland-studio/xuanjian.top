@@ -1,74 +1,69 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import 'viewerjs/dist/viewer.css';
 
-// 图片查看器（Lightbox）：全屏遮罩查看图片，支持左右切换、Esc/点击关闭
+/**
+ * 图片查看器（基于 viewerjs）：全屏查看图片，支持缩放/旋转/平移/切换/下载
+ * props:
+ *  - images: 图片 URL 数组
+ *  - index: 初始显示第几张
+ *  - onClose: 关闭回调
+ */
 export default function Lightbox({ images, index: initialIndex = 0, onClose }) {
   const list = (Array.isArray(images) ? images : []).filter(Boolean);
-  const [index, setIndex] = useState(initialIndex);
+  const containerRef = useRef(null);
+  const viewerRef = useRef(null);
+  const [ready, setReady] = useState(false);
 
-  // 索引越界保护
-  const safeIndex = list.length ? Math.min(Math.max(index, 0), list.length - 1) : 0;
-
+  // 动态加载 viewerjs（减少首屏体积）
   useEffect(() => {
-    const onKey = (e) => {
-      if (e.key === 'Escape') onClose();
-      if (e.key === 'ArrowLeft') setIndex(i => Math.max(i - 1, 0));
-      if (e.key === 'ArrowRight') setIndex(i => Math.min(i + 1, list.length - 1));
-    };
-    document.addEventListener('keydown', onKey);
-    document.body.style.overflow = 'hidden';
+    let cancelled = false;
+    import('viewerjs').then(({ default: Viewer }) => {
+      if (cancelled) return;
+      setReady(true);
+      window.__Viewer = Viewer;
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  // 初始化/销毁 viewer
+  useEffect(() => {
+    if (!ready || list.length === 0) return;
+
+    let viewer = null;
+    // 确保图片列表先渲染完成
+    const timer = setTimeout(() => {
+      if (!containerRef.current) return;
+      viewer = new window.__Viewer(containerRef.current, {
+        initialView: initialIndex,
+        toolbar: {
+          zoomIn: 1, zoomOut: 1, oneToOne: 1, reset: 1,
+          prev: list.length > 1, play: { show: list.length > 1 }, next: list.length > 1,
+          rotateLeft: 1, rotateRight: 1, flipHorizontal: 1, flipVertical: 1,
+          zoomRatio: 10, download: 1
+        },
+        title: true,
+        navbar: false,
+        hidden() { onClose(); }
+      });
+      viewer.show();
+      viewerRef.current = viewer;
+    }, 0);
+
     return () => {
-      document.removeEventListener('keydown', onKey);
-      document.body.style.overflow = '';
+      clearTimeout(timer);
+      if (viewer) viewer.destroy();
+      viewerRef.current = null;
     };
-  }, [onClose, list.length]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, list.length, initialIndex]);
 
   if (list.length === 0) return null;
 
   return (
-    <div className="lightbox-overlay" onClick={onClose}>
-      <button
-        className="lightbox-close"
-        onClick={onClose}
-        aria-label="关闭"
-      >
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-        </svg>
-      </button>
-
-      {list.length > 1 && (
-        <>
-          <button
-            className="lightbox-nav prev"
-            onClick={e => { e.stopPropagation(); setIndex(i => Math.max(i - 1, 0)); }}
-            aria-label="上一张"
-          >
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
-          <button
-            className="lightbox-nav next"
-            onClick={e => { e.stopPropagation(); setIndex(i => Math.min(i + 1, list.length - 1)); }}
-            aria-label="下一张"
-          >
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-            </svg>
-          </button>
-        </>
-      )}
-
-      <img
-        className="lightbox-image"
-        src={list[safeIndex]}
-        alt=""
-        onClick={e => e.stopPropagation()}
-      />
-
-      {list.length > 1 && (
-        <div className="lightbox-counter">{safeIndex + 1} / {list.length}</div>
-      )}
+    <div style={{ display: 'none' }} ref={containerRef}>
+      {list.map((src, i) => (
+        <img key={i} src={src} alt="" data-original={src} />
+      ))}
     </div>
   );
 }

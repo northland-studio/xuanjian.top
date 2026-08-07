@@ -67,7 +67,7 @@ export default function SkinWidget() {
         <div
           style={{
             position: 'relative',
-            width: 150,
+            width: 225,
             filter: 'drop-shadow(0 8px 20px rgba(0,0,0,0.35))',
             cursor: 'pointer'
           }}
@@ -125,7 +125,7 @@ export default function SkinWidget() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
           </button>
-          <SkinViewer skin={skin || undefined} width={150} height={200} autoRotate={false} animation="running" animationSpeed={0.6} zoom={0.95} />
+          <SkinViewer skin={skin || undefined} width={225} height={300} autoRotate={false} animation="running" animationSpeed={0.6} zoom={0.95} />
         </div>
       )}
     </div>
