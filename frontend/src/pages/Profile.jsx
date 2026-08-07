@@ -98,7 +98,7 @@ export default function Profile() {
           }}
         />
 
-        {/* 用户皮肤模型：独立浮层（绝对定位脱离内容容器，浮在封面右下角） */}
+        {/* 用户皮肤模型：独立浮层（绝对定位脱离内容容器，浮在封面右下角，不遮挡头像区） */}
         {u.skin_path && (
           <div
             style={{
@@ -106,18 +106,18 @@ export default function Profile() {
               top: 128,
               right: 24,
               zIndex: 2,
-              width: 124,
-              height: 50,
+              width: 165,
+              height: 110,
               filter: 'drop-shadow(0 8px 20px rgba(0,0,0,0.35))',
               cursor: 'pointer'
             }}
           >
-            <SkinViewer skin={u.skin_path} width={248} height={132} autoRotate={false} animation="random" animationSpeed={0.6} zoom="auto" name={u.game_id || u.username} style={{ marginTop: -25 }} />
+            <SkinViewer skin={u.skin_path} width={165} height={110} autoRotate={false} animation="random" animationSpeed={0.6} zoom="auto" name={u.game_id || u.username} />
           </div>
         )}
         <div style={{ padding: '0 24px 24px' }}>
-          {/* 头像与昵称：恢复正常流式排列，与模型浮层互不干扰 */}
-          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 16 }}>
+          {/* 头像与昵称：骑跨封面与内容分界线（同加入模型前布局） */}
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 16, marginTop: -48 }}>
             <img
               src={u.avatar || '/images/default-avatar.png'}
               alt="头像"
