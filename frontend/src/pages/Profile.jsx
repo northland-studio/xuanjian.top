@@ -106,14 +106,11 @@ export default function Profile() {
                 style={{
                   width: 110,
                   height: 146,
-                  borderRadius: 12,
-                  overflow: 'hidden',
-                  background: 'linear-gradient(160deg, rgba(0,74,173,0.14), rgba(0,102,204,0.06))',
-                  border: '1px solid var(--border)',
-                  boxShadow: 'var(--shadow)'
+                  filter: 'drop-shadow(0 8px 20px rgba(0,0,0,0.35))',
+                  cursor: 'pointer'
                 }}
               >
-                <SkinViewer skin={u.skin_path} width={110} height={146} autoRotate zoom={0.85} />
+                <SkinViewer skin={u.skin_path} width={110} height={146} autoRotate={false} animation="running" animationSpeed={0.6} zoom={0.85} />
               </div>
             </div>
           )}
