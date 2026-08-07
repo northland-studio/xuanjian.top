@@ -26,6 +26,7 @@ const updateRoutes = require('./routes/updates');
 const contributionRoutes = require('./routes/contributions');
 const taskRoutes = require('./routes/tasks');
 const favoriteRoutes = require('./routes/favorites');
+const skinRoutes = require('./routes/skins');
 const db = require('./database');
 
 const app = express();
@@ -136,6 +137,7 @@ app.use('/api/updates', updateRoutes);
 app.use('/api/contributions', contributionRoutes);
 app.use('/api/tasks', taskRoutes);
 app.use('/api/favorites', favoriteRoutes);
+app.use('/api/skins', skinRoutes);
 
 // ============ React前端（frontend/dist）托管 ============
 const frontendDist = path.join(__dirname, 'frontend', 'dist');

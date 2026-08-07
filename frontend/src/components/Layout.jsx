@@ -3,6 +3,7 @@ import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { AdminIcon } from './Icons';
+import SkinWidget from './SkinWidget';
 
 export default function Layout({ children }) {
   const { user, logout } = useAuth();
@@ -160,6 +161,9 @@ export default function Layout({ children }) {
       <main className="main-content">
         <div className="container">{children}</div>
       </main>
+
+      {/* 右下角常驻皮肤模型（可收起） */}
+      <SkinWidget />
 
       <footer className="footer">
         <div className="footer-content">

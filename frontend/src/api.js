@@ -132,3 +132,30 @@ export async function uploadImages(files, onProgress) {
   }
   return urls;
 }
+
+// 上传 Minecraft 皮肤（本地 /api/skins，FormData，64x64 PNG）
+export async function uploadSkin(file, onProgress) {
+  return new Promise((resolve, reject) => {
+    const token = getToken();
+    const formData = new FormData();
+    formData.append('skin', file);
+
+    const xhr = new XMLHttpRequest();
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) onProgress?.(Math.round((e.loaded / e.total) * 100));
+    };
+    xhr.onload = () => {
+      try {
+        const r = JSON.parse(xhr.responseText);
+        if (xhr.status === 200) resolve(r);
+        else reject(new Error(r.error || `上传失败: HTTP ${xhr.status}`));
+      } catch {
+        reject(new Error('上传失败'));
+      }
+    };
+    xhr.onerror = () => reject(new Error('网络错误'));
+    xhr.open('POST', `${API_BASE}/api/skins`);
+    if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+    xhr.send(formData);
+  });
+}

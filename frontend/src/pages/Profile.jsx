@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/UI';
 import { formatDate } from '../utils';
 import PostCard from '../components/PostCard';
+import SkinViewer from '../components/SkinViewer';
 
 export default function Profile() {
   const { username: paramUsername } = useParams();
@@ -98,6 +99,24 @@ export default function Profile() {
         />
 
         <div style={{ padding: '0 24px 24px', position: 'relative' }}>
+          {/* 用户皮肤模型（有皮肤时展示，位于关注按钮区域上方） */}
+          {u.skin_path && (
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: -32 }}>
+              <div
+                style={{
+                  width: 110,
+                  height: 146,
+                  borderRadius: 12,
+                  overflow: 'hidden',
+                  background: 'linear-gradient(160deg, rgba(0,74,173,0.14), rgba(0,102,204,0.06))',
+                  border: '1px solid var(--border)',
+                  boxShadow: 'var(--shadow)'
+                }}
+              >
+                <SkinViewer skin={u.skin_path} width={110} height={146} autoRotate zoom={0.85} />
+              </div>
+            </div>
+          )}
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: 16, marginTop: -48 }}>
             <img
               src={u.avatar || '/images/default-avatar.png'}

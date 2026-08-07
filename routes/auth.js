@@ -131,7 +131,7 @@ router.post('/login', async (req, res) => {
 router.get('/me', authMiddleware, async (req, res) => {
     try {
         const user = await db.get(
-            'SELECT id, username, nickname, email, level, contribution, avatar, cover, email_verified, openid, password_set, created_at FROM users WHERE id = ?',
+            'SELECT id, username, nickname, email, level, contribution, avatar, cover, email_verified, openid, password_set, skin_path, created_at FROM users WHERE id = ?',
             [req.userId]
         );
 
@@ -352,7 +352,7 @@ router.get('/user/:username', async (req, res) => {
         const { username } = req.params;
         
         const user = await db.get(
-            `SELECT u.id, u.username, u.nickname, u.email, u.avatar, u.cover, u.level, u.contribution, u.created_at,
+            `SELECT u.id, u.username, u.nickname, u.email, u.avatar, u.cover, u.level, u.contribution, u.skin_path, u.created_at,
                     t.name as title_name, t.color as title_color
              FROM users u
              LEFT JOIN titles t ON u.equipped_title = t.id

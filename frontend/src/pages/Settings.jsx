@@ -1,13 +1,15 @@
 import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/UI';
-import { api, uploadImage, getToken } from '../api';
+import { api, uploadImage, getToken, uploadSkin } from '../api';
+import SkinViewer from '../components/SkinViewer';
 
 export default function Settings() {
   const { user, updateUser } = useAuth();
   const { showToast } = useToast();
   const fileRef = useRef(null);
   const coverRef = useRef(null);
+  const skinRef = useRef(null);
 
   // password_set === 0 表示QQ注册后未设置密码
   const hasPassword = user ? user.password_set !== 0 : true;
@@ -15,6 +17,8 @@ export default function Settings() {
   const [nickname, setNickname] = useState('');
   const [avatar, setAvatar] = useState('');
   const [cover, setCover] = useState('');
+  const [skin, setSkin] = useState('');
+  const [skinUploading, setSkinUploading] = useState(false);
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
@@ -30,6 +34,7 @@ export default function Settings() {
       setNickname(user.nickname || '');
       setAvatar(user.avatar || '');
       setCover(user.cover || '');
+      setSkin(user.skin_path || '');
       setUsername(user.username || '');
       setEmail(user.email || '');
     }
@@ -64,6 +69,37 @@ export default function Settings() {
       showToast(err.message, 'error');
     } finally {
       setUploading(null);
+    }
+  };
+
+  const handleSkinUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setSkinUploading(true);
+    try {
+      const data = await uploadSkin(file);
+      setSkin(data.skin);
+      const me = await api.get('/api/auth/me');
+      await updateUser(me);
+      showToast('皮肤上传成功', 'success');
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setSkinUploading(false);
+      if (e.target) e.target.value = '';
+    }
+  };
+
+  const handleSkinRemove = async () => {
+    if (!confirm('确定移除当前皮肤吗？')) return;
+    try {
+      await api.delete('/api/skins');
+      setSkin('');
+      const me = await api.get('/api/auth/me');
+      await updateUser(me);
+      showToast('皮肤已移除', 'success');
+    } catch (err) {
+      showToast(err.message, 'error');
     }
   };
 
@@ -184,6 +220,45 @@ export default function Settings() {
   return (
     <div className="fade-in-up" style={{ maxWidth: 680, margin: '0 auto' }}>
       <h1 style={{ fontSize: 24, marginBottom: 24 }}>账户设置</h1>
+
+      {/* 皮肤管理 */}
+      <div className="card mb-4" style={{ marginBottom: 20 }}>
+        <h3 style={sectionTitle}>
+          <svg width="20" height="20" fill="none" stroke="var(--primary)" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+          </svg>
+          皮肤管理
+        </h3>
+        <div className="flex" style={{ gap: 20, alignItems: 'center' }}>
+          <div
+            style={{
+              width: 120,
+              height: 160,
+              borderRadius: 12,
+              overflow: 'hidden',
+              background: 'linear-gradient(135deg, rgba(0,74,173,0.12), rgba(0,102,204,0.08))',
+              border: '1px solid var(--border)',
+              flexShrink: 0
+            }}
+          >
+            <SkinViewer skin={skin || undefined} width={120} height={160} autoRotate zoom={0.85} />
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="text-secondary" style={{ fontSize: 13, marginBottom: 10 }}>
+              上传你的 Minecraft 皮肤（64×64 PNG），模型将展示在页面右下角与其他用户的个人主页
+            </div>
+            <div className="flex" style={{ gap: 8 }}>
+              <input ref={skinRef} type="file" accept="image/png" style={{ display: 'none' }} onChange={handleSkinUpload} />
+              <button className="btn btn-primary btn-sm" onClick={() => skinRef.current.click()} disabled={skinUploading}>
+                {skinUploading ? '上传中...' : skin ? '更换皮肤' : '上传皮肤'}
+              </button>
+              {skin && (
+                <button className="btn btn-secondary btn-sm" onClick={handleSkinRemove}>移除皮肤</button>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* 基本信息 */}
       <div className="card mb-4" style={{ marginBottom: 20 }}>
