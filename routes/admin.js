@@ -327,13 +327,29 @@ router.get('/dashboard', authMiddleware, adminMiddleware, async (req, res) => {
              LIMIT 8`
         );
 
+        // 全站浏览量（今日 / 总量 / 近7天趋势）
+        const todayViews = await db.get(
+            "SELECT COALESCE(SUM(pv), 0) AS pv FROM page_views WHERE date = DATE('now', 'localtime')"
+        );
+        const totalViews = await db.get(
+            'SELECT COALESCE(SUM(pv), 0) AS pv FROM page_views'
+        );
+        const viewsTrend = await db.all(
+            `SELECT date, pv FROM page_views
+             WHERE date >= DATE('now', 'localtime', '-6 days')
+             ORDER BY date`
+        );
+
         res.json({
             totalContribution: totalContribution.total,
             todayCheckins: todayCheckins.count,
             contributionFlow,
             contributionByType,
             userGrowth,
-            topContributors
+            topContributors,
+            todayViews: todayViews.pv,
+            totalViews: totalViews.pv,
+            viewsTrend
         });
     } catch (error) {
         logger.error('获取看板数据错误:', error);

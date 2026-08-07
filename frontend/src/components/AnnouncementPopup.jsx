@@ -10,15 +10,16 @@ export default function AnnouncementPopup() {
     api.get('/api/announcements/popup')
       .then(data => {
         if (!data) return;
+        // 已读记忆包含 updated_at：公告被编辑后重新弹窗
         const seen = localStorage.getItem(STORAGE_KEY);
-        if (seen === String(data.id)) return;
+        if (seen === `${data.id}-${data.updated_at || ''}`) return;
         setAnnouncement(data);
       })
       .catch(() => { /* 静默失败，不影响页面 */ });
   }, []);
 
   const close = () => {
-    if (announcement) localStorage.setItem(STORAGE_KEY, String(announcement.id));
+    if (announcement) localStorage.setItem(STORAGE_KEY, `${announcement.id}-${announcement.updated_at || ''}`);
     setAnnouncement(null);
   };
 

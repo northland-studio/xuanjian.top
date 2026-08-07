@@ -372,6 +372,7 @@ function AnnouncementManager({ showToast }) {
   const [content, setContent] = useState('');
   const [isPopup, setIsPopup] = useState(false);
   const [isActive, setIsActive] = useState(true);
+  const [editing, setEditing] = useState(null); // null=新增, {} = 编辑中
   const [loading, setLoading] = useState(true);
 
   const fetchList = () => {
@@ -384,15 +385,34 @@ function AnnouncementManager({ showToast }) {
 
   useEffect(fetchList, []);
 
-  const create = async () => {
+  const resetForm = () => {
+    setTitle('');
+    setContent('');
+    setIsPopup(false);
+    setIsActive(true);
+    setEditing(null);
+  };
+
+  const startEdit = (a) => {
+    setEditing(a);
+    setTitle(a.title || '');
+    setContent(a.content || '');
+    setIsPopup(!!a.is_popup);
+    setIsActive(!!a.is_active);
+  };
+
+  const save = async () => {
     if (!title.trim() || !content.trim()) { showToast('标题和内容不能为空', 'error'); return; }
+    const body = { title: title.trim(), content: content.trim(), isPopup, isActive };
     try {
-      await api.post('/api/admin/announcements', { title: title.trim(), content: content.trim(), isPopup, isActive });
-      showToast('公告发布成功', 'success');
-      setTitle('');
-      setContent('');
-      setIsPopup(false);
-      setIsActive(true);
+      if (editing && editing.id) {
+        await api.put(`/api/admin/announcements/${editing.id}`, body);
+        showToast('公告更新成功', 'success');
+      } else {
+        await api.post('/api/admin/announcements', body);
+        showToast('公告发布成功', 'success');
+      }
+      resetForm();
       fetchList();
     } catch (e) {
       showToast(e.message, 'error');
@@ -413,14 +433,14 @@ function AnnouncementManager({ showToast }) {
   return (
     <div className="grid grid-2" style={{ gap: 16, alignItems: 'start' }}>
       <div className="card" style={{ padding: 24 }}>
-        <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 16 }}>发布公告</h3>
+        <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 16 }}>{editing ? '编辑公告' : '发布公告'}</h3>
         <div className="form-group">
           <label className="form-label">标题</label>
           <input className="form-input" value={title} onChange={e => setTitle(e.target.value)} placeholder="公告标题" />
         </div>
         <div className="form-group">
           <label className="form-label">内容</label>
-          <textarea className="form-textarea" value={content} onChange={e => setContent(e.target.value)} placeholder="公告内容" style={{ minHeight: 140 }} />
+          <textarea className="form-textarea" value={content} onChange={e => setContent(e.target.value)} placeholder="公告内容（支持多行文本）" style={{ minHeight: 140 }} />
         </div>
         <div className="flex" style={{ gap: 16, marginBottom: 16 }}>
           <label className="flex" style={{ gap: 6, alignItems: 'center', fontSize: 14, cursor: 'pointer' }}>
@@ -432,7 +452,10 @@ function AnnouncementManager({ showToast }) {
             立即启用
           </label>
         </div>
-        <button className="btn btn-primary btn-block" onClick={create}>发布公告</button>
+        <div className="flex" style={{ gap: 10 }}>
+          <button className="btn btn-primary btn-block" onClick={save}>{editing ? '保存修改' : '发布公告'}</button>
+          {editing && <button className="btn btn-secondary" onClick={resetForm}>取消</button>}
+        </div>
       </div>
       <div className="card" style={{ padding: 24 }}>
         <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 16 }}>已发布公告</h3>
@@ -450,9 +473,12 @@ function AnnouncementManager({ showToast }) {
                     {a.is_popup ? <span className="badge badge-success">弹窗</span> : <span className="badge badge-gray">普通</span>}
                     {a.is_active ? <span className="badge badge-success">启用</span> : <span className="badge badge-gray">停用</span>}
                   </div>
-                  <button className="link-btn" style={{ color: 'var(--danger)' }} onClick={() => remove(a.id)}>删除</button>
+                  <div className="flex" style={{ gap: 6 }}>
+                    <button className="link-btn" onClick={() => startEdit(a)}>编辑</button>
+                    <button className="link-btn" style={{ color: 'var(--danger)' }} onClick={() => remove(a.id)}>删除</button>
+                  </div>
                 </div>
-                <div className="text-secondary" style={{ fontSize: 13, lineHeight: 1.6 }}>{a.content}</div>
+                <div className="text-secondary" style={{ fontSize: 13, lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{a.content}</div>
                 <div className="text-secondary" style={{ fontSize: 12, marginTop: 6 }}>{formatDate(a.created_at)}</div>
               </div>
             ))}
@@ -806,11 +832,23 @@ function Dashboard({ showToast }) {
 
   const maxFlow = Math.max(...data.contributionFlow.map(d => Math.abs(d.amount)), 1);
   const maxUsers = Math.max(...data.userGrowth.map(d => d.count), 1);
+  const maxViews = Math.max(...data.viewsTrend.map(d => d.pv), 1);
   const TYPE_NAMES = { claim: '申报', task: '任务', transfer_in: '转入', transfer_out: '转出', purchase: '消费', reward: '签到', admin: '管理调整' };
+
+  // 补全近7天浏览量（无访问的天补 0）
+  const viewsByDate = {};
+  (data.viewsTrend || []).forEach(d => { viewsByDate[d.date] = d.pv; });
+  const viewsTrend7 = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() - (6 - i));
+    const pad = n => String(n).padStart(2, '0');
+    const key = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    return { date: key, pv: viewsByDate[key] || 0 };
+  });
 
   return (
     <div>
-      <div className="grid grid-3" style={{ gap: 12, marginBottom: 20 }}>
+      <div className="grid grid-4" style={{ gap: 12, marginBottom: 20 }}>
         <div className="card" style={{ padding: 20 }}>
           <div className="text-secondary" style={{ fontSize: 13 }}>贡献点总量</div>
           <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--primary)', marginTop: 4 }}>{data.totalContribution}</div>
@@ -818,6 +856,11 @@ function Dashboard({ showToast }) {
         <div className="card" style={{ padding: 20 }}>
           <div className="text-secondary" style={{ fontSize: 13 }}>今日签到</div>
           <div style={{ fontSize: 28, fontWeight: 800, color: '#10b981', marginTop: 4 }}>{data.todayCheckins}</div>
+        </div>
+        <div className="card" style={{ padding: 20 }}>
+          <div className="text-secondary" style={{ fontSize: 13 }}>今日浏览量</div>
+          <div style={{ fontSize: 28, fontWeight: 800, color: '#8b5cf6', marginTop: 4 }}>{data.todayViews ?? 0}</div>
+          <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>累计 {data.totalViews ?? 0}</div>
         </div>
         <div className="card" style={{ padding: 20 }}>
           <div className="text-secondary" style={{ fontSize: 13 }}>贡献点流动类型</div>
@@ -860,6 +903,19 @@ function Dashboard({ showToast }) {
               ))}
             </div>
           )}
+        </div>
+      </div>
+
+      <div className="card" style={{ padding: 20, marginBottom: 20 }}>
+        <h4 style={{ marginBottom: 12, fontSize: 15 }}>近7天全站浏览量</h4>
+        <div className="flex" style={{ alignItems: 'flex-end', gap: 8, height: 120 }}>
+          {viewsTrend7.map(d => (
+            <div key={d.date} style={{ flex: 1, textAlign: 'center' }}>
+              <div style={{ fontSize: 11, color: '#8b5cf6', marginBottom: 4 }}>{d.pv}</div>
+              <div style={{ height: Math.max(4, d.pv / maxViews * 80), background: '#8b5cf6', borderRadius: '4px 4px 0 0', opacity: d.pv ? 1 : 0.25 }} />
+              <div style={{ fontSize: 10, color: 'var(--text-secondary)', marginTop: 4 }}>{d.date.slice(5)}</div>
+            </div>
+          ))}
         </div>
       </div>
 
@@ -941,6 +997,27 @@ function TaskManager({ showToast }) {
   const [createdCode, setCreatedCode] = useState('');
   const [expanded, setExpanded] = useState(null);
   const [claims, setClaims] = useState([]);
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(null);
+  const fileInput = useRef(null);
+
+  const handleUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    setUploadProgress(0);
+    try {
+      const url = await uploadImage(file, p => setUploadProgress(p));
+      setForm(f => ({ ...f, image: url }));
+      showToast('图片上传成功', 'success');
+    } catch (err) {
+      showToast(err.message || '上传失败', 'error');
+    } finally {
+      setUploading(false);
+      setUploadProgress(null);
+      e.target.value = '';
+    }
+  };
 
   const fetchTasks = () => {
     setLoading(true);
@@ -1006,7 +1083,18 @@ function TaskManager({ showToast }) {
           <div style={{ display: 'grid', gap: 10 }}>
             <input className="form-input" placeholder="任务标题 *" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} />
             <textarea className="form-input" rows={2} placeholder="任务说明" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} />
-            <input className="form-input" placeholder="配图 URL（可留空）" value={form.image} onChange={e => setForm({ ...form, image: e.target.value })} />
+            <div className="flex" style={{ gap: 12, alignItems: 'center' }}>
+              <input ref={fileInput} type="file" accept="image/*" hidden onChange={handleUpload} />
+              {form.image ? (
+                <img src={form.image} alt="任务配图" style={{ width: 96, height: 64, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border)' }} />
+              ) : (
+                <div className="flex-center" style={{ width: 96, height: 64, background: 'var(--input-bg)', borderRadius: 8, color: 'var(--text-secondary)', fontSize: 12 }}>任务配图</div>
+              )}
+              <button type="button" className="btn btn-secondary btn-sm" onClick={() => fileInput.current.click()} disabled={uploading}>
+                {uploading ? (uploadProgress !== null ? `上传中 ${uploadProgress}%` : '上传中...') : (form.image ? '更换图片' : '上传图片')}
+              </button>
+              {form.image && <button type="button" className="link-btn" onClick={() => setForm(f => ({ ...f, image: '' }))}>移除</button>}
+            </div>
             <input className="form-input" type="number" placeholder="贡献点奖励 *" value={form.reward} onChange={e => setForm({ ...form, reward: e.target.value })} />
           </div>
           <div className="flex" style={{ gap: 10, marginTop: 12, justifyContent: 'flex-end' }}>

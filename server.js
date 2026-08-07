@@ -26,9 +26,22 @@ const updateRoutes = require('./routes/updates');
 const contributionRoutes = require('./routes/contributions');
 const taskRoutes = require('./routes/tasks');
 const favoriteRoutes = require('./routes/favorites');
+const db = require('./database');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// 记录全站页面浏览量（SPA 页面请求）
+async function trackPageView() {
+    try {
+        await db.run(
+            `INSERT INTO page_views (date, pv) VALUES (DATE('now', 'localtime'), 1)
+             ON CONFLICT(date) DO UPDATE SET pv = pv + 1, updated_at = db.getLocalTimestamp()`
+        );
+    } catch (e) {
+        // 表不存在时静默忽略，不影响页面访问
+    }
+}
 
 // 信任代理（Nginx反向代理）
 app.set('trust proxy', 1);
@@ -135,6 +148,8 @@ app.get('*', (req, res, next) => {
     if (req.path.startsWith('/api/') || req.path.startsWith('/uploads/')) {
         return next();
     }
+    // 记录页面浏览量（不阻塞响应）
+    trackPageView();
     res.sendFile(path.join(frontendDist, 'index.html'));
 });
 
