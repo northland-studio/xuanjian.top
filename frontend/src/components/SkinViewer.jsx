@@ -102,7 +102,8 @@ export default function SkinViewer({ skin, width = 240, height = 320, autoRotate
         });
         viewer.autoRotate = autoRotate;
         viewer.autoRotateSpeed = 1.5;
-        viewer.camera.zoom = zoom;
+        // 自适应：zoom='auto' 时按画布高度自动计算，保证模型全身+头顶名字完整显示
+        viewer.camera.zoom = zoom === 'auto' ? Math.max(0.3, height / 172) : zoom;
         if (animation === 'random') {
           // 从官方动画池随机选一个
           const pool = buildAnimationPool({ IdleAnimation, WalkingAnimation, RunningAnimation, FlyingAnimation, WaveAnimation, CrouchAnimation, SwimAnimation });
