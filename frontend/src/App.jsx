@@ -23,6 +23,7 @@ import Admin from './pages/Admin';
 import Tasks from './pages/Tasks';
 import Following from './pages/Following';
 import Trade from './pages/Trade';
+import Economics from './pages/Economics';
 
 export default function App() {
   return (
@@ -56,6 +57,7 @@ export default function App() {
         <Route path="/tasks" element={<Tasks />} />
         <Route path="/following" element={<Following />} />
         <Route path="/trade" element={<Trade />} />
+        <Route path="/economics" element={<Economics />} />
         <Route path="*" element={<Home />} />
         </Routes>
       </Layout>
