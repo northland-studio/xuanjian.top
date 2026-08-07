@@ -99,18 +99,18 @@ export default function Profile() {
         />
 
         <div style={{ padding: '0 24px 24px', position: 'relative' }}>
-          {/* 用户皮肤模型（有皮肤时展示，位于关注按钮区域上方，扩大至 1.5 倍） */}
+          {/* 用户皮肤模型（有皮肤时展示，高度减半的矮版） */}
           {u.skin_path && (
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: -32 }}>
               <div
                 style={{
                   width: 165,
-                  height: 219,
+                  height: 110,
                   filter: 'drop-shadow(0 8px 20px rgba(0,0,0,0.35))',
                   cursor: 'pointer'
                 }}
               >
-                <SkinViewer skin={u.skin_path} width={165} height={219} autoRotate={false} animation="random" animationSpeed={0.6} zoom={1.275} name={u.game_id || u.username} />
+                <SkinViewer skin={u.skin_path} width={165} height={110} autoRotate={false} animation="random" animationSpeed={0.6} zoom={0.64} name={u.game_id || u.username} />
               </div>
             </div>
           )}
