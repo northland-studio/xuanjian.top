@@ -100,7 +100,7 @@ export default function Profile() {
         {/* 用户皮肤模型：独立浮层（absolute 定位，位置/尺寸由 CSS .profile-skin-float 控制：桌面骑跨封面底部、移动端移入封面内避让内容） */}
         {u.skin_path && (
           <div className="profile-skin-float">
-            <SkinViewer skin={u.skin_path} width={165} height={110} autoRotate={false} animation="random" animationSpeed={0.6} zoom="auto" name={u.game_id || u.username} />
+            <SkinViewer skin={u.skin_path} width={248} height={165} autoRotate={false} animation="random" animationSpeed={0.6} zoom="auto" name={u.game_id || u.username} />
           </div>
         )}
         <div style={{ padding: '0 24px 24px', position: 'relative', zIndex: 1 }}>

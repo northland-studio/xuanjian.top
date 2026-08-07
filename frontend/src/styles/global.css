@@ -1207,22 +1207,28 @@ img {
   background: linear-gradient(to bottom, rgba(0, 0, 0, 0) 60%, rgba(0, 0, 0, 0.45) 100%);
 }
 
-/* 个人主页皮肤模型浮层：桌面骑跨封面底部；移动端移入封面内右上，避免遮挡注册日期/编辑按钮 */
+/* 个人主页皮肤模型浮层：桌面骑跨封面底部（canvas 放大 1.5 倍）；移动端移入封面内右上并还原尺寸 */
 .profile-skin-float {
   position: absolute;
-  top: 168px;
+  top: 145px;
   right: 24px;
   z-index: 2;
-  width: 165px;
-  height: 110px;
+  width: 248px;
+  height: 165px;
   filter: drop-shadow(0 8px 20px rgba(0, 0, 0, 0.35));
   cursor: pointer;
 }
 
 @media (max-width: 600px) {
   .profile-skin-float {
-    top: 20px;
-    right: 12px;
+    top: 50px;
+    right: -8px;
+    width: 165px;
+    height: 110px;
+  }
+  .profile-skin-float canvas {
+    width: 165px !important;
+    height: 110px !important;
   }
 }
 
