@@ -5,6 +5,7 @@ const { getLocalTimestamp } = require('../database');
 const { authMiddleware, adminMiddleware } = require('../middleware/auth');
 const { sendClaimNotification, sendClaimResult } = require('../config/mail');
 const { createNotification } = require('./notifications');
+const { addContributionLog } = require('../lib/contribution');
 const router = express.Router();
 
 // 解析证据字段为图片URL数组（兼容JSON数组和旧字符串格式）
@@ -182,6 +183,7 @@ router.put('/:id/review', authMiddleware, adminMiddleware, async (req, res) => {
                 'UPDATE users SET contribution = COALESCE(contribution, 0) + ? WHERE id = ?',
                 [claim.amount, claim.user_id]
             );
+            await addContributionLog(claim.user_id, claim.amount, 'claim', id, claim.reason || '申报通过');
         }
         
         const statusText = status === 'approved' ? '已通过' : '已拒绝';

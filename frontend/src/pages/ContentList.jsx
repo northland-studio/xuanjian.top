@@ -12,13 +12,14 @@ export default function ContentList({ type, title }) {
   const [totalPages, setTotalPages] = useState(1);
   const [search, setSearch] = useState('');
   const [keyword, setKeyword] = useState('');
+  const [sort, setSort] = useState('latest');
   const [loading, setLoading] = useState(true);
   const limit = 10;
 
-  const fetchPosts = useCallback(async (p, kw) => {
+  const fetchPosts = useCallback(async (p, kw, srt) => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({ type, page: p, limit });
+      const params = new URLSearchParams({ type, page: p, limit, sort: srt || sort });
       if (kw) params.set('search', kw);
       const data = await api.get(`/api/posts?${params}`);
       setPosts(data.posts || []);
@@ -28,16 +29,22 @@ export default function ContentList({ type, title }) {
     } finally {
       setLoading(false);
     }
-  }, [type]);
+  }, [type, sort]);
 
   useEffect(() => {
-    fetchPosts(1, keyword);
+    fetchPosts(1, keyword, sort);
     setPage(1);
-  }, [fetchPosts, keyword]);
+  }, [fetchPosts, keyword, sort]);
 
   const handleSearch = (e) => {
     e.preventDefault();
     setKeyword(search.trim());
+  };
+
+  const changeSort = (s) => {
+    setSort(s);
+    fetchPosts(1, keyword, s);
+    setPage(1);
   };
 
   const handlePublish = () => {
@@ -58,8 +65,8 @@ export default function ContentList({ type, title }) {
         </div>
       </div>
 
-      {/* 搜索栏 */}
-      <form className="search-bar flex" style={{ gap: 10, marginBottom: 20 }} onSubmit={handleSearch}>
+      {/* 搜索栏 + 排序 */}
+      <form className="search-bar flex" style={{ gap: 10, marginBottom: 12 }} onSubmit={handleSearch}>
         <input
           className="form-input"
           placeholder={`搜索${title}内容...`}
@@ -69,6 +76,16 @@ export default function ContentList({ type, title }) {
         />
         <button type="submit" className="btn btn-secondary">搜索</button>
       </form>
+      <div className="flex" style={{ gap: 8, marginBottom: 20 }}>
+        <button className={`btn btn-sm ${sort === 'latest' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => changeSort('latest')}>最新</button>
+        <button className={`btn btn-sm ${sort === 'hot' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => changeSort('hot')}>最热</button>
+        {keyword && (
+          <span className="flex" style={{ gap: 6, alignItems: 'center', fontSize: 13, color: 'var(--text-secondary)', marginLeft: 4 }}>
+            搜索关键词「{keyword}」
+            <button type="button" className="link-btn" style={{ fontSize: 12 }} onClick={() => { setSearch(''); setKeyword(''); }}>清除</button>
+          </span>
+        )}
+      </div>
 
       {loading ? (
         <div className="loading">
@@ -85,20 +102,20 @@ export default function ContentList({ type, title }) {
         </div>
       ) : (
         <div className="flex-col" style={{ gap: 16 }}>
-          {posts.map(p => <PostCard key={p.id} post={p} />)}
+          {posts.map(p => <PostCard key={p.id} post={p} highlight={keyword} />)}
         </div>
       )}
 
       {/* 分页 */}
       {totalPages > 1 && (
         <div className="flex-center" style={{ gap: 12, marginTop: 24 }}>
-          <button className="btn btn-secondary btn-sm" disabled={page <= 1} onClick={() => { const p = page - 1; setPage(p); fetchPosts(p, keyword); }}>
+          <button className="btn btn-secondary btn-sm" disabled={page <= 1} onClick={() => { const p = page - 1; setPage(p); fetchPosts(p, keyword, sort); }}>
             上一页
           </button>
           <span className="text-secondary" style={{ fontSize: 14 }}>
             {page} / {totalPages}
           </span>
-          <button className="btn btn-secondary btn-sm" disabled={page >= totalPages} onClick={() => { const p = page + 1; setPage(p); fetchPosts(p, keyword); }}>
+          <button className="btn btn-secondary btn-sm" disabled={page >= totalPages} onClick={() => { const p = page + 1; setPage(p); fetchPosts(p, keyword, sort); }}>
             下一页
           </button>
         </div>

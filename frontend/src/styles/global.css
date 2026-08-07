@@ -1290,6 +1290,14 @@ img {
   to { opacity: 1; }
 }
 
+/* 搜索高亮 */
+mark {
+  background: #ffd54d;
+  color: #1e293b;
+  border-radius: 2px;
+  padding: 0 1px;
+}
+
 /* 未设置密码提示 */
 .password-tip-banner {
   background: #f59e0b22;

@@ -281,6 +281,66 @@ router.get('/statistics', authMiddleware, adminMiddleware, async (req, res) => {
     }
 });
 
+// 数据可视化看板（v2.2.0）
+router.get('/dashboard', authMiddleware, adminMiddleware, async (req, res) => {
+    try {
+        // 贡献点总量与今日变动
+        const totalContribution = await db.get(
+            'SELECT COALESCE(SUM(COALESCE(contribution, 0)), 0) AS total FROM users'
+        );
+        const todayCheckins = await db.get(
+            "SELECT COUNT(*) AS count FROM checkins WHERE checkin_date = DATE('now', 'localtime')"
+        );
+
+        // 近7天贡献点流动（按天）
+        const contributionFlow = await db.all(
+            `SELECT DATE(created_at) AS date, SUM(amount) AS amount
+             FROM contribution_logs
+             WHERE created_at >= DATETIME('now', '-7 days')
+             GROUP BY DATE(created_at)
+             ORDER BY date`
+        );
+
+        // 贡献点变动类型分布
+        const contributionByType = await db.all(
+            `SELECT type, COUNT(*) AS count, SUM(amount) AS amount
+             FROM contribution_logs
+             WHERE created_at >= DATETIME('now', '-30 days')
+             GROUP BY type
+             ORDER BY amount DESC`
+        );
+
+        // 近7天新增用户
+        const userGrowth = await db.all(
+            `SELECT DATE(created_at) AS date, COUNT(*) AS count
+             FROM users
+             WHERE created_at >= DATETIME('now', '-7 days')
+             GROUP BY DATE(created_at)
+             ORDER BY date`
+        );
+
+        // 贡献点排行 Top 8
+        const topContributors = await db.all(
+            `SELECT id, nickname, username, avatar, contribution
+             FROM users
+             ORDER BY contribution DESC
+             LIMIT 8`
+        );
+
+        res.json({
+            totalContribution: totalContribution.total,
+            todayCheckins: todayCheckins.count,
+            contributionFlow,
+            contributionByType,
+            userGrowth,
+            topContributors
+        });
+    } catch (error) {
+        logger.error('获取看板数据错误:', error);
+        res.status(500).json({ error: '获取看板数据失败' });
+    }
+});
+
 // 获取主题设置
 router.get('/theme', async (req, res) => {
     try {

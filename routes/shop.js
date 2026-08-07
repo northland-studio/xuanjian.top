@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const db = require('../database');
 const { getLocalTimestamp } = require('../database');
 const { authMiddleware, adminMiddleware } = require('../middleware/auth');
+const { addContributionLog } = require('../lib/contribution');
 const router = express.Router();
 
 const generateVerificationCode = () => {
@@ -14,6 +15,14 @@ const generateVerificationCode = () => {
     }
     return code;
 };
+
+// 本地时间 + N 天（权限有效期计算）
+function addDaysLocal(days) {
+    const now = new Date();
+    now.setDate(now.getDate() + (parseInt(days) || 0));
+    const offset = now.getTimezoneOffset() * 60000;
+    return new Date(now - offset).toISOString().slice(0, 19).replace('T', ' ');
+}
 
 router.get('/items', async (req, res) => {
     try {
@@ -103,6 +112,21 @@ router.post('/items/:id/buy', authMiddleware, async (req, res) => {
             }
             
             for (let i = 0; i < quantity; i++) {
+                // 权限类商品：购买即开通，记录有效期，无需核销码
+                if (item.type === 'permission') {
+                    const expiresAt = item.duration_days > 0 ? addDaysLocal(item.duration_days) : null;
+                    const result = await db.run(
+                        'INSERT INTO user_items (user_id, item_id, verification_code, expires_at) VALUES (?, ?, NULL, ?)',
+                        [req.userId, id, expiresAt]
+                    );
+                    purchasedItems.push({
+                        id: result.id,
+                        type: 'permission',
+                        expiresAt
+                    });
+                    continue;
+                }
+
                 const verificationCode = generateVerificationCode();
                 const result = await db.run(
                     'INSERT INTO user_items (user_id, item_id, verification_code) VALUES (?, ?, ?)',
@@ -123,6 +147,8 @@ router.post('/items/:id/buy', authMiddleware, async (req, res) => {
             }
         });
         
+        await addContributionLog(req.userId, -totalPrice, 'purchase', item.id, item.name);
+
         res.json({ message: '购买成功', totalPrice, purchasedItems });
     } catch (error) {
         logger.error('购买商品错误:', error);
@@ -145,6 +171,25 @@ router.get('/my-items', authMiddleware, async (req, res) => {
     } catch (error) {
         logger.error('获取我的商品错误:', error);
         res.status(500).json({ error: '获取我的商品失败' });
+    }
+});
+
+// 我的有效权限（兑换的仓库/机器使用权限）
+router.get('/my-permissions', authMiddleware, async (req, res) => {
+    try {
+        const items = await db.all(
+            `SELECT ui.*, si.name, si.description, si.type, si.image, si.duration_days
+             FROM user_items ui
+             JOIN shop_items si ON ui.item_id = si.id
+             WHERE ui.user_id = ? AND si.type = 'permission'
+               AND (ui.expires_at IS NULL OR ui.expires_at > datetime('now', 'localtime'))
+             ORDER BY ui.expires_at ASC`,
+            [req.userId]
+        );
+        res.json({ items });
+    } catch (error) {
+        logger.error('获取我的权限错误:', error);
+        res.status(500).json({ error: '获取我的权限失败' });
     }
 });
 
@@ -255,15 +300,15 @@ router.post('/confirm', authMiddleware, adminMiddleware, async (req, res) => {
 
 router.post('/items', authMiddleware, adminMiddleware, async (req, res) => {
     try {
-        const { name, description, type, ref_id, price, image, stock } = req.body;
+        const { name, description, type, ref_id, price, image, stock, duration_days } = req.body;
         
         if (!name || !type || price === undefined) {
             return res.status(400).json({ error: '商品名称、类型和价格不能为空' });
         }
         
         const result = await db.run(
-            'INSERT INTO shop_items (name, description, type, ref_id, price, image, stock) VALUES (?, ?, ?, ?, ?, ?, ?)',
-            [name, description || '', type, ref_id || null, price, image || '', stock !== undefined ? stock : -1]
+            'INSERT INTO shop_items (name, description, type, ref_id, price, image, stock, duration_days) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            [name, description || '', type, ref_id || null, price, image || '', stock !== undefined ? stock : -1, parseInt(duration_days) || 0]
         );
         
         res.status(201).json({ message: '商品创建成功', itemId: result.id });
@@ -276,11 +321,11 @@ router.post('/items', authMiddleware, adminMiddleware, async (req, res) => {
 router.put('/items/:id', authMiddleware, adminMiddleware, async (req, res) => {
     try {
         const { id } = req.params;
-        const { name, description, price, image, stock, is_active } = req.body;
+        const { name, description, price, image, stock, is_active, duration_days } = req.body;
         
         await db.run(
-            'UPDATE shop_items SET name = ?, description = ?, price = ?, image = ?, stock = ?, is_active = ?, updated_at = ? WHERE id = ?',
-            [name, description, price, image, stock, is_active ? 1 : 0, getLocalTimestamp(), id]
+            'UPDATE shop_items SET name = ?, description = ?, price = ?, image = ?, stock = ?, duration_days = ?, is_active = ?, updated_at = ? WHERE id = ?',
+            [name, description, price, image, stock, parseInt(duration_days) || 0, is_active ? 1 : 0, getLocalTimestamp(), id]
         );
         
         res.json({ message: '商品更新成功' });

@@ -6,12 +6,16 @@ import { useToast } from '../components/UI';
 import { formatDate } from '../utils';
 
 const TABS = [
+  { key: 'dashboard', label: '数据看板' },
   { key: 'banners', label: '轮播图管理' },
   { key: 'users', label: '用户管理' },
   { key: 'posts', label: '内容管理' },
   { key: 'announcements', label: '公告管理' },
   { key: 'shop', label: '商城管理' },
-  { key: 'claims', label: '申报审核' }
+  { key: 'claims', label: '申报审核' },
+  { key: 'tasks', label: '任务管理' },
+  { key: 'logs', label: '贡献点日志' },
+  { key: 'verify', label: '核销商品' }
 ];
 
 const LEVEL_NAMES = { 0: '成员', 1: '管理员', 2: '超级管理员' };
@@ -49,12 +53,16 @@ export default function Admin() {
         ))}
       </div>
 
+      {tab === 'dashboard' && <Dashboard showToast={showToast} />}
       {tab === 'banners' && <BannerManager showToast={showToast} />}
       {tab === 'users' && <UserManager showToast={showToast} isSuper={user.level >= 2} />}
       {tab === 'posts' && <PostManager showToast={showToast} />}
       {tab === 'announcements' && <AnnouncementManager showToast={showToast} />}
       {tab === 'shop' && <ShopManager showToast={showToast} />}
       {tab === 'claims' && <ClaimReview showToast={showToast} />}
+      {tab === 'tasks' && <TaskManager showToast={showToast} />}
+      {tab === 'logs' && <ContributionLogs showToast={showToast} />}
+      {tab === 'verify' && <VerifyManager showToast={showToast} />}
     </div>
   );
 }
@@ -458,10 +466,11 @@ function AnnouncementManager({ showToast }) {
 /* ============ 商城管理 ============ */
 const ITEM_TYPES = [
   { value: 'other', label: '物品' },
-  { value: 'title', label: '称号' }
+  { value: 'title', label: '称号' },
+  { value: 'permission', label: '使用权限' }
 ];
 
-const EMPTY_ITEM = { name: '', description: '', type: 'other', ref_id: '', price: '', image: '', stock: -1, is_active: true };
+const EMPTY_ITEM = { name: '', description: '', type: 'other', ref_id: '', price: '', image: '', stock: -1, duration_days: '', is_active: true };
 
 function ShopManager({ showToast }) {
   const [items, setItems] = useState([]);
@@ -497,6 +506,7 @@ function ShopManager({ showToast }) {
       price: item.price ?? '',
       image: item.image || '',
       stock: item.stock ?? -1,
+      duration_days: item.duration_days ?? '',
       is_active: !!item.is_active
     });
   };
@@ -530,6 +540,7 @@ function ShopManager({ showToast }) {
       price: Number(form.price),
       image: form.image,
       stock: form.stock === '' ? -1 : parseInt(form.stock),
+      duration_days: form.duration_days === '' ? 0 : parseInt(form.duration_days),
       is_active: form.is_active
     };
     try {
@@ -587,6 +598,13 @@ function ShopManager({ showToast }) {
             <label className="form-label">库存（-1 为不限量）</label>
             <input type="number" className="form-input" value={form.stock} onChange={e => setForm(f => ({ ...f, stock: e.target.value }))} />
           </div>
+          {form.type === 'permission' && (
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">有效期（天数）</label>
+              <input type="number" className="form-input" value={form.duration_days} onChange={e => setForm(f => ({ ...f, duration_days: e.target.value }))} placeholder="例如：30" min="1" />
+              <p className="text-secondary" style={{ fontSize: 12, marginTop: 4 }}>权限类商品兑换后立即生效，到期自动失效；留空或 0 表示长期有效</p>
+            </div>
+          )}
         </div>
         <div className="form-group mt-4">
           <label className="form-label">描述</label>
@@ -645,6 +663,7 @@ function ShopManager({ showToast }) {
                 </div>
                 <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
                   {item.price} 贡献点 · {item.stock === -1 ? '不限量' : `库存 ${item.stock}`}
+                  {item.type === 'permission' ? ` · 有效期 ${item.duration_days || 0} 天` : ''}
                   {item.ref_id ? ` · 称号ID ${item.ref_id}` : ''}
                 </div>
                 {item.description && <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>{item.description}</div>}
@@ -767,6 +786,359 @@ function ClaimReview({ showToast }) {
               )}
             </div>
           ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ============ 数据看板 ============ */
+function Dashboard({ showToast }) {
+  const [data, setData] = useState(null);
+
+  useEffect(() => {
+    api.get('/api/admin/dashboard')
+      .then(setData)
+      .catch(() => showToast('看板数据加载失败', 'error'));
+  }, [showToast]);
+
+  if (!data) return <div className="loading"><div className="spinner" />加载中...</div>;
+
+  const maxFlow = Math.max(...data.contributionFlow.map(d => Math.abs(d.amount)), 1);
+  const maxUsers = Math.max(...data.userGrowth.map(d => d.count), 1);
+  const TYPE_NAMES = { claim: '申报', task: '任务', transfer_in: '转入', transfer_out: '转出', purchase: '消费', reward: '签到', admin: '管理调整' };
+
+  return (
+    <div>
+      <div className="grid grid-3" style={{ gap: 12, marginBottom: 20 }}>
+        <div className="card" style={{ padding: 20 }}>
+          <div className="text-secondary" style={{ fontSize: 13 }}>贡献点总量</div>
+          <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--primary)', marginTop: 4 }}>{data.totalContribution}</div>
+        </div>
+        <div className="card" style={{ padding: 20 }}>
+          <div className="text-secondary" style={{ fontSize: 13 }}>今日签到</div>
+          <div style={{ fontSize: 28, fontWeight: 800, color: '#10b981', marginTop: 4 }}>{data.todayCheckins}</div>
+        </div>
+        <div className="card" style={{ padding: 20 }}>
+          <div className="text-secondary" style={{ fontSize: 13 }}>贡献点流动类型</div>
+          <div style={{ fontSize: 13, marginTop: 8, maxHeight: 90, overflowY: 'auto' }}>
+            {data.contributionByType.map(t => (
+              <div key={t.type} className="flex" style={{ justifyContent: 'space-between', padding: '2px 0' }}>
+                <span>{TYPE_NAMES[t.type] || t.type}</span>
+                <b>{t.amount > 0 ? '+' : ''}{t.amount}</b>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-2" style={{ gap: 12, marginBottom: 20 }}>
+        <div className="card" style={{ padding: 20 }}>
+          <h4 style={{ marginBottom: 12, fontSize: 15 }}>近7天贡献点流动</h4>
+          {data.contributionFlow.length === 0 ? <p className="text-secondary" style={{ fontSize: 13 }}>暂无数据</p> : (
+            <div className="flex" style={{ alignItems: 'flex-end', gap: 8, height: 120 }}>
+              {data.contributionFlow.map(d => (
+                <div key={d.date} style={{ flex: 1, textAlign: 'center' }}>
+                  <div style={{ fontSize: 11, color: d.amount >= 0 ? '#10b981' : '#ef4444', marginBottom: 4 }}>{d.amount > 0 ? '+' : ''}{d.amount}</div>
+                  <div style={{ height: Math.max(4, Math.abs(d.amount) / maxFlow * 80), background: d.amount >= 0 ? 'var(--primary)' : '#ef4444', borderRadius: '4px 4px 0 0' }} />
+                  <div style={{ fontSize: 10, color: 'var(--text-secondary)', marginTop: 4 }}>{d.date.slice(5)}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="card" style={{ padding: 20 }}>
+          <h4 style={{ marginBottom: 12, fontSize: 15 }}>近7天新增用户</h4>
+          {data.userGrowth.length === 0 ? <p className="text-secondary" style={{ fontSize: 13 }}>暂无数据</p> : (
+            <div className="flex" style={{ alignItems: 'flex-end', gap: 8, height: 120 }}>
+              {data.userGrowth.map(d => (
+                <div key={d.date} style={{ flex: 1, textAlign: 'center' }}>
+                  <div style={{ fontSize: 11, color: 'var(--primary)', marginBottom: 4 }}>{d.count}</div>
+                  <div style={{ height: Math.max(4, d.count / maxUsers * 80), background: 'var(--primary)', borderRadius: '4px 4px 0 0' }} />
+                  <div style={{ fontSize: 10, color: 'var(--text-secondary)', marginTop: 4 }}>{d.date.slice(5)}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="card" style={{ padding: 20 }}>
+        <h4 style={{ marginBottom: 12, fontSize: 15 }}>贡献点排行 Top 8</h4>
+        <div className="grid grid-4" style={{ gap: 10 }}>
+          {data.topContributors.map((u, i) => (
+            <div key={u.id} className="flex" style={{ gap: 10, alignItems: 'center', padding: '10px 12px', background: 'var(--input-bg)', borderRadius: 10 }}>
+              <span style={{ fontWeight: 800, color: i < 3 ? '#f59e0b' : 'var(--text-secondary)' }}>{i + 1}</span>
+              <img src={u.avatar || '/images/default-avatar.png'} alt="" style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover' }} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.nickname || u.username}</div>
+              </div>
+              <b style={{ fontSize: 13, color: 'var(--primary)' }}>{u.contribution}</b>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ============ 贡献点日志 ============ */
+const LOG_TYPE_NAMES = { claim: '申报', task: '任务', transfer_in: '转入', transfer_out: '转出', purchase: '商城消费', reward: '签到奖励', admin: '管理调整' };
+
+function ContributionLogs({ showToast }) {
+  const [logs, setLogs] = useState([]);
+  const [type, setType] = useState('');
+  const [loading, setLoading] = useState(true);
+
+  const fetchLogs = (t) => {
+    setLoading(true);
+    const q = t ? `?type=${t}` : '';
+    api.get(`/api/contributions/all-logs${q}`)
+      .then(d => setLogs(d.logs || []))
+      .catch(() => showToast('日志加载失败', 'error'))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => { fetchLogs(''); }, []);
+
+  return (
+    <div>
+      <div className="flex" style={{ gap: 10, marginBottom: 16 }}>
+        <select className="form-select" style={{ width: 160 }} value={type} onChange={e => { setType(e.target.value); fetchLogs(e.target.value); }}>
+          <option value="">全部类型</option>
+          {Object.entries(LOG_TYPE_NAMES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+        </select>
+        <span className="text-secondary" style={{ fontSize: 13, alignSelf: 'center' }}>共 {logs.length} 条</span>
+      </div>
+      {loading ? (
+        <div className="loading"><div className="spinner" /></div>
+      ) : logs.length === 0 ? (
+        <div className="empty-state"><p>暂无流水记录</p></div>
+      ) : (
+        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+          {logs.map(l => (
+            <div key={l.id} className="flex" style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', gap: 12, alignItems: 'center' }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 14, fontWeight: 600 }}>{l.nickname || l.username}</div>
+                <div className="text-secondary" style={{ fontSize: 12 }}>{formatDate(l.created_at, false)}</div>
+              </div>
+              <span className="badge badge-gray" style={{ fontSize: 11 }}>{LOG_TYPE_NAMES[l.type] || l.type}</span>
+              <b style={{ fontSize: 14, color: l.amount >= 0 ? '#10b981' : '#ef4444' }}>{l.amount >= 0 ? '+' : ''}{l.amount}</b>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ============ 任务管理 ============ */
+function TaskManager({ showToast }) {
+  const [tasks, setTasks] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({ title: '', description: '', image: '', reward: '' });
+  const [createdCode, setCreatedCode] = useState('');
+  const [expanded, setExpanded] = useState(null);
+  const [claims, setClaims] = useState([]);
+
+  const fetchTasks = () => {
+    setLoading(true);
+    api.get('/api/tasks/admin/list')
+      .then(d => setTasks(d.tasks || []))
+      .catch(() => showToast('任务加载失败', 'error'))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(fetchTasks, []);
+
+  const createTask = async () => {
+    if (!form.title.trim() || !form.reward) { showToast('请填写标题与奖励', 'error'); return; }
+    try {
+      const d = await api.post('/api/tasks', { ...form, reward: parseInt(form.reward) });
+      showToast('任务创建成功', 'success');
+      setCreatedCode(d.code);
+      setForm({ title: '', description: '', image: '', reward: '' });
+      setShowForm(false);
+      fetchTasks();
+    } catch (e) {
+      showToast(e.message || '创建失败', 'error');
+    }
+  };
+
+  const toggleActive = async (t) => {
+    try {
+      await api.put(`/api/tasks/${t.id}`, { title: t.title, description: t.description, image: t.image, reward: t.reward, isActive: t.is_active ? 0 : 1 });
+      showToast(t.is_active ? '已下线' : '已上线', 'success');
+      fetchTasks();
+    } catch (e) {
+      showToast(e.message, 'error');
+    }
+  };
+
+  const loadClaims = async (taskId) => {
+    if (expanded === taskId) { setExpanded(null); return; }
+    try {
+      const d = await api.get(`/api/tasks/${taskId}/claims`);
+      setClaims(d.claims || []);
+      setExpanded(taskId);
+    } catch (e) {
+      showToast(e.message, 'error');
+    }
+  };
+
+  return (
+    <div>
+      <div className="flex" style={{ gap: 10, marginBottom: 16 }}>
+        <button className="btn btn-primary" onClick={() => setShowForm(!showForm)}>{showForm ? '收起表单' : '创建任务'}</button>
+        {createdCode && (
+          <div className="flex" style={{ gap: 8, alignItems: 'center' }}>
+            <span className="text-secondary" style={{ fontSize: 13 }}>完成验证码（仅管理员可见，请发给完成任务者）：</span>
+            <code style={{ background: '#fff3cd', padding: '4px 10px', borderRadius: 6, fontSize: 14, fontWeight: 700, color: '#b45309' }}>{createdCode}</code>
+            <button className="btn btn-secondary btn-sm" onClick={() => setCreatedCode('')}>关闭</button>
+          </div>
+        )}
+      </div>
+
+      {showForm && (
+        <div className="card" style={{ padding: 20, marginBottom: 16 }}>
+          <h4 style={{ marginBottom: 12 }}>创建任务</h4>
+          <div style={{ display: 'grid', gap: 10 }}>
+            <input className="form-input" placeholder="任务标题 *" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} />
+            <textarea className="form-input" rows={2} placeholder="任务说明" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} />
+            <input className="form-input" placeholder="配图 URL（可留空）" value={form.image} onChange={e => setForm({ ...form, image: e.target.value })} />
+            <input className="form-input" type="number" placeholder="贡献点奖励 *" value={form.reward} onChange={e => setForm({ ...form, reward: e.target.value })} />
+          </div>
+          <div className="flex" style={{ gap: 10, marginTop: 12, justifyContent: 'flex-end' }}>
+            <button className="btn btn-secondary" onClick={() => setShowForm(false)}>取消</button>
+            <button className="btn btn-primary" onClick={createTask}>创建</button>
+          </div>
+        </div>
+      )}
+
+      {loading ? (
+        <div className="loading"><div className="spinner" /></div>
+      ) : tasks.length === 0 ? (
+        <div className="empty-state"><p>暂无任务</p></div>
+      ) : (
+        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+          {tasks.map(t => (
+            <div key={t.id} style={{ borderBottom: '1px solid var(--border)' }}>
+              <div className="flex" style={{ padding: '14px 16px', gap: 12, alignItems: 'center' }}>
+                {t.image && <img src={t.image} alt="" style={{ width: 48, height: 48, borderRadius: 8, objectFit: 'cover' }} />}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 600 }}>{t.title} {!t.is_active && <span className="badge badge-gray" style={{ fontSize: 10 }}>已下线</span>}</div>
+                  <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
+                    奖励 {t.reward} · 领取 {t.claim_count} · 完成 {t.completed_count} · 验证码 <code style={{ background: 'var(--input-bg)', padding: '1px 5px', borderRadius: 4, fontSize: 11 }}>{t.code}</code>
+                  </div>
+                </div>
+                <button className="btn btn-secondary btn-sm" onClick={() => loadClaims(t.id)}>{expanded === t.id ? '收起' : '领取记录'}</button>
+                <button className="btn btn-secondary btn-sm" onClick={() => toggleActive(t)}>{t.is_active ? '下线' : '上线'}</button>
+              </div>
+              {expanded === t.id && (
+                <div style={{ padding: '0 16px 14px 16px' }}>
+                  {claims.length === 0 ? <p className="text-secondary" style={{ fontSize: 13 }}>暂无成员接取</p> : (
+                    claims.map(c => (
+                      <div key={c.id} className="flex" style={{ padding: '8px 12px', background: 'var(--input-bg)', borderRadius: 8, marginBottom: 6, gap: 10, alignItems: 'center' }}>
+                        <div style={{ flex: 1, fontSize: 13 }}>{c.nickname || c.username} <span className="text-secondary" style={{ fontSize: 11 }}>@{c.username}</span></div>
+                        {c.status === 'completed' ? (
+                          <span className="badge badge-success" style={{ fontSize: 11 }}>已完成 {c.completed_at ? formatDate(c.completed_at, false) : ''}</span>
+                        ) : (
+                          <span className="badge badge-gray" style={{ fontSize: 11 }}>进行中</span>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ============ 核销商品 ============ */
+function VerifyManager({ showToast }) {
+  const [code, setCode] = useState('');
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState('');
+  const [checking, setChecking] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+
+  const verify = async () => {
+    if (!code.trim()) { showToast('请输入核销码', 'error'); return; }
+    setChecking(true);
+    setError('');
+    setResult(null);
+    try {
+      const d = await api.post('/api/shop/verify', { code: code.trim() });
+      setResult(d.item);
+    } catch (e) {
+      setError(e.message);
+      showToast(e.message, 'error');
+    } finally {
+      setChecking(false);
+    }
+  };
+
+  const confirm = async () => {
+    if (!confirm('确认核销此商品？')) return;
+    setConfirming(true);
+    try {
+      const d = await api.post('/api/shop/confirm', { code: code.trim() });
+      showToast(`${d.message}（${d.itemName}）`, 'success');
+      setResult(null);
+      setCode('');
+    } catch (e) {
+      setError(e.message);
+      showToast(e.message, 'error');
+    } finally {
+      setConfirming(false);
+    }
+  };
+
+  return (
+    <div>
+      <div className="card" style={{ padding: 20, maxWidth: 520, marginBottom: 16 }}>
+        <h4 style={{ marginBottom: 6 }}>核销商品</h4>
+        <p className="text-secondary" style={{ fontSize: 13, marginBottom: 14 }}>输入成员提供的核销码，验证后确认核销（用于线下交付凭证）</p>
+        <div className="flex" style={{ gap: 10 }}>
+          <input
+            className="form-input"
+            placeholder="请输入核销码"
+            value={code}
+            onChange={e => { setCode(e.target.value); setResult(null); setError(''); }}
+            style={{ flex: 1 }}
+            onKeyDown={e => e.key === 'Enter' && verify()}
+          />
+          <button className="btn btn-primary" disabled={checking} onClick={verify}>{checking ? '验证中...' : '验证'}</button>
+        </div>
+      </div>
+
+      {error && (
+        <div className="card" style={{ padding: 20, maxWidth: 520, background: 'rgba(239,68,68,0.06)', borderColor: 'rgba(239,68,68,0.3)' }}>
+          <div style={{ color: '#ef4444', fontSize: 14, fontWeight: 600 }}>✗ {error}</div>
+        </div>
+      )}
+
+      {result && (
+        <div className="card" style={{ padding: 20, maxWidth: 520 }}>
+          <h4 style={{ color: '#10b981', marginBottom: 12 }}>✓ 核销码有效</h4>
+          <div style={{ fontSize: 14, lineHeight: 2 }}>
+            <div><span className="text-secondary">商品：</span><b>{result.name}</b></div>
+            <div><span className="text-secondary">类型：</span>{result.type === 'title' ? '称号' : '其他'}</div>
+            <div><span className="text-secondary">购买人：</span>{result.buyer}</div>
+            <div><span className="text-secondary">购买时间：</span>{formatDate(result.purchasedAt, false)}</div>
+            {result.description && <div><span className="text-secondary">说明：</span>{result.description}</div>}
+          </div>
+          <div className="flex" style={{ gap: 10, marginTop: 16, justifyContent: 'flex-end' }}>
+            <button className="btn btn-secondary" onClick={() => setResult(null)}>取消</button>
+            <button className="btn btn-success" style={{ background: '#10b981' }} disabled={confirming} onClick={confirm}>
+              {confirming ? '核销中...' : '确认核销'}
+            </button>
+          </div>
         </div>
       )}
     </div>

@@ -23,6 +23,9 @@ const rankingRoutes = require('./routes/rankings');
 const oauthRoutes = require('./routes/oauth');
 const bannerRoutes = require('./routes/banners');
 const updateRoutes = require('./routes/updates');
+const contributionRoutes = require('./routes/contributions');
+const taskRoutes = require('./routes/tasks');
+const favoriteRoutes = require('./routes/favorites');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -116,6 +119,9 @@ app.use('/api/rankings', rankingRoutes);
 app.use('/api/oauth', oauthRoutes);
 app.use('/api/banners', bannerRoutes);
 app.use('/api/updates', updateRoutes);
+app.use('/api/contributions', contributionRoutes);
+app.use('/api/tasks', taskRoutes);
+app.use('/api/favorites', favoriteRoutes);
 
 // ============ React前端（frontend/dist）托管 ============
 const frontendDist = path.join(__dirname, 'frontend', 'dist');

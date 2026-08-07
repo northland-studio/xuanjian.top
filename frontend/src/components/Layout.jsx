@@ -46,6 +46,8 @@ export default function Layout({ children }) {
     { to: '/daily', label: '日报' },
     { to: '/decision', label: '决策' },
     { to: '/forum', label: '贴吧' },
+    { to: '/tasks', label: '任务' },
+    { to: '/following', label: '动态' },
     { to: '/shop', label: '商城' },
     { to: '/rankings', label: '排行榜' },
     { to: '/social', label: '社交媒体' }

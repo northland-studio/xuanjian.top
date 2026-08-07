@@ -68,10 +68,36 @@ export default function Inventory() {
                 )}
                 <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>{it.name}</h3>
                 <p className="text-secondary" style={{ fontSize: 12, marginBottom: 10 }}>{it.description || ''}</p>
-                <div style={{ fontSize: 13, marginBottom: 10 }}>
-                  <span className="text-secondary">兑换码：</span>
-                  <code style={{ background: 'var(--input-bg)', padding: '2px 8px', borderRadius: 6, fontSize: 13, color: 'var(--primary)', fontWeight: 600 }}>{it.verification_code}</code>
-                </div>
+                {it.type === 'permission' ? (
+                  <div style={{ fontSize: 12, marginBottom: 8 }}>
+                    {it.expires_at ? (
+                      <>
+                        <span className="badge badge-success">使用中</span>
+                        <div className="text-secondary" style={{ marginTop: 4 }}>有效期至 {formatDate(it.expires_at)}</div>
+                      </>
+                    ) : (
+                      <span className="badge badge-success">长期有效</span>
+                    )}
+                  </div>
+                ) : it.verification_code ? (
+                  <>
+                    <div style={{ fontSize: 13, marginBottom: 8 }}>
+                      <span className="text-secondary">核销码：</span>
+                      <code style={{ background: 'var(--input-bg)', padding: '2px 8px', borderRadius: 6, fontSize: 13, color: 'var(--primary)', fontWeight: 600 }}>{it.verification_code}</code>
+                    </div>
+                    <div style={{ fontSize: 12, marginBottom: 8 }}>
+                      {it.verified_at ? (
+                        <span className="badge badge-success">已核销 {formatDate(it.verified_at, false)}</span>
+                      ) : (
+                        <span className="badge badge-warning">待核销</span>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <div style={{ fontSize: 12, marginBottom: 10 }}>
+                    <span className="badge badge-success">已发放</span>
+                  </div>
+                )}
                 <div className="text-secondary" style={{ fontSize: 12 }}>兑换于 {formatDate(it.purchased_at, false)}</div>
               </div>
             ))}

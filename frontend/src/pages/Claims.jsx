@@ -11,6 +11,16 @@ const STATUS_META = {
   rejected: { label: '已驳回', color: 'var(--danger)' }
 };
 
+const LOG_TYPE_META = {
+  claim: { label: '申报', color: 'var(--success)' },
+  task_reward: { label: '任务奖励', color: 'var(--success)' },
+  transfer_in: { label: '转入', color: 'var(--success)' },
+  transfer_out: { label: '转出', color: 'var(--danger)' },
+  purchase: { label: '商城消费', color: 'var(--danger)' },
+  reward: { label: '签到奖励', color: 'var(--success)' },
+  admin: { label: '管理员调整', color: 'var(--warning)' }
+};
+
 export default function Claims() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -26,6 +36,16 @@ export default function Claims() {
   const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState('pending');
+
+  // 互转 / 流水
+  const [pageTab, setPageTab] = useState('claim');
+  const [toUsername, setToUsername] = useState('');
+  const [transferAmount, setTransferAmount] = useState('');
+  const [transferNote, setTransferNote] = useState('');
+  const [transferring, setTransferring] = useState(false);
+  const [logs, setLogs] = useState([]);
+  const [logType, setLogType] = useState('');
+  const [logsLoading, setLogsLoading] = useState(false);
 
   useEffect(() => {
     if (!requireLogin(navigate)) return;
@@ -94,17 +114,146 @@ export default function Claims() {
     }
   };
 
+  const fetchLogs = async (type = '') => {
+    setLogsLoading(true);
+    try {
+      const data = await api.get(`/api/contributions/logs?limit=50${type ? `&type=${type}` : ''}`);
+      setLogs(data.logs || []);
+    } catch (e) {
+      setLogs([]);
+    } finally {
+      setLogsLoading(false);
+    }
+  };
+
+  const doTransfer = async () => {
+    const amt = parseInt(transferAmount);
+    if (!toUsername.trim()) { showToast('请输入对方用户名', 'error'); return; }
+    if (!amt || amt <= 0) { showToast('请填写有效的转账数量', 'error'); return; }
+    setTransferring(true);
+    try {
+      // 通过用户名解析目标用户 ID
+      const target = await api.get(`/api/auth/user/${toUsername.trim()}`);
+      const toUserId = target?.user?.id;
+      if (!toUserId) { showToast('用户不存在', 'error'); return; }
+      await api.post('/api/contributions/transfer', { toUserId, amount: amt, note: transferNote.trim() });
+      showToast('转账成功', 'success');
+      setToUsername('');
+      setTransferAmount('');
+      setTransferNote('');
+      fetchLogs(logType);
+    } catch (e) {
+      showToast(e.message || '转账失败', 'error');
+    } finally {
+      setTransferring(false);
+    }
+  };
+
+  const switchPageTab = (t) => {
+    setPageTab(t);
+    if (t === 'logs' && logs.length === 0) fetchLogs();
+  };
+
   const isAdmin = user?.level >= 1;
 
   return (
     <div className="fade-in-up">
       <div className="page-banner" style={{ backgroundImage: 'linear-gradient(rgba(0,0,0,0.45), rgba(0,0,0,0.45)), url(/7.png?v=20260806)' }}>
         <div className="page-banner-content">
-          <h1>贡献点申报</h1>
-          <p>申报你的公会贡献，支持上传图片作为证明材料</p>
+          <h1>贡献点</h1>
+          <p>申报贡献、成员互转、查看明细流水</p>
         </div>
       </div>
 
+      <div className="flex" style={{ gap: 10, marginBottom: 20 }}>
+        <button className={`btn ${pageTab === 'claim' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setPageTab('claim')}>贡献点申报</button>
+        <button className={`btn ${pageTab === 'transfer' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setPageTab('transfer')}>贡献点互转</button>
+        <button className={`btn ${pageTab === 'logs' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => switchPageTab('logs')}>我的流水</button>
+      </div>
+
+      {pageTab === 'transfer' && (
+        <div className="grid grid-2" style={{ gap: 16, alignItems: 'start' }}>
+          <div className="card" style={{ padding: 24 }}>
+            <h3 style={{ fontSize: 17, fontWeight: 700, marginBottom: 8 }}>转账给其他成员</h3>
+            <p className="text-secondary" style={{ fontSize: 12, marginBottom: 18 }}>单次上限 1000 贡献点，每日累计转出上限 1000。转账后将通知对方。</p>
+            <div className="form-group">
+              <label className="form-label">对方用户名</label>
+              <input className="form-input" value={toUsername} onChange={e => setToUsername(e.target.value)} placeholder="输入对方的用户名，如 xuanjian" />
+            </div>
+            <div className="form-group">
+              <label className="form-label">转账数量</label>
+              <input type="number" className="form-input" value={transferAmount} onChange={e => setTransferAmount(e.target.value)} placeholder="例如：50" min="1" />
+            </div>
+            <div className="form-group">
+              <label className="form-label">备注（可选）</label>
+              <input className="form-input" value={transferNote} onChange={e => setTransferNote(e.target.value)} placeholder="转账用途说明" />
+            </div>
+            <div className="flex-between" style={{ alignItems: 'center' }}>
+              <span className="text-secondary" style={{ fontSize: 13 }}>我的贡献点：{user?.contribution ?? 0}</span>
+              <button className="btn btn-primary" onClick={doTransfer} disabled={transferring}>
+                {transferring ? '转账中...' : '确认转账'}
+              </button>
+            </div>
+          </div>
+          <div className="card" style={{ padding: 24 }}>
+            <h3 style={{ fontSize: 17, fontWeight: 700, marginBottom: 16 }}>互转说明</h3>
+            <div className="flex-col" style={{ gap: 14 }}>
+              {[
+                '按劳分配：贡献点代表你为公会建设做出的贡献',
+                '可通过他人转入、完成任务、自行申报获得',
+                '贡献点可兑换公会仓库或机器的使用权限',
+                '转账前请确认对方用户名正确，转账后不可撤销',
+                '每日转出上限 1000 贡献点，防止恶意刷点'
+              ].map((t, i) => (
+                <div key={i} className="flex" style={{ gap: 10, fontSize: 14, lineHeight: 1.6 }}>
+                  <span style={{ width: 20, height: 20, borderRadius: '50%', background: 'var(--primary)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, flexShrink: 0 }}>{i + 1}</span>
+                  <span>{t}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {pageTab === 'logs' && (
+        <div className="card" style={{ padding: 24 }}>
+          <div className="flex-between mb-3" style={{ flexWrap: 'wrap', gap: 10 }}>
+            <h3 style={{ fontSize: 17, fontWeight: 700 }}>我的贡献点流水</h3>
+            <div className="flex" style={{ gap: 8, flexWrap: 'wrap' }}>
+              <button className={`btn btn-sm ${!logType ? 'btn-primary' : 'btn-secondary'}`} onClick={() => { setLogType(''); fetchLogs(''); }}>全部</button>
+              {Object.entries(LOG_TYPE_META).map(([k, v]) => (
+                <button key={k} className={`btn btn-sm ${logType === k ? 'btn-primary' : 'btn-secondary'}`} onClick={() => { setLogType(k); fetchLogs(k); }}>{v.label}</button>
+              ))}
+            </div>
+          </div>
+          {logsLoading ? (
+            <div className="loading" style={{ padding: 20 }}><div className="spinner" /></div>
+          ) : logs.length === 0 ? (
+            <div className="empty-state" style={{ padding: 20 }}><p>暂无流水记录</p></div>
+          ) : (
+            <div className="flex-col" style={{ gap: 10 }}>
+              {logs.map(l => {
+                const meta = LOG_TYPE_META[l.type] || { label: l.type, color: 'var(--text-secondary)' };
+                const positive = (l.amount ?? 0) >= 0;
+                return (
+                  <div key={l.id} className="flex-between" style={{ padding: '12px 14px', background: 'var(--input-bg)', borderRadius: 10, alignItems: 'center' }}>
+                    <div style={{ minWidth: 0 }}>
+                      <div className="flex" style={{ gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                        <span style={{ fontWeight: 700, color: positive ? 'var(--success)' : 'var(--danger)' }}>{positive ? '+' : ''}{l.amount} 贡献点</span>
+                        <span className="badge" style={{ background: `${meta.color}1a`, color: meta.color }}>{meta.label}</span>
+                      </div>
+                      {l.note && <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>{l.note}</div>}
+                    </div>
+                    <span className="text-secondary" style={{ fontSize: 12, flexShrink: 0 }}>{formatDate(l.created_at, false)}</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {pageTab === 'claim' && (
       <div className="grid grid-2" style={{ gap: 16, alignItems: 'start' }}>
         {/* 申报表单 */}
         <div className="card" style={{ padding: 24 }}>
@@ -189,6 +338,8 @@ export default function Claims() {
           )}
         </div>
       </div>
+      )}
+
     </div>
   );
 }

@@ -36,7 +36,7 @@ router.get('/public-stats', async (req, res) => {
 
 router.get('/', async (req, res) => {
     try {
-        const { type, page = 1, limit = 10, search, tag, author } = req.query;
+        const { type, page = 1, limit = 10, search, tag, author, sort } = req.query;
         const offset = (page - 1) * limit;
         
         let whereClause = 'WHERE p.status = "active"';
@@ -68,6 +68,11 @@ router.get('/', async (req, res) => {
             params
         );
         
+        // 排序：latest 最新 / hot 热度（点赞+评论+阅读加权）
+        const orderClause = sort === 'hot'
+            ? 'ORDER BY p.is_pinned DESC, (p.likes * 3 + p.comments_count * 2 + p.views) DESC'
+            : 'ORDER BY p.is_pinned DESC, p.created_at DESC';
+        
         const posts = await db.all(
             `SELECT p.*, u.nickname as author_nickname, u.avatar as author_avatar, u.username as author_username,
                     t.name as author_title_name, t.color as author_title_color
@@ -75,7 +80,7 @@ router.get('/', async (req, res) => {
              LEFT JOIN users u ON p.author_id = u.id
              LEFT JOIN titles t ON u.equipped_title = t.id
              ${whereClause}
-             ORDER BY p.is_pinned DESC, p.created_at DESC
+             ${orderClause}
              LIMIT ? OFFSET ?`,
             [...params, parseInt(limit), parseInt(offset)]
         );

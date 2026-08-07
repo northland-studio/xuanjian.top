@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../components/UI';
 import { formatDate } from '../utils';
 import PostCard from '../components/PostCard';
 
@@ -9,11 +10,14 @@ export default function Profile() {
   const { username: paramUsername } = useParams();
   const navigate = useNavigate();
   const { user: me } = useAuth();
+  const { showToast } = useToast();
 
   const [profile, setProfile] = useState(null);
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [followStatus, setFollowStatus] = useState({ following: false, followers: 0, followingCount: 0 });
+  const [followBusy, setFollowBusy] = useState(false);
 
   const isSelf = !paramUsername || (me && me.username === paramUsername);
 
@@ -47,6 +51,29 @@ export default function Profile() {
       .then(data => setPosts(data.posts || []))
       .catch(() => {});
   }, [profile]);
+
+  // 非本人：加载关注状态
+  useEffect(() => {
+    if (!profile || isSelf || !me) return;
+    api.get(`/api/favorites/users/${profile.user.id}/status`)
+      .then(d => setFollowStatus({ following: !!d.following, followers: d.followers || 0, followingCount: d.followingCount || 0 }))
+      .catch(() => {});
+  }, [profile, isSelf, me]);
+
+  const toggleFollow = async () => {
+    if (!me) { navigate('/login?redirect=/profile'); return; }
+    if (followBusy) return;
+    setFollowBusy(true);
+    try {
+      const data = await api.post(`/api/favorites/users/${profile.user.id}`);
+      setFollowStatus(s => ({ ...s, following: !!data.following, followers: Math.max(0, s.followers + (data.following ? 1 : -1)) }));
+      showToast(data.following ? '关注成功' : '已取消关注', 'success');
+    } catch (e) {
+      showToast(e.message || '操作失败', 'error');
+    } finally {
+      setFollowBusy(false);
+    }
+  };
 
   if (loading) return <div className="loading"><div className="spinner" />加载中...</div>;
   if (notFound || !profile) {
@@ -105,6 +132,14 @@ export default function Profile() {
                   <Link to="/admin" className="btn btn-primary btn-sm">管理后台</Link>
                 )}
                 <Link to="/settings" className="btn btn-secondary btn-sm">编辑资料</Link>
+              </div>
+            )}
+            {!isSelf && (
+              <div className="flex" style={{ gap: 8, paddingBottom: 2, flexShrink: 0, alignItems: 'center' }}>
+                <span className="text-secondary" style={{ fontSize: 12 }}>粉丝 {followStatus.followers}</span>
+                <button className={`btn btn-sm ${followStatus.following ? 'btn-secondary' : 'btn-primary'}`} onClick={toggleFollow} disabled={followBusy}>
+                  {followStatus.following ? '已关注' : '关注'}
+                </button>
               </div>
             )}
           </div>

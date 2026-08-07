@@ -1,8 +1,8 @@
 import { Link } from 'react-router-dom';
-import { timeAgo, TYPE_META, parseTags, stripHtml } from '../utils';
+import { timeAgo, TYPE_META, parseTags, stripHtml, highlightHtml } from '../utils';
 
 // 内容卡片（日报/决策/贴吧通用）
-export default function PostCard({ post }) {
+export default function PostCard({ post, highlight = '' }) {
   const type = TYPE_META[post.type] || TYPE_META.forum;
   const tags = parseTags(post.tags);
 
@@ -41,13 +41,13 @@ export default function PostCard({ post }) {
           {post.is_pinned === 1 && (
             <span className="badge badge-danger mr-1" style={{ marginRight: 6, fontSize: 11 }}>置顶</span>
           )}
-          {post.title}
+          <span dangerouslySetInnerHTML={{ __html: highlightHtml(post.title, highlight) }} />
         </h3>
       </Link>
 
       {post.content && (
         <p className="post-excerpt" style={{ fontSize: 13.5, color: 'var(--text-secondary)', marginBottom: 12, lineHeight: 1.7, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-          {stripHtml(post.content)}
+          <span dangerouslySetInnerHTML={{ __html: highlightHtml(stripHtml(post.content), highlight) }} />
         </p>
       )}
 

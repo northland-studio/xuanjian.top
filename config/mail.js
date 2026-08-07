@@ -257,6 +257,43 @@ async function sendClaimResult(email, claim, status, reviewNote) {
     return await sendEmail(email, `玄剑公会 - 贡献点申报${statusText}`, html);
 }
 
+// 任务完成奖励邮件
+async function sendTaskResult(email, task, user) {
+    const html = getEmailTemplate({
+        title: '任务完成，贡献点已发放',
+        greeting: `您好，${user.nickname || user.username}！`,
+        content: `
+            <p style="margin: 0 0 24px 0; color: #475569; font-size: 16px; line-height: 1.6;">
+                您已成功完成任务，贡献点奖励已发放至您的账户。
+            </p>
+            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background: #f8fafc; border-radius: 12px; padding: 24px;">
+                <tr>
+                    <td style="padding: 8px 0;">
+                        <span style="color: #64748b; font-size: 14px;">任务名称：</span>
+                        <span style="color: #1e293b; font-size: 16px; font-weight: 600;">${task.title}</span>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px 0;">
+                        <span style="color: #64748b; font-size: 14px;">奖励：</span>
+                        <span style="color: #f59e0b; font-size: 20px; font-weight: 700;">${task.reward}</span>
+                        <span style="color: #64748b; font-size: 14px;">贡献点</span>
+                    </td>
+                </tr>
+            </table>
+            <p style="margin: 24px 0 0 0; color: #10b981; font-size: 16px; font-weight: 600; text-align: center;">
+                贡献点已到账，请前往任务中心查看
+            </p>
+        `,
+        actionButton: {
+            text: '前往任务中心',
+            url: `${SITE_URL}/tasks`
+        },
+        accentColor: '#10b981'
+    });
+    return await sendEmail(email, '玄剑公会 - 任务完成奖励', html);
+}
+
 module.exports = {
     transporter,
     sendEmail,
@@ -264,5 +301,6 @@ module.exports = {
     sendVerificationCode,
     sendPasswordReset,
     sendClaimNotification,
-    sendClaimResult
+    sendClaimResult,
+    sendTaskResult
 };

@@ -3,6 +3,7 @@ const logger = require('../lib/logger');
 const db = require('../database');
 const { getLocalTimestamp } = require('../database');
 const { authMiddleware, adminMiddleware } = require('../middleware/auth');
+const { addContributionLog } = require('../lib/contribution');
 const router = express.Router();
 
 function getTodayDate() {
@@ -55,7 +56,7 @@ router.post('/checkin', authMiddleware, async (req, res) => {
         const rewardPoints = await getRewardForDays(continuousDays);
         
         await db.transaction(async () => {
-            await db.run(
+            const result = await db.run(
                 'INSERT INTO checkins (user_id, checkin_date, continuous_days, reward_points, created_at) VALUES (?, ?, ?, ?, ?)',
                 [req.userId, today, continuousDays, rewardPoints, getLocalTimestamp()]
             );
@@ -64,6 +65,8 @@ router.post('/checkin', authMiddleware, async (req, res) => {
                 'UPDATE users SET contribution = COALESCE(contribution, 0) + ? WHERE id = ?',
                 [rewardPoints, req.userId]
             );
+
+            await addContributionLog(req.userId, rewardPoints, 'reward', result.id, `连续签到${continuousDays}天`);
         });
         
         const user = await db.get('SELECT contribution FROM users WHERE id = ?', [req.userId]);
@@ -147,7 +150,7 @@ router.post('/makeup', authMiddleware, async (req, res) => {
         const rewardPoints = await getRewardForDays(continuousDays);
         
         await db.transaction(async () => {
-            await db.run(
+            const result = await db.run(
                 'INSERT INTO checkins (user_id, checkin_date, continuous_days, reward_points, created_at) VALUES (?, ?, ?, ?, ?)',
                 [req.userId, targetDate, continuousDays, rewardPoints, getLocalTimestamp()]
             );
@@ -166,6 +169,8 @@ router.post('/makeup', authMiddleware, async (req, res) => {
                 'UPDATE users SET contribution = COALESCE(contribution, 0) + ? WHERE id = ?',
                 [rewardPoints, req.userId]
             );
+
+            await addContributionLog(req.userId, rewardPoints, 'reward', result.id, `补签${targetDate}连续${continuousDays}天`);
             
             if (afterCheckin) {
                 const newContinuousDays = continuousDays + 1;

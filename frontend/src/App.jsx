@@ -20,6 +20,8 @@ import Inventory from './pages/Inventory';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import Admin from './pages/Admin';
+import Tasks from './pages/Tasks';
+import Following from './pages/Following';
 
 export default function App() {
   return (
@@ -50,6 +52,8 @@ export default function App() {
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/admin" element={<Admin />} />
+        <Route path="/tasks" element={<Tasks />} />
+        <Route path="/following" element={<Following />} />
         <Route path="*" element={<Home />} />
         </Routes>
       </Layout>

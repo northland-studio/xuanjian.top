@@ -58,3 +58,16 @@ export function stripHtml(html) {
   div.innerHTML = html;
   return (div.textContent || div.innerText || '').replace(/\s+/g, ' ').trim();
 }
+
+// 高亮匹配关键词（返回安全 HTML，配合 dangerouslySetInnerHTML 使用）
+export function highlightHtml(text, keyword) {
+  if (!text) return '';
+  const safe = String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+  if (!keyword) return safe;
+  const kw = keyword.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  if (!kw) return safe;
+  return safe.replace(new RegExp(`(${kw})`, 'gi'), '<mark>$1</mark>');
+}
