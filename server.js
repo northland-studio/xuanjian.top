@@ -35,8 +35,9 @@ const PORT = process.env.PORT || 3000;
 async function trackPageView() {
     try {
         await db.run(
-            `INSERT INTO page_views (date, pv) VALUES (DATE('now', 'localtime'), 1)
-             ON CONFLICT(date) DO UPDATE SET pv = pv + 1, updated_at = db.getLocalTimestamp()`
+            `INSERT INTO page_views (date, pv, updated_at) VALUES (DATE('now', 'localtime'), 1, ?)
+             ON CONFLICT(date) DO UPDATE SET pv = pv + 1, updated_at = excluded.updated_at`,
+            [db.getLocalTimestamp()]
         );
     } catch (e) {
         // 表不存在时静默忽略，不影响页面访问
