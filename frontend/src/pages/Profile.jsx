@@ -107,12 +107,12 @@ export default function Profile() {
               right: 24,
               zIndex: 2,
               width: 165,
-              height: 110,
+              height: 88,
               filter: 'drop-shadow(0 8px 20px rgba(0,0,0,0.35))',
               cursor: 'pointer'
             }}
           >
-            <SkinViewer skin={u.skin_path} width={165} height={110} autoRotate={false} animation="random" animationSpeed={0.6} zoom={0.64} name={u.game_id || u.username} />
+            <SkinViewer skin={u.skin_path} width={165} height={88} autoRotate={false} animation="random" animationSpeed={0.6} zoom={0.96} name={u.game_id || u.username} />
           </div>
         )}
         <div style={{ padding: '0 24px 24px' }}>
