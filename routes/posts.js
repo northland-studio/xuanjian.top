@@ -219,7 +219,7 @@ router.post('/', authMiddleware, async (req, res) => {
             [title, content, type, req.userId, tags, JSON.stringify(images || []), getLocalTimestamp(), getLocalTimestamp()]
         );
 
-        await db.run('UPDATE users SET contribution = COALESCE(contribution, 0) + 5 WHERE id = ?', [req.userId]);
+        await db.run('UPDATE users SET contribution = COALESCE(contribution, 0) + 2 WHERE id = ?', [req.userId]);
 
         if (type === 'daily' || type === 'decision') {
             const typeText = type === 'daily' ? '日报' : '决策';
@@ -348,8 +348,6 @@ router.post('/:id/comments', authMiddleware, async (req, res) => {
         );
 
         await db.run('UPDATE posts SET comments_count = comments_count + 1 WHERE id = ?', [id]);
-
-        await db.run('UPDATE users SET contribution = COALESCE(contribution, 0) + 1 WHERE id = ?', [req.userId]);
 
         const post = await db.get('SELECT author_id, title FROM posts WHERE id = ?', [id]);
         if (post && post.author_id !== req.userId) {

@@ -17,16 +17,8 @@ function getYesterdayDate() {
 }
 
 async function getRewardForDays(days) {
-    const rewards = await db.all(
-        'SELECT continuous_days, reward_points FROM checkin_rewards ORDER BY continuous_days DESC'
-    );
-    
-    for (const reward of rewards) {
-        if (days >= reward.continuous_days) {
-            return reward.reward_points;
-        }
-    }
-    return 5;
+    // 固定签到奖励：每次签到统一 2 贡献点，不随连续天数递增
+    return 2;
 }
 
 router.post('/checkin', authMiddleware, async (req, res) => {
