@@ -255,13 +255,21 @@ export default function Settings() {
             <div className="text-secondary" style={{ fontSize: 13, marginBottom: 10 }}>
               上传你的 Minecraft 皮肤（64×64 PNG），模型将展示在页面右下角与其他用户的个人主页
             </div>
-            <div className="flex" style={{ gap: 8 }}>
+            <div className="flex" style={{ gap: 8, flexWrap: 'wrap' }}>
               <input ref={skinRef} type="file" accept="image/png" style={{ display: 'none' }} onChange={handleSkinUpload} />
               <button className="btn btn-primary btn-sm" onClick={() => skinRef.current.click()} disabled={skinUploading}>
                 {skinUploading ? '上传中...' : skin ? '更换皮肤' : '上传皮肤'}
               </button>
               {skin && (
-                <button className="btn btn-secondary btn-sm" onClick={handleSkinRemove}>移除皮肤</button>
+                <>
+                  <a className="btn btn-secondary btn-sm" href={skin} download="my-skin.png">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    下载皮肤
+                  </a>
+                  <button className="btn btn-secondary btn-sm" onClick={handleSkinRemove}>移除皮肤</button>
+                </>
               )}
             </div>
           </div>

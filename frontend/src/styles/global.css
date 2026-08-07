@@ -1360,6 +1360,67 @@ mark {
   .carousel-dots { bottom: 12px; right: 16px; }
 }
 
+/* 小屏/移动端适配 */
+@media (max-width: 600px) {
+  .container, .navbar-content, .footer-content {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+  .main-content {
+    padding: 16px 0 48px;
+  }
+  .card {
+    padding: 16px !important;
+  }
+  .navbar-title-en { display: none; }
+  .navbar-logo { width: 34px; height: 34px; }
+  .navbar-content { height: 56px; }
+
+  /* 表格横向滚动 */
+  .table-wrap, .table, table {
+    display: block;
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    white-space: nowrap;
+  }
+
+  /* 富文本图片与内容限制宽度 */
+  .rich-content img,
+  .post-content img,
+  .post-detail-content img {
+    max-width: 100% !important;
+    height: auto !important;
+  }
+
+  /* 帖子图片网格单列 */
+  .post-images {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* 页脚纵向排列 */
+  .footer-content {
+    flex-direction: column;
+    text-align: center;
+    gap: 10px;
+  }
+
+  /* 头像区域自适应 */
+  .profile-cover { height: 120px; }
+
+  /* 弹窗内容自适应 */
+  .modal-content {
+    max-width: calc(100vw - 32px) !important;
+    max-height: 85vh;
+    overflow-y: auto;
+  }
+}
+
+/* 平板适配 */
+@media (max-width: 900px) and (min-width: 601px) {
+  .modal-content { max-width: 90vw; }
+}
+
 /* 页脚 */
 .footer {
   background: var(--card);

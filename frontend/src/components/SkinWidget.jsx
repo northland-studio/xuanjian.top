@@ -2,15 +2,29 @@ import { useEffect, useRef, useState } from 'react';
 import { api } from '../api';
 import SkinViewer from './SkinViewer';
 
+// 判断是否小屏（移动端）
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 600px)');
+    const update = () => setIsMobile(mq.matches);
+    update();
+    mq.addEventListener('change', update);
+    return () => mq.removeEventListener('change', update);
+  }, []);
+  return isMobile;
+}
+
 /**
  * 右下角常驻 Minecraft 皮肤模型
- * 随机从用户皮肤池加载皮肤，可折叠为小按钮
+ * 随机从用户皮肤池加载皮肤，可折叠为小按钮；小屏默认收起
  */
 export default function SkinWidget() {
   const [skin, setSkin] = useState(null);
   const [collapsed, setCollapsed] = useState(false);
   const [ready, setReady] = useState(false);
   const containerRef = useRef(null);
+  const isMobile = useIsMobile();
 
   // 加载随机皮肤
   useEffect(() => {
@@ -18,6 +32,11 @@ export default function SkinWidget() {
       .then(d => setSkin(d.skin || null))
       .catch(() => {});
   }, []);
+
+  // 小屏默认收起，避免遮挡内容
+  useEffect(() => {
+    if (isMobile) setCollapsed(true);
+  }, [isMobile]);
 
   // 点击切换随机皮肤
   const refreshSkin = async () => {
@@ -67,7 +86,7 @@ export default function SkinWidget() {
         <div
           style={{
             position: 'relative',
-            width: 225,
+            width: isMobile ? 150 : 225,
             filter: 'drop-shadow(0 8px 20px rgba(0,0,0,0.35))',
             cursor: 'pointer'
           }}
@@ -125,7 +144,7 @@ export default function SkinWidget() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
           </button>
-          <SkinViewer skin={skin || undefined} width={225} height={300} autoRotate={false} animation="running" animationSpeed={0.6} zoom={0.95} />
+          <SkinViewer skin={skin || undefined} width={isMobile ? 150 : 225} height={isMobile ? 200 : 300} autoRotate={false} animation="running" animationSpeed={0.6} zoom={0.95} />
         </div>
       )}
     </div>
