@@ -50,6 +50,47 @@ function buildAnimationPool({ FunctionAnimation, RunningAnimation }) {
   };
 }
 
+// 模型头顶玩家名专用字体（Minecraft 风格），按需加载避免 16MB 字体阻塞首屏
+const NAMETAG_FONT = 'XJ-Minecraft';
+const NAMETAG_FONT_URL = '/fonts/1.ttf';
+let fontReady = null;
+
+function ensureNametagFont() {
+  if (fontReady !== null) return fontReady;
+  try {
+    fontReady = new FontFace(NAMETAG_FONT, `url(${NAMETAG_FONT_URL})`)
+      .load()
+      .then(font => {
+        document.fonts.add(font);
+        return true;
+      })
+      .catch(() => false);
+  } catch {
+    fontReady = Promise.resolve(false);
+  }
+  return fontReady;
+}
+
+// 为 viewer 设置/更新头顶玩家名（跟随模型）
+async function applyNametag(viewer, name) {
+  if (!viewer || viewer.disposed) return;
+  if (!name) {
+    viewer.nameTag = null;
+    return;
+  }
+  const ok = await ensureNametagFont();
+  if (!viewer || viewer.disposed) return;
+  const { NameTagObject } = await import('skinview3d');
+  viewer.nameTag = new NameTagObject(name, {
+    font: ok ? `48px ${NAMETAG_FONT}` : '48px Minecraft',
+    textStyle: '#fff',
+    backgroundStyle: 'rgba(0,0,0,0.4)',
+    height: 2.4,
+    margin: [3, 8, 3, 8],
+    repaintAfterLoaded: true
+  });
+}
+
 /**
  * Minecraft 玩家皮肤模型（基于 skinview3d，动态加载避免首屏体积增加）
  * props:
@@ -59,10 +100,11 @@ function buildAnimationPool({ FunctionAnimation, RunningAnimation }) {
  *  - animation: 'idle' 站立 | 'running' 原地跑步 | 'random' 随机自定义动画
  *  - animationSpeed: 动画速度倍率（默认 1）
  *  - zoom: 相机缩放
+ *  - name: 头顶玩家名（游戏ID），跟随模型
  *  - onClick: 点击画布回调
  *  - style: 附加样式
  */
-export default function SkinViewer({ skin, width = 240, height = 320, autoRotate = true, animation = 'idle', animationSpeed = 1, zoom = 1.1, onClick, style }) {
+export default function SkinViewer({ skin, width = 240, height = 320, autoRotate = true, animation = 'idle', animationSpeed = 1, zoom = 1.1, name, onClick, style }) {
   const canvasRef = useRef(null);
   const viewerRef = useRef(null);
   const skinRef = useRef(skin);
@@ -94,6 +136,8 @@ export default function SkinViewer({ skin, width = 240, height = 320, autoRotate
         }
         viewer.animation.speed = animationSpeed;
         viewerRef.current = viewer;
+        // 头顶玩家名
+        if (name) applyNametag(viewer, name);
       })
       .catch(() => {});
     return () => {
@@ -102,6 +146,12 @@ export default function SkinViewer({ skin, width = 240, height = 320, autoRotate
       viewerRef.current = null;
     };
   }, [width, height, autoRotate, zoom, animation]);
+
+  // 名字变化时更新 Nametag
+  useEffect(() => {
+    const v = viewerRef.current;
+    if (v) applyNametag(v, name);
+  }, [name]);
 
   // 皮肤变化时热更新
   useEffect(() => {

@@ -110,7 +110,7 @@ export default function Profile() {
                   cursor: 'pointer'
                 }}
               >
-                <SkinViewer skin={u.skin_path} width={110} height={146} autoRotate={false} animation="random" animationSpeed={0.6} zoom={0.85} />
+                <SkinViewer skin={u.skin_path} width={110} height={146} autoRotate={false} animation="random" animationSpeed={0.6} zoom={0.85} name={u.game_id || u.username} />
               </div>
             </div>
           )}

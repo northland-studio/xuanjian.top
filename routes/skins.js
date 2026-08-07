@@ -60,6 +60,9 @@ router.post('/', authMiddleware, upload.single('skin'), async (req, res) => {
 
         const skinPath = `/uploads/${req.file.filename}`;
 
+        // 游戏ID（皮肤上传框旁的输入框，留空则显示用户名）
+        const gameId = String(req.body.gameId || '').trim().slice(0, 24);
+
         // 删除旧的皮肤文件（如果有）
         const me = await db.get('SELECT skin_path FROM users WHERE id = ?', [req.userId]);
         const oldSkin = me && me.skin_path ? me.skin_path : '';
@@ -72,8 +75,8 @@ router.post('/', authMiddleware, upload.single('skin'), async (req, res) => {
 
         // 写入数据库
         await db.run(
-            'UPDATE users SET skin_path = ?, updated_at = ? WHERE id = ?',
-            [skinPath, getLocalTimestamp(), req.userId]
+            'UPDATE users SET skin_path = ?, game_id = ?, updated_at = ? WHERE id = ?',
+            [skinPath, gameId, getLocalTimestamp(), req.userId]
         );
 
         res.json({ message: '皮肤上传成功', skin: skinPath });
@@ -110,15 +113,15 @@ router.delete('/', authMiddleware, async (req, res) => {
     }
 });
 
-// 随机皮肤池：返回一个随机用户的皮肤
+// 随机皮肤池：返回一个随机用户的皮肤及其名字（游戏ID 留空时用用户名）
 router.get('/random', async (req, res) => {
     try {
         const row = await db.get(
-            `SELECT skin_path FROM users
+            `SELECT skin_path, COALESCE(NULLIF(game_id, ''), username) AS name FROM users
              WHERE skin_path IS NOT NULL AND skin_path != ''
              ORDER BY RANDOM() LIMIT 1`
         );
-        res.json({ skin: row ? row.skin_path : null });
+        res.json({ skin: row ? row.skin_path : null, name: row ? row.name : null });
     } catch (error) {
         logger.error('获取随机皮肤错误:', error);
         res.status(500).json({ error: '获取随机皮肤失败' });

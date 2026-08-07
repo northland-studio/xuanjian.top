@@ -134,11 +134,13 @@ export async function uploadImages(files, onProgress) {
 }
 
 // 上传 Minecraft 皮肤（本地 /api/skins，FormData，64x64 PNG）
-export async function uploadSkin(file, onProgress) {
+// gameId: 游戏ID（可选，留空则使用用户名显示在模型头顶）
+export async function uploadSkin(file, gameId = '', onProgress) {
   return new Promise((resolve, reject) => {
     const token = getToken();
     const formData = new FormData();
     formData.append('skin', file);
+    formData.append('gameId', gameId);
 
     const xhr = new XMLHttpRequest();
     xhr.upload.onprogress = (e) => {

@@ -19,6 +19,7 @@ export default function Settings() {
   const [avatar, setAvatar] = useState('');
   const [cover, setCover] = useState('');
   const [skin, setSkin] = useState('');
+  const [gameId, setGameId] = useState('');
   const [skinUploading, setSkinUploading] = useState(false);
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
@@ -37,6 +38,7 @@ export default function Settings() {
       setAvatar(user.avatar || '');
       setCover(user.cover || '');
       setSkin(user.skin_path || '');
+      setGameId(user.game_id || '');
       setUsername(user.username || '');
       setEmail(user.email || '');
     }
@@ -85,7 +87,7 @@ export default function Settings() {
     if (!file) return;
     setSkinUploading(true);
     try {
-      const data = await uploadSkin(file);
+      const data = await uploadSkin(file, gameId.trim());
       setSkin(data.skin);
       const me = await api.get('/api/auth/me');
       await updateUser(me);
@@ -246,11 +248,21 @@ export default function Settings() {
               flexShrink: 0
             }}
           >
-            <SkinViewer skin={skin || undefined} width={120} height={160} autoRotate animation="random" zoom={0.85} />
+            <SkinViewer skin={skin || undefined} width={120} height={160} autoRotate animation="random" zoom={0.85} name={gameId.trim() || user.username} />
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div className="text-secondary" style={{ fontSize: 13, marginBottom: 10 }}>
               上传你的 Minecraft 皮肤（64×64 PNG），模型将展示在页面右下角与其他用户的个人主页
+            </div>
+            <div className="form-group" style={{ marginBottom: 10 }}>
+              <label className="form-label">游戏ID（显示在模型头顶，留空默认使用用户名）</label>
+              <input
+                className="form-input"
+                value={gameId}
+                onChange={e => setGameId(e.target.value)}
+                placeholder="例如：Steve_2010"
+                maxLength={24}
+              />
             </div>
             <div className="flex" style={{ gap: 8, flexWrap: 'wrap' }}>
               <input ref={skinRef} type="file" accept="image/png" style={{ display: 'none' }} onChange={handleSkinUpload} />

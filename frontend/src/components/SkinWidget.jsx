@@ -21,6 +21,7 @@ function useIsMobile() {
  */
 export default function SkinWidget() {
   const [skin, setSkin] = useState(null);
+  const [name, setName] = useState(null);
   const [collapsed, setCollapsed] = useState(false);
   const [ready, setReady] = useState(false);
   const containerRef = useRef(null);
@@ -29,7 +30,7 @@ export default function SkinWidget() {
   // 加载随机皮肤
   useEffect(() => {
     api.get('/api/skins/random')
-      .then(d => setSkin(d.skin || null))
+      .then(d => { setSkin(d.skin || null); setName(d.name || null); })
       .catch(() => {});
   }, []);
 
@@ -43,6 +44,7 @@ export default function SkinWidget() {
     try {
       const d = await api.get('/api/skins/random');
       setSkin(d.skin || null);
+      setName(d.name || null);
     } catch { /* 忽略 */ }
   };
 
@@ -144,7 +146,7 @@ export default function SkinWidget() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
           </button>
-          <SkinViewer skin={skin || undefined} width={isMobile ? 150 : 225} height={isMobile ? 200 : 300} autoRotate={false} animation="random" animationSpeed={0.6} zoom={0.95} />
+          <SkinViewer skin={skin || undefined} width={isMobile ? 150 : 225} height={isMobile ? 200 : 300} autoRotate={false} animation="random" animationSpeed={0.6} zoom={0.95} name={name} />
         </div>
       )}
     </div>

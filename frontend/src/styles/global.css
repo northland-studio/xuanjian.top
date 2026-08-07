@@ -1,4 +1,11 @@
 /* ===== 玄剑公会 React 前端 - 全局设计系统 ===== */
+/* 皮肤模型头顶玩家名专用字体（Minecraft 风格，由 Nametag 按需加载） */
+@font-face {
+  font-family: 'XJ-Minecraft';
+  src: url('/fonts/1.ttf') format('truetype');
+  font-display: swap;
+}
+
 :root {
   --primary: #004AAD;
   --primary-dark: #003a87;
