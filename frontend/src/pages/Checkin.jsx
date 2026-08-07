@@ -46,7 +46,6 @@ export default function Checkin() {
 
   if (loading) return <div className="loading"><div className="spinner" />加载中...</div>;
 
-  const rewards = status?.rewards || [];
   const recent = status?.recentCheckins || [];
 
   return (
@@ -86,19 +85,6 @@ export default function Checkin() {
 
         {/* 右侧信息 */}
         <div className="flex-col" style={{ gap: 16 }}>
-          {/* 奖励规则 */}
-          <div className="card" style={{ padding: 20 }}>
-            <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 12 }}>签到奖励规则</h3>
-            <div className="flex-col" style={{ gap: 8 }}>
-              {rewards.map(r => (
-                <div key={r.continuous_days} className="flex-between" style={{ fontSize: 13.5 }}>
-                  <span className="text-secondary">连续 {r.continuous_days} 天</span>
-                  <span style={{ fontWeight: 600, color: 'var(--warning)' }}>+{r.reward_points} 贡献点</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
           {/* 排行榜 */}
           <div className="card" style={{ padding: 20 }}>
             <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 12 }}>签到排行榜</h3>

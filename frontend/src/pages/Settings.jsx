@@ -58,8 +58,8 @@ export default function Settings() {
     const file = e.target.files[0];
     if (!file) return;
     e.target.value = '';
-    // 打开裁剪选区器（封面 4:1 横幅）
-    setCropState({ file, aspect: 4, target: 'cover' });
+    // 打开裁剪选区器（封面 5:1 横幅，与档案页封面 1200×240 展示比例一致）
+    setCropState({ file, aspect: 5, target: 'cover' });
   };
 
   const handleCropConfirm = async (croppedFile) => {
@@ -313,7 +313,7 @@ export default function Settings() {
             </button>
             {cover && <button className="btn btn-secondary btn-sm" onClick={() => setCover('')}>移除封面</button>}
           </div>
-          <p className="text-secondary" style={{ fontSize: 12, marginTop: 6 }}>建议尺寸 1200×300，未设置时展示品牌渐变色</p>
+          <p className="text-secondary" style={{ fontSize: 12, marginTop: 6 }}>建议尺寸 1200×240，未设置时展示品牌渐变色</p>
         </div>
 
         <div className="flex" style={{ gap: 16, alignItems: 'center', marginBottom: 16 }}>
