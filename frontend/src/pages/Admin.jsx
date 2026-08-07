@@ -14,7 +14,7 @@ const TABS = [
   { key: 'claims', label: '申报审核' }
 ];
 
-const LEVEL_NAMES = { 0: '成员', 1: '管理员', 2: '超级管理员', 3: '创始人' };
+const LEVEL_NAMES = { 0: '成员', 1: '管理员', 2: '超级管理员' };
 
 export default function Admin() {
   const navigate = useNavigate();
