@@ -139,6 +139,17 @@ router.get('/me', authMiddleware, async (req, res) => {
             return res.status(404).json({ error: '用户不存在' });
         }
 
+        // 实时统计：发帖 / 评论 / 获赞
+        const postCount = await db.get('SELECT COUNT(*) as count FROM posts WHERE author_id = ? AND status = "active"', [req.userId]);
+        const commentCount = await db.get('SELECT COUNT(*) as count FROM comments WHERE author_id = ? AND status = "active"', [req.userId]);
+        const likesCount = await db.get(
+            'SELECT SUM(CAST(likes AS INTEGER)) as total FROM posts WHERE author_id = ? AND status = "active"',
+            [req.userId]
+        );
+        user.posts_count = postCount.count || 0;
+        user.comments_count = commentCount.count || 0;
+        user.likes_count = likesCount.total || 0;
+
         // 补充绑定状态字段
         user.qq_bound = !!(user.openid && user.openid !== '');
         user.email_bound = !!(user.email && user.email.trim() !== '');

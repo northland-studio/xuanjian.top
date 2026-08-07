@@ -52,13 +52,13 @@ export default function Profile() {
       .catch(() => {});
   }, [profile]);
 
-  // 非本人：加载关注状态
+  // 加载关注状态（含自己主页，展示粉丝量）
   useEffect(() => {
-    if (!profile || isSelf || !me) return;
+    if (!profile || !me) return;
     api.get(`/api/favorites/users/${profile.user.id}/status`)
       .then(d => setFollowStatus({ following: !!d.following, followers: d.followers || 0, followingCount: d.followingCount || 0 }))
       .catch(() => {});
-  }, [profile, isSelf, me]);
+  }, [profile, me]);
 
   const toggleFollow = async () => {
     if (!me) { navigate('/login?redirect=/profile'); return; }
@@ -123,7 +123,7 @@ export default function Profile() {
                 {u.level >= 1 && <span className="badge badge-warning">管理员</span>}
               </div>
               <div className="text-secondary" style={{ fontSize: 13, marginTop: 2 }}>
-                @{u.username} · 加入于 {formatDate(u.created_at, false)}
+                @{u.username} · 加入于 {formatDate(u.created_at, false)} · 粉丝 {followStatus.followers}
               </div>
             </div>
             {isSelf && (

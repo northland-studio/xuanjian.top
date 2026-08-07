@@ -484,6 +484,30 @@ function AnnouncementManager({ showToast }) {
             ))}
           </div>
         )}
+
+        {/* 弹窗历史 */}
+        {announcements.some(a => a.is_popup) && (
+          <div style={{ marginTop: 24 }}>
+            <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 12 }}>弹窗历史</h3>
+            <div className="flex-col" style={{ gap: 10 }}>
+              {announcements.filter(a => a.is_popup).map(a => (
+                <div key={a.id} className="card" style={{ padding: 14, borderLeft: '3px solid var(--primary)', background: 'var(--input-bg)' }}>
+                  <div className="flex-between mb-1">
+                    <span style={{ fontWeight: 700 }}>{a.title}</span>
+                    <span className="flex" style={{ gap: 6, alignItems: 'center' }}>
+                      {a.is_active ? <span className="badge badge-success">启用中</span> : <span className="badge badge-gray">已停用</span>}
+                      <span className="text-secondary" style={{ fontSize: 12 }}>发布于 {formatDate(a.created_at)}</span>
+                    </span>
+                  </div>
+                  <div className="text-secondary" style={{ fontSize: 13, lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{a.content}</div>
+                  {a.updated_at && a.updated_at !== a.created_at && (
+                    <div className="text-secondary" style={{ fontSize: 12, marginTop: 6 }}>最近修改 {formatDate(a.updated_at)}</div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

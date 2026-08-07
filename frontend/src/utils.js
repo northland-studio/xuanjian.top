@@ -71,3 +71,12 @@ export function highlightHtml(text, keyword) {
   if (!kw) return safe;
   return safe.replace(new RegExp(`(${kw})`, 'gi'), '<mark>$1</mark>');
 }
+
+// 富文本归一化：纯文本（无 HTML 标签）内容将换行符转为 <br>，避免渲染时折叠不换行
+export function normalizeRichContent(html) {
+  if (!html) return '';
+  if (!/<[a-zA-Z][^>]*>/.test(html)) {
+    return String(html).replace(/\r\n/g, '\n').replace(/\r/g, '\n').replace(/\n/g, '<br>');
+  }
+  return html;
+}

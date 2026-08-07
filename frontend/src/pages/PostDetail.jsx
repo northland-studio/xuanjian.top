@@ -4,7 +4,7 @@ import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/UI';
 import Lightbox from '../components/Lightbox';
-import { formatDate, TYPE_META, parseTags, requireLogin } from '../utils';
+import { formatDate, TYPE_META, parseTags, requireLogin, normalizeRichContent } from '../utils';
 
 function CommentItem({ comment, depth, onReply, onDelete, me }) {
   const [showReply, setShowReply] = useState(false);
@@ -266,7 +266,7 @@ export default function PostDetail() {
         </div>
 
         <div className="rich-content" onClick={openRichImage}>
-          <div dangerouslySetInnerHTML={{ __html: post.content }} />
+          <div dangerouslySetInnerHTML={{ __html: normalizeRichContent(post.content) }} />
         </div>
 
         {post.images && post.images.length > 0 && (
