@@ -58,13 +58,18 @@ let fontReady = null;
 function ensureNametagFont() {
   if (fontReady !== null) return fontReady;
   try {
-    fontReady = new FontFace(NAMETAG_FONT, `url(${NAMETAG_FONT_URL})`)
-      .load()
-      .then(font => {
-        document.fonts.add(font);
-        return true;
-      })
-      .catch(() => false);
+    // 15 秒超时兜底，避免字体加载挂起导致名字不显示
+    const timeout = new Promise(resolve => setTimeout(() => resolve(false), 15000));
+    fontReady = Promise.race([
+      new FontFace(NAMETAG_FONT, `url(${NAMETAG_FONT_URL})`)
+        .load()
+        .then(font => {
+          document.fonts.add(font);
+          return true;
+        })
+        .catch(() => false),
+      timeout
+    ]);
   } catch {
     fontReady = Promise.resolve(false);
   }
@@ -72,22 +77,30 @@ function ensureNametagFont() {
 }
 
 // 为 viewer 设置/更新头顶玩家名（跟随模型）
+// 先立即用默认字体显示名字，字体加载完成后替换为指定字体重绘
 async function applyNametag(viewer, name) {
   if (!viewer || viewer.disposed) return;
   if (!name) {
     viewer.nameTag = null;
     return;
   }
-  const ok = await ensureNametagFont();
-  if (!viewer || viewer.disposed) return;
   const { NameTagObject } = await import('skinview3d');
+  if (!viewer || viewer.disposed) return;
   viewer.nameTag = new NameTagObject(name, {
-    font: ok ? `48px ${NAMETAG_FONT}` : '48px Minecraft',
     textStyle: '#fff',
     backgroundStyle: 'rgba(0,0,0,0.4)',
     height: 2.4,
-    margin: [3, 8, 3, 8],
-    repaintAfterLoaded: true
+    margin: [3, 8, 3, 8]
+  });
+  // 字体就绪后用指定字体重绘（不会等待，名字已先显示）
+  const ok = await ensureNametagFont();
+  if (!viewer || viewer.disposed || !ok) return;
+  viewer.nameTag = new NameTagObject(name, {
+    font: `48px ${NAMETAG_FONT}`,
+    textStyle: '#fff',
+    backgroundStyle: 'rgba(0,0,0,0.4)',
+    height: 2.4,
+    margin: [3, 8, 3, 8]
   });
 }
 
