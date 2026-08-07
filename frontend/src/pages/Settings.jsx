@@ -116,7 +116,7 @@ export default function Settings() {
   const saveProfile = async () => {
     setLoading(true);
     try {
-      await api.put('/api/auth/profile', { nickname, avatar, cover });
+      await api.put('/api/auth/profile', { nickname, avatar, cover, game_id: gameId.trim() });
       const me = await api.get('/api/auth/me');
       await updateUser(me);
       showToast('资料保存成功', 'success');

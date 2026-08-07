@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { timeAgo } from '../utils';
 
 export default function Notifications() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -61,7 +63,7 @@ export default function Notifications() {
               key={n.id}
               className={`card ${!n.is_read ? 'notif-unread' : ''}`}
               style={{ padding: 16, cursor: 'pointer', borderColor: !n.is_read ? 'var(--primary)' : undefined }}
-              onClick={() => { if (!n.is_read) markRead(n.id); }}
+              onClick={() => handleClick(n)}
             >
               <div className="flex-between" style={{ marginBottom: 6 }}>
                 <span className="badge badge-primary" style={{ fontSize: 11 }}>{n.type}</span>

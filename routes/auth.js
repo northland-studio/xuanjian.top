@@ -165,14 +165,14 @@ router.get('/me', authMiddleware, async (req, res) => {
 // 更新用户信息（昵称/头像/封面）
 router.put('/profile', authMiddleware, async (req, res) => {
     try {
-        const { nickname, email, avatar, cover, currentPassword, newPassword } = req.body;
+        const { nickname, email, avatar, cover, game_id, currentPassword, newPassword } = req.body;
         
         // 如果要修改/设置密码
         if (newPassword) {
             if (newPassword.length < 6) {
                 return res.status(400).json({ error: '新密码至少6位' });
             }
-            const user = await db.get('SELECT password, password_set, nickname, email, avatar, cover FROM users WHERE id = ?', [req.userId]);
+            const user = await db.get('SELECT password, password_set, nickname, email, avatar, cover, game_id FROM users WHERE id = ?', [req.userId]);
             // 已设置过密码的用户需验证当前密码；未设置密码（QQ注册）直接设置
             if (user.password_set === 1) {
                 const isValid = await bcrypt.compare(currentPassword, user.password);
@@ -183,13 +183,14 @@ router.put('/profile', authMiddleware, async (req, res) => {
             const hashedPassword = await bcrypt.hash(newPassword, 10);
             // 修改密码时未提供基本信息则保留原值（防止 undefined 覆盖字段触发约束错误）
             await db.run(
-                'UPDATE users SET nickname = ?, email = ?, avatar = ?, cover = ?, password = ?, password_set = 1, updated_at = ? WHERE id = ?',
-                [nickname ?? user.nickname, email ?? user.email, avatar ?? user.avatar, cover ?? user.cover, hashedPassword, getLocalTimestamp(), req.userId]
+                'UPDATE users SET nickname = ?, email = ?, avatar = ?, cover = ?, game_id = ?, password = ?, password_set = 1, updated_at = ? WHERE id = ?',
+                [nickname ?? user.nickname, email ?? user.email, avatar ?? user.avatar, cover ?? user.cover, game_id ?? user.game_id, hashedPassword, getLocalTimestamp(), req.userId]
             );
         } else {
+            const me = await db.get('SELECT game_id FROM users WHERE id = ?', [req.userId]);
             await db.run(
-                'UPDATE users SET nickname = ?, email = ?, avatar = ?, cover = ?, updated_at = ? WHERE id = ?',
-                [nickname, email, avatar, cover || '', getLocalTimestamp(), req.userId]
+                'UPDATE users SET nickname = ?, email = ?, avatar = ?, cover = ?, game_id = ?, updated_at = ? WHERE id = ?',
+                [nickname, email, avatar, cover || '', game_id ?? me?.game_id ?? '', getLocalTimestamp(), req.userId]
             );
         }
         

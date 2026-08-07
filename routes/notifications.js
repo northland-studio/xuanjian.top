@@ -14,7 +14,7 @@ router.get('/', authMiddleware, async (req, res) => {
             `SELECT n.*, 
                     p.title as post_title, p.type as post_type,
                     c.content as comment_content,
-                    u.nickname as actor_nickname, u.avatar as actor_avatar
+                    u.nickname as actor_nickname, u.avatar as actor_avatar, u.username as actor_username
              FROM notifications n
              LEFT JOIN posts p ON n.post_id = p.id
              LEFT JOIN comments c ON n.comment_id = c.id
