@@ -86,7 +86,7 @@ export default function Profile() {
   return (
     <div className="fade-in-up">
       {/* 用户信息卡 */}
-      <div className="card" style={{ overflow: 'hidden', padding: 0, border: 'none', boxShadow: 'var(--shadow-lg)' }}>
+      <div className="card" style={{ position: 'relative', overflow: 'hidden', padding: 0, border: 'none', boxShadow: 'var(--shadow-lg)' }}>
         {/* 封面：用户上传的背景图，未设置时展示品牌渐变 */}
         <div
           className="profile-cover"
@@ -98,24 +98,26 @@ export default function Profile() {
           }}
         />
 
-        <div style={{ padding: '0 24px 24px', position: 'relative' }}>
-          {/* 用户皮肤模型（有皮肤时展示，高度减半的矮版） */}
-          {u.skin_path && (
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: -32 }}>
-              <div
-                style={{
-                  width: 165,
-                  height: 110,
-                  filter: 'drop-shadow(0 8px 20px rgba(0,0,0,0.35))',
-                  cursor: 'pointer'
-                }}
-              >
-                <SkinViewer skin={u.skin_path} width={165} height={110} autoRotate={false} animation="random" animationSpeed={0.6} zoom={0.64} name={u.game_id || u.username} />
-              </div>
-            </div>
-          )}
-          {/* 头像与昵称：顶部对齐模型上边框与背景图分界线 */}
-          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 16, marginTop: -32 }}>
+        {/* 用户皮肤模型：独立浮层（绝对定位脱离内容容器，浮在封面右下角） */}
+        {u.skin_path && (
+          <div
+            style={{
+              position: 'absolute',
+              top: 128,
+              right: 24,
+              zIndex: 2,
+              width: 165,
+              height: 110,
+              filter: 'drop-shadow(0 8px 20px rgba(0,0,0,0.35))',
+              cursor: 'pointer'
+            }}
+          >
+            <SkinViewer skin={u.skin_path} width={165} height={110} autoRotate={false} animation="random" animationSpeed={0.6} zoom={0.64} name={u.game_id || u.username} />
+          </div>
+        )}
+        <div style={{ padding: '0 24px 24px' }}>
+          {/* 头像与昵称：恢复正常流式排列，与模型浮层互不干扰 */}
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 16 }}>
             <img
               src={u.avatar || '/images/default-avatar.png'}
               alt="头像"
