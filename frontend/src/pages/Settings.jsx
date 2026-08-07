@@ -246,7 +246,7 @@ export default function Settings() {
               flexShrink: 0
             }}
           >
-            <SkinViewer skin={skin || undefined} width={120} height={160} autoRotate zoom={0.85} />
+            <SkinViewer skin={skin || undefined} width={120} height={160} autoRotate animation="random" zoom={0.85} />
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div className="text-secondary" style={{ fontSize: 13, marginBottom: 10 }}>
