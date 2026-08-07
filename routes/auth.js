@@ -169,7 +169,10 @@ router.put('/profile', authMiddleware, async (req, res) => {
         
         // 如果要修改/设置密码
         if (newPassword) {
-            const user = await db.get('SELECT password, password_set FROM users WHERE id = ?', [req.userId]);
+            if (newPassword.length < 6) {
+                return res.status(400).json({ error: '新密码至少6位' });
+            }
+            const user = await db.get('SELECT password, password_set, nickname, email, avatar, cover FROM users WHERE id = ?', [req.userId]);
             // 已设置过密码的用户需验证当前密码；未设置密码（QQ注册）直接设置
             if (user.password_set === 1) {
                 const isValid = await bcrypt.compare(currentPassword, user.password);
@@ -178,9 +181,10 @@ router.put('/profile', authMiddleware, async (req, res) => {
                 }
             }
             const hashedPassword = await bcrypt.hash(newPassword, 10);
+            // 修改密码时未提供基本信息则保留原值（防止 undefined 覆盖字段触发约束错误）
             await db.run(
                 'UPDATE users SET nickname = ?, email = ?, avatar = ?, cover = ?, password = ?, password_set = 1, updated_at = ? WHERE id = ?',
-                [nickname, email, avatar, cover || '', hashedPassword, getLocalTimestamp(), req.userId]
+                [nickname ?? user.nickname, email ?? user.email, avatar ?? user.avatar, cover ?? user.cover, hashedPassword, getLocalTimestamp(), req.userId]
             );
         } else {
             await db.run(
@@ -242,20 +246,29 @@ router.put('/password', authMiddleware, async (req, res) => {
     try {
         const { oldPassword, newPassword } = req.body;
 
-        // 获取用户当前密码
-        const user = await db.get('SELECT password FROM users WHERE id = ?', [req.userId]);
+        if (!newPassword || newPassword.length < 6) {
+            return res.status(400).json({ error: '新密码至少6位' });
+        }
 
-        // 验证旧密码
-        const isValid = await bcrypt.compare(oldPassword, user.password);
-        if (!isValid) {
-            return res.status(400).json({ error: '原密码错误' });
+        // 获取用户当前密码与设置状态
+        const user = await db.get('SELECT password, password_set FROM users WHERE id = ?', [req.userId]);
+
+        // QQ 用户未设置过密码（password_set = 0）时无需原密码；否则验证原密码
+        if (user.password_set === 1) {
+            if (!oldPassword) {
+                return res.status(400).json({ error: '请输入原密码' });
+            }
+            const isValid = await bcrypt.compare(oldPassword, user.password);
+            if (!isValid) {
+                return res.status(400).json({ error: '原密码错误' });
+            }
         }
 
         // 加密新密码
         const hashedPassword = await bcrypt.hash(newPassword, 10);
 
         await db.run(
-            'UPDATE users SET password = ?, updated_at = ? WHERE id = ?',
+            'UPDATE users SET password = ?, password_set = 1, updated_at = ? WHERE id = ?',
             [hashedPassword, getLocalTimestamp(), req.userId]
         );
 

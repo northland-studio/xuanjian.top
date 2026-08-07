@@ -191,10 +191,7 @@ export default function Settings() {
     }
     setLoading(true);
     try {
-      const body = hasPassword
-        ? { currentPassword, newPassword }
-        : { newPassword };
-      await api.put('/api/auth/profile', body);
+      await api.put('/api/auth/password', { oldPassword: currentPassword, newPassword });
       const me = await api.get('/api/auth/me');
       await updateUser(me);
       showToast(hasPassword ? '密码修改成功' : '密码设置成功', 'success');
