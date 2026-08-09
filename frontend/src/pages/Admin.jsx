@@ -15,7 +15,8 @@ const TABS = [
   { key: 'claims', label: '申报审核' },
   { key: 'tasks', label: '任务管理' },
   { key: 'logs', label: '贡献点日志' },
-  { key: 'verify', label: '核销商品' }
+  { key: 'verify', label: '核销商品' },
+  { key: 'mod', label: '模组管理' }
 ];
 
 const LEVEL_NAMES = { 0: '成员', 1: '管理员', 2: '超级管理员' };
@@ -24,7 +25,10 @@ export default function Admin() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { showToast } = useToast();
-  const [tab, setTab] = useState('banners');
+  const [tab, setTab] = useState(() => {
+    const h = window.location.hash;
+    return h.includes('mod-servers') || h.includes('mod') ? 'mod' : 'banners';
+  });
 
   useEffect(() => {
     if (!user) { navigate('/login?redirect=/admin'); return; }
@@ -63,6 +67,7 @@ export default function Admin() {
       {tab === 'tasks' && <TaskManager showToast={showToast} />}
       {tab === 'logs' && <ContributionLogs showToast={showToast} />}
       {tab === 'verify' && <VerifyManager showToast={showToast} />}
+      {tab === 'mod' && <ModServerManager showToast={showToast} />}
     </div>
   );
 }
@@ -1253,6 +1258,129 @@ function VerifyManager({ showToast }) {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/* ============ 模组管理 ============ */
+function ModServerManager({ showToast }) {
+  const [servers, setServers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [name, setName] = useState('');
+  const [serverIp, setServerIp] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const load = async () => {
+    try {
+      const d = await api.get('/api/mod/servers');
+      setServers(d.servers || []);
+    } catch (e) {
+      showToast(e.message, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const addServer = async () => {
+    if (!name.trim()) { showToast('请输入服务器名称', 'error'); return; }
+    setSaving(true);
+    try {
+      const d = await api.post('/api/mod/servers', { name: name.trim(), serverIp: serverIp.trim() });
+      showToast('服务器添加成功', 'success');
+      // 新密钥仅显示一次
+      showToast(`服务器密钥：${d.serverKey}`, 'success');
+      setName(''); setServerIp('');
+      await load();
+    } catch (e) {
+      showToast(e.message, 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const updateServer = async (id, field, value) => {
+    const target = servers.find(s => s.id === id);
+    const next = { ...target, [field]: value };
+    try {
+      await api.put(`/api/mod/servers/${id}`, { name: next.name, serverIp: next.server_ip });
+      setServers(servers.map(s => s.id === id ? { ...s, [field]: value } : s));
+      showToast('更新成功', 'success');
+    } catch (e) {
+      showToast(e.message, 'error');
+    }
+  };
+
+  const removeServer = async (id) => {
+    if (!confirm('确认删除该服务器？删除后模组将无法上报与提醒')) return;
+    try {
+      await api.delete(`/api/mod/servers/${id}`);
+      setServers(servers.filter(s => s.id !== id));
+      showToast('删除成功', 'success');
+    } catch (e) {
+      showToast(e.message, 'error');
+    }
+  };
+
+  if (loading) return <div className="loading"><div className="spinner" /></div>;
+
+  return (
+    <div>
+      <div className="card" style={{ padding: 20, marginBottom: 16 }}>
+        <h4 style={{ marginBottom: 6 }}>添加游戏服务器</h4>
+        <p className="text-secondary" style={{ fontSize: 13, marginBottom: 14 }}>
+          注册公会游戏服务器：模组填入生成的密钥后即可上报在线玩家、接收申报审核提醒
+        </p>
+        <div className="flex" style={{ gap: 10, flexWrap: 'wrap' }}>
+          <input className="form-input" placeholder="服务器名称（如：玄剑主服）" value={name}
+            onChange={e => setName(e.target.value)} style={{ flex: 1, minWidth: 180 }} />
+          <input className="form-input" placeholder="公网IP（可选）" value={serverIp}
+            onChange={e => setServerIp(e.target.value)} style={{ flex: 1, minWidth: 180 }} />
+          <button className="btn btn-primary" disabled={saving} onClick={addServer}>
+            {saving ? '添加中...' : '添加服务器'}
+          </button>
+        </div>
+      </div>
+
+      <div className="card" style={{ padding: 8 }}>
+        {servers.length === 0 && (
+          <div className="empty-state"><p>尚未注册任何服务器</p></div>
+        )}
+        {servers.map((s, i) => (
+          <div key={s.id} className="flex-between" style={{
+            padding: '14px 16px',
+            borderBottom: i < servers.length - 1 ? '1px solid var(--border)' : 'none',
+            gap: 12,
+            flexWrap: 'wrap'
+          }}>
+            <div style={{ flex: 1, minWidth: 220 }}>
+              <div style={{ fontWeight: 700, fontSize: 14 }}>
+                {s.name}
+                <span className="text-secondary" style={{ fontWeight: 400, fontSize: 12, marginLeft: 8 }}>
+                  密钥：<code style={{ fontSize: 11 }}>{s.server_key}</code>
+                </span>
+              </div>
+              <div className="text-secondary" style={{ fontSize: 12, marginTop: 4 }}>
+                服务器IP：
+                <input
+                  className="form-input"
+                  style={{ display: 'inline-flex', width: 180, padding: '3px 8px', fontSize: 12, marginLeft: 4 }}
+                  value={s.server_ip}
+                  onChange={e => updateServer(s.id, 'server_ip', e.target.value)}
+                  onBlur={e => updateServer(s.id, 'server_ip', e.target.value)}
+                />
+                <span style={{ marginLeft: 12 }}>
+                  最后在线：{s.last_seen_at ? formatDate(s.last_seen_at, true) : '从未'}
+                </span>
+              </div>
+            </div>
+            <button className="btn btn-danger btn-sm" style={{ background: 'transparent', color: 'var(--danger)', borderColor: 'var(--danger)' }} onClick={() => removeServer(s.id)}>
+              删除
+            </button>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

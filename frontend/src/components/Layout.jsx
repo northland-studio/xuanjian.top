@@ -53,6 +53,7 @@ export default function Layout({ children }) {
     { to: '/shop', label: '商城' },
     { to: '/rankings', label: '排行榜' },
     { to: '/economics', label: '经济' },
+    { to: '/mods', label: '模组' },
     { to: '/social', label: '社交媒体' }
   ];
 
