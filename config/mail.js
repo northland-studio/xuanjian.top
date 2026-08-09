@@ -294,6 +294,38 @@ async function sendTaskResult(email, task, user) {
     return await sendEmail(email, '玄剑公会 - 任务完成奖励', html);
 }
 
+// 模组绑定确认邮件
+async function sendBindConfirm(email, info) {
+    const html = getEmailTemplate({
+        title: '游戏角色绑定确认',
+        greeting: '您在游戏内发起了一个绑定操作，请确认是否将该游戏角色绑定到本官网账号：',
+        content: `
+            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background: #f8fafc; border-radius: 12px; padding: 24px;">
+                <tr>
+                    <td style="padding: 8px 0;">
+                        <span style="color: #64748b; font-size: 14px;">游戏角色：</span>
+                        <span style="color: #1e293b; font-size: 16px; font-weight: 600;">${info.playerName}</span>
+                    </td>
+                </tr>
+            </table>
+            <p style="margin: 16px 0 0 0; color: #475569; font-size: 14px; line-height: 1.6;">
+                点击下方按钮确认绑定。绑定成功后，该游戏角色可在游戏内通过模组执行签到、任务、贡献点等官网操作，且个人档案的「游戏ID」将自动填写为 ${info.playerName}。
+            </p>
+        `,
+        actionButton: {
+            text: '确认绑定',
+            url: info.confirmUrl
+        },
+        footer: `
+            <p style="margin: 0; color: #ef4444; font-size: 13px; text-align: center;">
+                <strong>此链接 24 小时内有效</strong>，若非本人操作请忽略
+            </p>
+        `,
+        accentColor: '#004AAD'
+    });
+    return await sendEmail(email, '玄剑公会 - 游戏角色绑定确认', html);
+}
+
 module.exports = {
     transporter,
     sendEmail,
@@ -302,5 +334,6 @@ module.exports = {
     sendPasswordReset,
     sendClaimNotification,
     sendClaimResult,
-    sendTaskResult
+    sendTaskResult,
+    sendBindConfirm
 };

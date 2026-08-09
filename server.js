@@ -29,6 +29,7 @@ const favoriteRoutes = require('./routes/favorites');
 const skinRoutes = require('./routes/skins');
 const playerTaskRoutes = require('./routes/player-tasks');
 const economicsRoutes = require('./routes/economics');
+const modRoutes = require('./routes/mod');
 const db = require('./database');
 
 const app = express();
@@ -142,6 +143,7 @@ app.use('/api/favorites', favoriteRoutes);
 app.use('/api/skins', skinRoutes);
 app.use('/api/player-tasks', playerTaskRoutes);
 app.use('/api/economics', economicsRoutes);
+app.use('/api/mod', modRoutes);
 
 // ============ React前端（frontend/dist）托管 ============
 const frontendDist = path.join(__dirname, 'frontend', 'dist');
