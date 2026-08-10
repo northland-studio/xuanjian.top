@@ -197,7 +197,7 @@ router.get('/:id', async (req, res) => {
 
 router.post('/', authMiddleware, async (req, res) => {
     try {
-        const { title, content, type, tags, images } = req.body;
+        const { title, content, type, tags, images, projection } = req.body;
         
         if (!title || !content || !type) {
             return res.status(400).json({ error: '标题、内容和类型不能为空' });
@@ -215,8 +215,8 @@ router.post('/', authMiddleware, async (req, res) => {
         }
         
         const result = await db.run(
-            'INSERT INTO posts (title, content, type, author_id, tags, images, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-            [title, content, type, req.userId, tags, JSON.stringify(images || []), getLocalTimestamp(), getLocalTimestamp()]
+            'INSERT INTO posts (title, content, type, author_id, tags, images, projection, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [title, content, type, req.userId, tags, JSON.stringify(images || []), projection || '', getLocalTimestamp(), getLocalTimestamp()]
         );
 
         await db.run('UPDATE users SET contribution = COALESCE(contribution, 0) + 2 WHERE id = ?', [req.userId]);
@@ -249,7 +249,7 @@ router.post('/', authMiddleware, async (req, res) => {
 router.put('/:id', authMiddleware, async (req, res) => {
     try {
         const { id } = req.params;
-        const { title, content, tags, images } = req.body;
+        const { title, content, tags, images, projection } = req.body;
         
         const post = await db.get('SELECT author_id FROM posts WHERE id = ?', [id]);
         if (!post) {
@@ -262,8 +262,8 @@ router.put('/:id', authMiddleware, async (req, res) => {
         }
         
         await db.run(
-            'UPDATE posts SET title = ?, content = ?, tags = ?, images = ?, updated_at = ? WHERE id = ?',
-            [title, content, tags, JSON.stringify(images || []), getLocalTimestamp(), id]
+            'UPDATE posts SET title = ?, content = ?, tags = ?, images = ?, projection = ?, updated_at = ? WHERE id = ?',
+            [title, content, tags, JSON.stringify(images || []), projection || '', getLocalTimestamp(), id]
         );
         
         res.json({ message: '更新成功' });

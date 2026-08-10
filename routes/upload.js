@@ -96,6 +96,28 @@ router.post('/token', authMiddleware, (req, res) => {
     }
 });
 
+// 生成投影文件（.litematic）上传凭证（前端 XHR 直传，最大 20MB）
+router.post('/projection-token', authMiddleware, (req, res) => {
+    try {
+        const originalname = (req.body && req.body.filename) || '';
+        const ext = path.extname(originalname).toLowerCase();
+        if (ext !== '.litematic') {
+            return res.status(400).json({ error: '仅支持 .litematic 投影文件' });
+        }
+        const key = `projections/${uuidv4()}.litematic`;
+        const uploadToken = qiniu.generateUploadToken(key, 20 * 1024 * 1024);
+        res.json({
+            uploadToken,
+            key,
+            domain: qiniu.QINIU_DOMAIN,
+            uploadUrl: qiniu.QINIU_UPLOAD_URL
+        });
+    } catch (error) {
+        logger.error('生成投影上传凭证错误:', error);
+        res.status(500).json({ error: error.message || '生成上传凭证失败' });
+    }
+});
+
 // 上传图片
 router.post('/image', authMiddleware, upload.single('image'), async (req, res) => {
     try {

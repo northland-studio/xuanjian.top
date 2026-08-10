@@ -30,6 +30,7 @@ const skinRoutes = require('./routes/skins');
 const playerTaskRoutes = require('./routes/player-tasks');
 const economicsRoutes = require('./routes/economics');
 const modRoutes = require('./routes/mod');
+const projectionRoutes = require('./routes/projections');
 const db = require('./database');
 
 const app = express();
@@ -76,7 +77,7 @@ app.use(helmet({
             scriptSrcAttr: ["'unsafe-inline'"],
             styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
             imgSrc: ["'self'", "data:", "https:"],
-            connectSrc: ["'self'", "https://xuanjian.top", "https://cdn.jsdelivr.net", "https://up-as0.qiniup.com"],
+            connectSrc: ["'self'", "https://xuanjian.top", "https://cdn.jsdelivr.net", "https://up-as0.qiniup.com", "https://cdn.xuanjian.top"],
             fontSrc: ["'self'", "https://cdn.jsdelivr.net"],
         }
     },
@@ -144,6 +145,7 @@ app.use('/api/skins', skinRoutes);
 app.use('/api/player-tasks', playerTaskRoutes);
 app.use('/api/economics', economicsRoutes);
 app.use('/api/mod', modRoutes);
+app.use('/api/projections', projectionRoutes);
 
 // ============ React前端（frontend/dist）托管 ============
 const frontendDist = path.join(__dirname, 'frontend', 'dist');

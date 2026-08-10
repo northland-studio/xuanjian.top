@@ -89,7 +89,7 @@ router.get('/:id', authMiddleware, async (req, res) => {
 router.get('/my/all', authMiddleware, async (req, res) => {
     try {
         const claims = await db.all(
-            `SELECT tc.*, t.title, t.description, t.image, t.reward
+            `SELECT tc.*, t.title, t.description, t.image, t.projection, t.reward
              FROM task_claims tc
              JOIN tasks t ON tc.task_id = t.id
              WHERE tc.user_id = ?
@@ -204,7 +204,7 @@ router.post('/:id/complete', authMiddleware, async (req, res) => {
 // 创建任务（生成完成验证码，仅 1/2 级可见）
 router.post('/', authMiddleware, adminMiddleware, async (req, res) => {
     try {
-        const { title, description, image, reward } = req.body;
+        const { title, description, image, projection, reward } = req.body;
 
         if (!title || !title.trim()) {
             return res.status(400).json({ error: '任务标题不能为空' });
@@ -216,8 +216,8 @@ router.post('/', authMiddleware, adminMiddleware, async (req, res) => {
 
         const code = generateTaskCode();
         const result = await db.run(
-            'INSERT INTO tasks (title, description, image, reward, code, created_by) VALUES (?, ?, ?, ?, ?, ?)',
-            [title.trim(), description?.trim() || '', image || '', rw, code, req.userId]
+            'INSERT INTO tasks (title, description, image, projection, reward, code, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [title.trim(), description?.trim() || '', image || '', projection || '', rw, code, req.userId]
         );
 
         res.status(201).json({ message: '任务创建成功', taskId: result.id, code });
@@ -249,11 +249,11 @@ router.get('/admin/list', authMiddleware, adminMiddleware, async (req, res) => {
 router.put('/:id', authMiddleware, adminMiddleware, async (req, res) => {
     try {
         const { id } = req.params;
-        const { title, description, image, reward, isActive } = req.body;
+        const { title, description, image, projection, reward, isActive } = req.body;
 
         await db.run(
-            'UPDATE tasks SET title = ?, description = ?, image = ?, reward = ?, is_active = ? WHERE id = ?',
-            [title?.trim() || '', description?.trim() || '', image || '', parseInt(reward) || 0, isActive ? 1 : 0, id]
+            'UPDATE tasks SET title = ?, description = ?, image = ?, projection = ?, reward = ?, is_active = ? WHERE id = ?',
+            [title?.trim() || '', description?.trim() || '', image || '', projection || '', parseInt(reward) || 0, isActive ? 1 : 0, id]
         );
         res.json({ message: '任务更新成功' });
     } catch (error) {

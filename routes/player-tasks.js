@@ -83,7 +83,7 @@ router.get('/mine', authMiddleware, async (req, res) => {
 // 发布玩家任务：校验贡献点足够 → 生成验证码 → 扣除贡献点 → 创建任务
 router.post('/', authMiddleware, async (req, res) => {
     try {
-        const { title, description, images, reward } = req.body;
+        const { title, description, images, projection, reward } = req.body;
 
         if (!title || !String(title).trim()) {
             return res.status(400).json({ error: '任务标题不能为空' });
@@ -108,8 +108,8 @@ router.post('/', authMiddleware, async (req, res) => {
         let taskId;
         await db.transaction(async () => {
             const result = await db.run(
-                'INSERT INTO player_tasks (author_id, title, description, images, reward, code, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                [req.userId, String(title).trim(), String(description || '').trim(), imagesStr, rw, code, 'open', getLocalTimestamp(), getLocalTimestamp()]
+                'INSERT INTO player_tasks (author_id, title, description, images, projection, reward, code, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                [req.userId, String(title).trim(), String(description || '').trim(), imagesStr, projection || '', rw, code, 'open', getLocalTimestamp(), getLocalTimestamp()]
             );
             taskId = result.id;
         });
