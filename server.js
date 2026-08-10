@@ -31,6 +31,7 @@ const playerTaskRoutes = require('./routes/player-tasks');
 const economicsRoutes = require('./routes/economics');
 const modRoutes = require('./routes/mod');
 const projectionRoutes = require('./routes/projections');
+const launcherRoutes = require('./routes/launcher');
 const db = require('./database');
 
 const app = express();
@@ -146,6 +147,7 @@ app.use('/api/player-tasks', playerTaskRoutes);
 app.use('/api/economics', economicsRoutes);
 app.use('/api/mod', modRoutes);
 app.use('/api/projections', projectionRoutes);
+app.use('/launcher', launcherRoutes);
 
 // ============ React前端（frontend/dist）托管 ============
 const frontendDist = path.join(__dirname, 'frontend', 'dist');
