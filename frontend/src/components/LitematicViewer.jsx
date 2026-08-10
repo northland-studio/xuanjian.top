@@ -96,7 +96,7 @@ export default function LitematicViewer({ url, height = 320 }) {
           ro.observe(wrap);
         }
 
-        // 交互：拖拽旋转 / 滚轮缩放
+        // 交互：拖拽旋转 / 滚轮缩放（每次变更后立即应用相机）
         let dragging = false;
         let lastX = 0;
         let lastY = 0;
@@ -104,6 +104,7 @@ export default function LitematicViewer({ url, height = 320 }) {
           dragging = true;
           lastX = e.clientX;
           lastY = e.clientY;
+          canvas.style.cursor = 'grabbing';
           canvas.setPointerCapture?.(e.pointerId);
         };
         const onPointerMove = (e) => {
@@ -113,13 +114,19 @@ export default function LitematicViewer({ url, height = 320 }) {
           ctl.pitch = Math.max(-1.5, Math.min(1.5, ctl.pitch));
           lastX = e.clientX;
           lastY = e.clientY;
+          applyCamera();
         };
-        const onPointerUp = () => { dragging = false; };
+        const onPointerUp = () => {
+          dragging = false;
+          canvas.style.cursor = 'grab';
+        };
         const onWheel = (e) => {
           e.preventDefault();
           ctl.dist *= 1 + Math.sign(e.deltaY) * 0.1;
           ctl.dist = Math.max(5, Math.min(2000, ctl.dist));
+          applyCamera();
         };
+        canvas.style.cursor = 'grab';
         canvas.addEventListener('pointerdown', onPointerDown);
         canvas.addEventListener('pointermove', onPointerMove);
         canvas.addEventListener('pointerup', onPointerUp);
@@ -187,13 +194,13 @@ export default function LitematicViewer({ url, height = 320 }) {
         </div>
       )}
       {status === 'ready' && info && (
-        <div style={{ position: 'absolute', left: 10, top: 10, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <div style={{ position: 'absolute', left: 10, top: 10, display: 'flex', gap: 8, flexWrap: 'wrap', pointerEvents: 'none' }}>
           <span className="badge" style={{ background: 'rgba(0,0,0,0.55)', color: '#fff', fontSize: 11 }}>{info.blocks.toLocaleString()} 方块</span>
           {info.size && <span className="badge" style={{ background: 'rgba(0,0,0,0.55)', color: '#fff', fontSize: 11 }}>{fmtSize(info.size)}</span>}
         </div>
       )}
       {status === 'ready' && (
-        <div style={{ position: 'absolute', right: 10, bottom: 8, color: 'rgba(255,255,255,0.45)', fontSize: 11 }}>
+        <div style={{ position: 'absolute', right: 10, bottom: 8, color: 'rgba(255,255,255,0.45)', fontSize: 11, pointerEvents: 'none' }}>
           拖拽旋转 · 滚轮缩放
         </div>
       )}
