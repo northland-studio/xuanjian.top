@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { api, uploadImages } from '../api';
+import { api, uploadImages, uploadProjection } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/UI';
+import LitematicViewer from '../components/LitematicViewer';
 import { formatDate } from '../utils';
 
 // 解析图片字段（JSON 数组或逗号分隔）
@@ -34,8 +35,11 @@ export default function PlayerTasks() {
   const [desc, setDesc] = useState('');
   const [reward, setReward] = useState('');
   const [images, setImages] = useState([]);
+  const [projection, setProjection] = useState('');
+  const [projectionName, setProjectionName] = useState('');
   const [uploading, setUploading] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  const [previewId, setPreviewId] = useState(null);
 
   // 完成核实
   const [completeTask, setCompleteTask] = useState(null);
@@ -63,9 +67,9 @@ export default function PlayerTasks() {
     if (!rw || rw <= 0) { showToast('请输入正确的悬赏贡献点', 'error'); return; }
     setPublishing(true);
     try {
-      const data = await api.post('/api/player-tasks', { title: title.trim(), description: desc.trim(), images, reward: rw });
+      const data = await api.post('/api/player-tasks', { title: title.trim(), description: desc.trim(), images, projection, reward: rw });
       showToast(`${data.message}，完成验证码：${data.code}`, 'success');
-      setTitle(''); setDesc(''); setReward(''); setImages([]);
+      setTitle(''); setDesc(''); setReward(''); setImages([]); setProjection(''); setProjectionName('');
       setShowForm(false);
       loadAll();
       setView('mine');
@@ -86,6 +90,28 @@ export default function PlayerTasks() {
       showToast('图片上传成功', 'success');
     } catch (err) {
       showToast(err.message || '图片上传失败', 'error');
+    } finally {
+      setUploading(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleProjUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.name.toLowerCase().endsWith('.litematic')) {
+      showToast('仅支持 .litematic 投影文件', 'error');
+      e.target.value = '';
+      return;
+    }
+    setUploading(true);
+    try {
+      const url = await uploadProjection(file);
+      setProjection(url);
+      setProjectionName(file.name);
+      showToast('投影上传成功', 'success');
+    } catch (err) {
+      showToast(err.message || '投影上传失败', 'error');
     } finally {
       setUploading(false);
       e.target.value = '';
@@ -188,6 +214,21 @@ export default function PlayerTasks() {
                 ))}
               </div>
             </div>
+            <div className="form-group">
+              <label className="form-label">建筑投影（.litematic，可选）</label>
+              <div className="flex" style={{ gap: 8, alignItems: 'center' }}>
+                <input type="file" accept=".litematic" style={{ display: 'none' }} onChange={handleProjUpload} id="pt-proj" />
+                <button className="btn btn-secondary btn-sm" disabled={uploading} onClick={() => document.getElementById('pt-proj').click()}>
+                  {uploading ? '上传中...' : (projection ? '更换投影' : '上传投影')}
+                </button>
+                {projection && (
+                  <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+                    {projectionName || '已上传投影'}
+                    <button className="link-btn" style={{ marginLeft: 8 }} onClick={() => { setProjection(''); setProjectionName(''); }}>移除</button>
+                  </span>
+                )}
+              </div>
+            </div>
             <div className="flex" style={{ gap: 10, justifyContent: 'flex-end' }}>
               <button className="btn btn-secondary" onClick={() => setShowForm(false)}>取消</button>
               <button className="btn btn-primary" disabled={publishing} onClick={publish}>
@@ -225,6 +266,16 @@ export default function PlayerTasks() {
                   <div className="text-secondary" style={{ fontSize: 12, marginBottom: 10 }}>
                     发布者 {t.author_nickname || t.author_username} · {formatDate(t.created_at, false)}
                   </div>
+                  {t.projection && (
+                    <button className="btn btn-secondary btn-sm" style={{ marginBottom: 8 }} onClick={() => setPreviewId(prev => prev === t.id ? null : t.id)}>
+                      {previewId === t.id ? '收起预览' : '预览投影'}
+                    </button>
+                  )}
+                  {previewId === t.id && t.projection && (
+                    <div style={{ marginBottom: 10 }}>
+                      <LitematicViewer url={t.projection} height={240} />
+                    </div>
+                  )}
                   {taskActions(t)}
                 </div>
               );

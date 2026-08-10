@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { api, uploadImages } from '../api';
+import { api, uploadImages, uploadProjection } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/UI';
 import RichTextEditor from '../components/RichTextEditor';
@@ -19,12 +19,15 @@ export default function Editor() {
   const { user } = useAuth();
   const { showToast } = useToast();
   const fileInput = useRef(null);
+  const projectionInput = useRef(null);
 
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [type, setType] = useState(params.get('type') || 'forum');
   const [tags, setTags] = useState('');
   const [images, setImages] = useState([]);
+  const [projection, setProjection] = useState('');
+  const [projectionName, setProjectionName] = useState('');
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(null);
   const [submitting, setSubmitting] = useState(false);
@@ -40,6 +43,8 @@ export default function Editor() {
         setType(p.type);
         setTags((p.tags || '').split(',').join(', '));
         setImages(p.images || []);
+        setProjection(p.projection || '');
+        setProjectionName('');
         setLoading(false);
       }).catch(e => { showToast(e.message, 'error'); navigate('/forum'); });
     }
@@ -65,6 +70,30 @@ export default function Editor() {
     }
   };
 
+  const handleProjectionUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.name.toLowerCase().endsWith('.litematic')) {
+      showToast('仅支持 .litematic 投影文件', 'error');
+      e.target.value = '';
+      return;
+    }
+    setUploading(true);
+    setUploadProgress(0);
+    try {
+      const url = await uploadProjection(file, p => setUploadProgress(p));
+      setProjection(url);
+      setProjectionName(file.name);
+      showToast('投影上传成功', 'success');
+    } catch (err) {
+      showToast(err.message || '投影上传失败', 'error');
+    } finally {
+      setUploading(false);
+      setUploadProgress(null);
+      e.target.value = '';
+    }
+  };
+
   const submit = async () => {
     if (!requireLogin(navigate)) return;
     if (!title.trim() || !content.trim()) {
@@ -78,7 +107,8 @@ export default function Editor() {
         content: content.trim(),
         type,
         tags: tags.split(/[,，]/).map(t => t.trim()).filter(Boolean).join(','),
-        images
+        images,
+        projection
       };
       if (id) {
         await api.put(`/api/posts/${id}`, body);
@@ -162,6 +192,20 @@ export default function Editor() {
                 </div>
               ))}
             </div>
+          )}
+        </div>
+
+        <div className="form-group">
+          <label className="form-label">建筑投影（.litematic，可选，发布后可在详情页 3D 预览）</label>
+          <input ref={projectionInput} type="file" accept=".litematic" hidden onChange={handleProjectionUpload} />
+          <button type="button" className="btn btn-secondary" onClick={() => projectionInput.current.click()} disabled={uploading}>
+            {uploading ? (uploadProgress !== null ? `上传中 ${uploadProgress}%` : '上传中...') : (projection ? '更换投影' : '+ 上传投影')}
+          </button>
+          {projection && (
+            <span style={{ marginLeft: 12, fontSize: 13, color: 'var(--text-secondary)' }}>
+              {projectionName || '已上传投影文件'}
+              <button type="button" className="link-btn" style={{ marginLeft: 8 }} onClick={() => { setProjection(''); setProjectionName(''); }}>移除</button>
+            </span>
           )}
         </div>
 

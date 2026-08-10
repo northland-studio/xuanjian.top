@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api, uploadImage } from '../api';
+import { api, uploadImage, uploadProjection } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/UI';
 import { formatDate } from '../utils';
@@ -1022,13 +1022,14 @@ function TaskManager({ showToast }) {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ title: '', description: '', image: '', reward: '' });
+  const [form, setForm] = useState({ title: '', description: '', image: '', projection: '', reward: '' });
   const [createdCode, setCreatedCode] = useState('');
   const [expanded, setExpanded] = useState(null);
   const [claims, setClaims] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(null);
   const fileInput = useRef(null);
+  const projInput = useRef(null);
 
   const handleUpload = async (e) => {
     const file = e.target.files?.[0];
@@ -1039,6 +1040,29 @@ function TaskManager({ showToast }) {
       const url = await uploadImage(file, p => setUploadProgress(p));
       setForm(f => ({ ...f, image: url }));
       showToast('图片上传成功', 'success');
+    } catch (err) {
+      showToast(err.message || '上传失败', 'error');
+    } finally {
+      setUploading(false);
+      setUploadProgress(null);
+      e.target.value = '';
+    }
+  };
+
+  const handleProjUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.name.toLowerCase().endsWith('.litematic')) {
+      showToast('仅支持 .litematic 投影文件', 'error');
+      e.target.value = '';
+      return;
+    }
+    setUploading(true);
+    setUploadProgress(0);
+    try {
+      const url = await uploadProjection(file, p => setUploadProgress(p));
+      setForm(f => ({ ...f, projection: url }));
+      showToast('投影上传成功', 'success');
     } catch (err) {
       showToast(err.message || '上传失败', 'error');
     } finally {
@@ -1064,7 +1088,7 @@ function TaskManager({ showToast }) {
       const d = await api.post('/api/tasks', { ...form, reward: parseInt(form.reward) });
       showToast('任务创建成功', 'success');
       setCreatedCode(d.code);
-      setForm({ title: '', description: '', image: '', reward: '' });
+      setForm({ title: '', description: '', image: '', projection: '', reward: '' });
       setShowForm(false);
       fetchTasks();
     } catch (e) {
@@ -1074,7 +1098,7 @@ function TaskManager({ showToast }) {
 
   const toggleActive = async (t) => {
     try {
-      await api.put(`/api/tasks/${t.id}`, { title: t.title, description: t.description, image: t.image, reward: t.reward, isActive: t.is_active ? 0 : 1 });
+      await api.put(`/api/tasks/${t.id}`, { title: t.title, description: t.description, image: t.image, projection: t.projection, reward: t.reward, isActive: t.is_active ? 0 : 1 });
       showToast(t.is_active ? '已下线' : '已上线', 'success');
       fetchTasks();
     } catch (e) {
@@ -1123,6 +1147,14 @@ function TaskManager({ showToast }) {
                 {uploading ? (uploadProgress !== null ? `上传中 ${uploadProgress}%` : '上传中...') : (form.image ? '更换图片' : '上传图片')}
               </button>
               {form.image && <button type="button" className="link-btn" onClick={() => setForm(f => ({ ...f, image: '' }))}>移除</button>}
+            </div>
+            <div className="flex" style={{ gap: 12, alignItems: 'center' }}>
+              <input ref={projInput} type="file" accept=".litematic" hidden onChange={handleProjUpload} />
+              <button type="button" className="btn btn-secondary btn-sm" onClick={() => projInput.current.click()} disabled={uploading}>
+                {uploading ? (uploadProgress !== null ? `上传中 ${uploadProgress}%` : '上传中...') : (form.projection ? '更换投影' : '上传投影(.litematic)')}
+              </button>
+              {form.projection && <button type="button" className="link-btn" onClick={() => setForm(f => ({ ...f, projection: '' }))}>移除投影</button>}
+              {form.projection && <span className="text-secondary" style={{ fontSize: 12 }}>已上传投影文件</span>}
             </div>
             <input className="form-input" type="number" placeholder="贡献点奖励 *" value={form.reward} onChange={e => setForm({ ...form, reward: e.target.value })} />
           </div>

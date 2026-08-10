@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/UI';
+import LitematicViewer from '../components/LitematicViewer';
 import { requireLogin, formatDate } from '../utils';
 import PlayerTasks from './PlayerTasks';
 
@@ -18,6 +19,7 @@ export default function Tasks() {
   const [completeTask, setCompleteTask] = useState(null);
   const [code, setCode] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [previewId, setPreviewId] = useState(null);
 
   useEffect(() => {
     if (!requireLogin(navigate)) return;
@@ -108,6 +110,16 @@ export default function Tasks() {
                 <div className="text-secondary" style={{ fontSize: 12, marginBottom: 10 }}>
                   发布者 {t.creator_nickname} · {formatDate(t.created_at, false)}
                 </div>
+                {t.projection && (
+                  <button className="btn btn-secondary btn-sm" style={{ marginBottom: 8 }} onClick={() => setPreviewId(prev => prev === t.id ? null : t.id)}>
+                    {previewId === t.id ? '收起预览' : '预览投影'}
+                  </button>
+                )}
+                {previewId === t.id && t.projection && (
+                  <div style={{ marginBottom: 10 }}>
+                    <LitematicViewer url={t.projection} height={240} />
+                  </div>
+                )}
                 {t.myStatus === 'completed' ? (
                   <span className="badge badge-success" style={{ alignSelf: 'center' }}>已完成</span>
                 ) : t.myStatus === 'pending' ? (

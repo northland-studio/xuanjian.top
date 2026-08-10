@@ -4,6 +4,7 @@ import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/UI';
 import Lightbox from '../components/Lightbox';
+import LitematicViewer from '../components/LitematicViewer';
 import { formatDate, TYPE_META, parseTags, requireLogin, normalizeRichContent } from '../utils';
 
 function CommentItem({ comment, depth, onReply, onDelete, me }) {
@@ -280,6 +281,16 @@ export default function PostDetail() {
                 style={{ width: '100%', borderRadius: 10, border: '1px solid var(--border)', cursor: 'zoom-in' }}
               />
             ))}
+          </div>
+        )}
+
+        {post.projection && (
+          <div style={{ marginTop: 16 }}>
+            <div className="flex" style={{ gap: 10, alignItems: 'center', marginBottom: 8 }}>
+              <span className="badge badge-primary" style={{ fontSize: 12 }}>建筑投影</span>
+              <a className="btn btn-secondary btn-sm" href={post.projection} target="_blank" rel="noreferrer">下载投影文件</a>
+            </div>
+            <LitematicViewer url={post.projection} height={380} />
           </div>
         )}
 
