@@ -1,14 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
 import { LitematicLoader, ThreeStructureRenderer, loadDefaultPackResources } from '@mattzh72/lodestone';
 
-// lodestone 默认材质包（assets.json / atlas.png / block-flags），由 Vite 复制到 public 目录静态托管
+// lodestone 默认材质包（assets.json / atlas.png / block-flags），由 Vite 复制到 public 目录静态托管。
+// 注意：lodestone 用 new URL(rel, base) 拼接资源地址，base 必须是绝对 URL，否则报 "Invalid base URL"
 const PACK_BASE = '/lodestone/default-pack/';
 
 // 材质包只需加载一次，模块级缓存（失败后允许重试）
 let packPromise = null;
 function getPack() {
   if (!packPromise) {
-    packPromise = loadDefaultPackResources({ baseUrl: PACK_BASE }).catch(err => {
+    const absoluteBase = new URL(PACK_BASE, window.location.href).toString();
+    packPromise = loadDefaultPackResources({ baseUrl: absoluteBase }).catch(err => {
       packPromise = null;
       throw err;
     });
