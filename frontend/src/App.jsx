@@ -25,6 +25,7 @@ import Following from './pages/Following';
 import Trade from './pages/Trade';
 import Economics from './pages/Economics';
 import Mods from './pages/Mods';
+import Projections from './pages/Projections';
 
 export default function App() {
   return (
@@ -60,6 +61,7 @@ export default function App() {
         <Route path="/trade" element={<Trade />} />
         <Route path="/economics" element={<Economics />} />
         <Route path="/mods" element={<Mods />} />
+        <Route path="/projections" element={<Projections />} />
         <Route path="*" element={<Home />} />
         </Routes>
       </Layout>

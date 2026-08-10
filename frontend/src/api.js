@@ -133,6 +133,16 @@ export async function uploadImages(files, onProgress) {
   return urls;
 }
 
+// 上传投影文件（.litematic，七牛直传，最大20MB），onProgress 回调 0-100
+export async function uploadProjection(file, onProgress) {
+  const { uploadToken, key, domain } = await request('/api/upload/projection-token', {
+    method: 'POST',
+    body: JSON.stringify({ filename: file.name })
+  });
+  await xhrUpload(uploadToken, key, file, onProgress);
+  return `${domain}/${key}`;
+}
+
 // 上传 Minecraft 皮肤（本地 /api/skins，FormData，64x64 PNG）
 // gameId: 游戏ID（可选，留空则使用用户名显示在模型头顶）
 export async function uploadSkin(file, gameId = '', onProgress) {
