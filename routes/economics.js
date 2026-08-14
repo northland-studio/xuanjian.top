@@ -60,12 +60,12 @@ router.get('/overview', async (req, res) => {
         const totalGain = flows?.total_gain || 0;
         const totalPurchase = flows?.total_purchase || 0;
         const totalOutflow = flows?.total_outflow || 0;
-        const consumptionRate = totalGain > 0 ? totalPurchase / totalGain : 0;
+        const consumptionRate = totalGain > 0 ? totalOutflow / totalGain : 0;
 
         // ---- 近14天流动（用于流通速度 / 总量增速 / 期初存量推算） ----
         const period14 = await db.get(
             `SELECT COALESCE(SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END), 0) AS gain,
-                    COALESCE(-SUM(CASE WHEN amount < 0 AND type = 'purchase' THEN amount ELSE 0 END), 0) AS spend
+                    COALESCE(-SUM(CASE WHEN amount < 0 THEN amount ELSE 0 END), 0) AS spend
              FROM contribution_logs
              WHERE created_at >= datetime('now','localtime','-13 day')`
         );
@@ -154,7 +154,7 @@ router.get('/overview', async (req, res) => {
                 display: (consumptionRate * 100).toFixed(1),
                 healthy: [0.4, 1],     // ≥40%
                 warnLow: 0.2,          // <20%
-                desc: '累计消费（商城兑换）/ 累计获得（流水口径）'
+                desc: '累计流出（商城/任务/转账等）/ 累计获得（流水口径）'
             },
             {
                 key: 'velocity',
@@ -164,7 +164,7 @@ router.get('/overview', async (req, res) => {
                 display: circulationSpeed.toFixed(2),
                 healthy: [1, 3],       // 1–3 次/周期
                 warnLow: 0.5,          // <0.5 沉睡
-                desc: '近14天消费 / 平均流通存量（期初存量由流水反推）'
+                desc: '近14天流出 / 平均流通存量（期初存量由流水反推）'
             },
             {
                 key: 'growth',
