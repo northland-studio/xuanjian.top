@@ -3,9 +3,16 @@
  * 纯只读查询，不修改任何数据库结构或数据
  */
 const express = require('express');
+const XLSX = require('xlsx');
 const logger = require('../lib/logger');
 const db = require('../database');
 const router = express.Router();
+
+// Date → 本地时间字符串（YYYY-MM-DD HH:MM:SS）
+function toLocalStr(date) {
+    const offset = date.getTimezoneOffset() * 60000;
+    return new Date(date - offset).toISOString().slice(0, 19).replace('T', ' ');
+}
 
 // 计算基尼系数（按持有量排序的洛伦兹曲线面积比，0=完全平等，1=完全集中）
 function calcGini(values) {
@@ -229,6 +236,102 @@ router.get('/overview', async (req, res) => {
     } catch (error) {
         logger.error('获取经济看板错误:', { message: error.message, stack: error.stack });
         res.status(500).json({ error: '获取经济数据失败' });
+    }
+});
+
+// 导出 xlsx：贡献点总览表 + 账户余额公示（支持自选时间段，缺省本周）
+router.get('/export', async (req, res) => {
+    try {
+        const { start, end } = req.query;
+
+        // 时间段解析（缺省本周一 00:00 ~ 现在）
+        let startDate, endDate;
+        if (start && end) {
+            startDate = new Date(`${start}T00:00:00`);
+            endDate = new Date(`${end}T23:59:59`);
+        } else {
+            const now = new Date();
+            const day = now.getDay(); // 0=周日
+            const diff = day === 0 ? 6 : day - 1; // 距周一的天数
+            startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - diff, 0, 0, 0);
+            endDate = now;
+        }
+        if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+            return res.status(400).json({ error: '时间格式错误，应为 YYYY-MM-DD' });
+        }
+        const startStr = toLocalStr(startDate);
+        const endStr = toLocalStr(endDate);
+
+        // 1. 时间段内新增/消费
+        const flow = await db.get(
+            `SELECT COALESCE(SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END), 0) AS gain,
+                    COALESCE(-SUM(CASE WHEN amount < 0 THEN amount ELSE 0 END), 0) AS spend
+             FROM contribution_logs
+             WHERE created_at >= ? AND created_at <= ?`,
+            [startStr, endStr]
+        );
+
+        // 2. 当前流通总量 + 持有人
+        const supply = await db.get(
+            `SELECT COALESCE(SUM(contribution), 0) AS total_supply,
+                    COUNT(CASE WHEN COALESCE(contribution,0) > 0 THEN 1 END) AS holders
+             FROM users`
+        );
+
+        // 3. 全员账户余额（仅余额，不含消费明细）
+        const accounts = await db.all(
+            `SELECT username, nickname, COALESCE(contribution, 0) AS contribution
+             FROM users
+             ORDER BY contribution DESC, id ASC`
+        );
+
+        const gain = flow?.gain || 0;
+        const spend = flow?.spend || 0;
+        const totalSupply = supply?.total_supply || 0;
+        const holders = supply?.holders || 0;
+
+        // 4. 生成 xlsx
+        const wb = XLSX.utils.book_new();
+        const rangeText = `${startStr.slice(0, 10)} ~ ${endStr.slice(0, 10)}`;
+
+        // Sheet 1：贡献点总览表
+        const ws1 = XLSX.utils.aoa_to_sheet([
+            ['贡献点总览表'],
+            [`统计时间段：${rangeText}`],
+            [],
+            ['指标', '数值'],
+            ['本期新增总量', gain],
+            ['本期消费总量', spend],
+            ['本期净增长', gain - spend],
+            ['当前流通总量', totalSupply],
+            ['持有贡献点成员数', holders]
+        ]);
+        ws1['!cols'] = [{ wch: 22 }, { wch: 16 }];
+        XLSX.utils.book_append_sheet(wb, ws1, '贡献点总览表');
+
+        // Sheet 2：账户余额公示
+        const accountRows = [
+            ['账户余额公示（仅余额，不含消费明细）'],
+            [`统计时间：${endStr.slice(0, 10)}`],
+            [],
+            ['序号', '用户名', '昵称', '贡献点余额']
+        ];
+        accounts.forEach((a, i) => {
+            accountRows.push([i + 1, a.username, a.nickname || '', a.contribution]);
+        });
+        const ws2 = XLSX.utils.aoa_to_sheet(accountRows);
+        ws2['!cols'] = [{ wch: 6 }, { wch: 24 }, { wch: 20 }, { wch: 14 }];
+        XLSX.utils.book_append_sheet(wb, ws2, '账户余额公示');
+
+        // 5. 返回文件
+        const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+        const filename = `贡献点总览-${startStr.slice(0, 10)}_${endStr.slice(0, 10)}.xlsx`;
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`);
+        res.send(buf);
+    } catch (error) {
+        logger.error('导出经济数据错误:', error);
+        res.status(500).json({ error: '导出失败' });
     }
 });
 

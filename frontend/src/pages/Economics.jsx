@@ -8,6 +8,17 @@ const STATUS_META = {
   manual: { text: '人工监测', color: 'var(--text-secondary)' }
 };
 
+function toDateStr(d) {
+  const off = d.getTimezoneOffset() * 60000;
+  return new Date(d - off).toISOString().slice(0, 10);
+}
+function getMondayStr() {
+  const now = new Date();
+  const day = now.getDay();
+  const diff = day === 0 ? 6 : day - 1;
+  return toDateStr(new Date(now.getFullYear(), now.getMonth(), now.getDate() - diff));
+}
+
 function MetricIcon({ status }) {
   const color = STATUS_META[status]?.color || 'var(--primary)';
   return (
@@ -20,6 +31,8 @@ function MetricIcon({ status }) {
 export default function Economics() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [startDate, setStartDate] = useState(getMondayStr);
+  const [endDate, setEndDate] = useState(() => toDateStr(new Date()));
 
   useEffect(() => {
     api.get('/api/economics/overview')
@@ -27,6 +40,14 @@ export default function Economics() {
       .catch(() => setData(null))
       .finally(() => setLoading(false));
   }, []);
+
+  const exportXlsx = () => {
+    const params = new URLSearchParams();
+    if (startDate) params.set('start', startDate);
+    if (endDate) params.set('end', endDate);
+    const qs = params.toString();
+    window.open(`/api/economics/export${qs ? `?${qs}` : ''}`, '_blank');
+  };
 
   if (loading) return <div className="loading"><div className="spinner" /></div>;
   if (!data) return <div className="empty-state"><p>经济数据加载失败</p></div>;
@@ -40,6 +61,18 @@ export default function Economics() {
         <div className="page-banner-content">
           <h1>经济看板</h1>
           <p>贡献点试点方案观测指标实时计算 · 数据每页刷新时更新</p>
+        </div>
+      </div>
+
+      {/* 导出报表 */}
+      <div className="card" style={{ padding: 16, marginBottom: 20 }}>
+        <div className="flex" style={{ gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+          <span style={{ fontWeight: 700, fontSize: 14 }}>导出报表</span>
+          <input type="date" className="form-input" value={startDate} onChange={e => setStartDate(e.target.value)} style={{ width: 'auto' }} />
+          <span className="text-secondary">至</span>
+          <input type="date" className="form-input" value={endDate} onChange={e => setEndDate(e.target.value)} style={{ width: 'auto' }} />
+          <button className="btn btn-primary" onClick={exportXlsx}>导出 xlsx</button>
+          <span className="text-secondary" style={{ fontSize: 12 }}>《贡献点总览表》+《账户余额公示》，支持自选时间段（默认本周）</span>
         </div>
       </div>
 
