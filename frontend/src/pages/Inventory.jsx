@@ -66,7 +66,10 @@ export default function Inventory() {
                 ) : (
                   <div className="flex-center" style={{ width: '100%', height: 100, background: 'var(--input-bg)', borderRadius: 8, marginBottom: 12, fontSize: 36, opacity: 0.6 }}>📦</div>
                 )}
-                <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>{it.name}</h3>
+                <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>
+                  {it.name}
+                  {it.quantity > 1 && <span className="badge badge-primary" style={{ marginLeft: 8, fontSize: 12 }}>×{it.quantity}</span>}
+                </h3>
                 <p className="text-secondary" style={{ fontSize: 12, marginBottom: 10 }}>{it.description || ''}</p>
                 {it.type === 'permission' ? (
                   <div style={{ fontSize: 12, marginBottom: 8 }}>

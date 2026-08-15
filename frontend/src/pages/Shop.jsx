@@ -5,11 +5,65 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/UI';
 import { requireLogin, formatDate } from '../utils';
 
+// 商品/权限卡片：普通商品支持选择数量批量购买（整批 1 个核销码），权限类商品不支持数量
+function ItemCard({ item, type, buying, onBuy }) {
+  const maxQty = item.stock === -1 ? 99 : Math.max(1, item.stock || 1);
+  const [qty, setQty] = useState(1);
+
+  const changeQty = (v) => {
+    const n = parseInt(v) || 1;
+    setQty(Math.min(maxQty, Math.max(1, n)));
+  };
+
+  return (
+    <div className="card card-hover" style={{ padding: 24, display: 'flex', flexDirection: 'column' }}>
+      {item.image ? (
+        <img src={item.image} alt={item.name} style={{ width: '100%', height: 140, objectFit: 'cover', borderRadius: 10, marginBottom: 14 }} />
+      ) : (
+        <div className="flex-center" style={{ width: '100%', height: 140, background: 'var(--input-bg)', borderRadius: 10, marginBottom: 14, fontSize: 40, opacity: 0.6 }}>
+          {type === 'permission' ? (
+            <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="1.5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+          ) : (
+            <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="1.5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+            </svg>
+          )}
+        </div>
+      )}
+      <h3 style={{ fontSize: 17, fontWeight: 700, marginBottom: 6 }}>{item.name}</h3>
+      <p className="text-secondary" style={{ fontSize: 13, marginBottom: 14, minHeight: 40, lineHeight: 1.6 }}>{item.description || '暂无描述'}</p>
+      <div className="flex-between" style={{ marginBottom: 12 }}>
+        <span style={{ fontSize: 20, fontWeight: 700, color: 'var(--warning)' }}>{item.price} <span style={{ fontSize: 13, fontWeight: 400 }}>贡献点</span></span>
+        <span className="text-secondary" style={{ fontSize: 12 }}>
+          {type === 'permission' ? `有效期 ${item.duration_days || 0} 天` : (item.stock === -1 ? '不限量' : `库存 ${item.stock}`)}
+        </span>
+      </div>
+      {type !== 'permission' && (
+        <div className="flex" style={{ gap: 8, alignItems: 'center', marginBottom: 12 }}>
+          <span className="text-secondary" style={{ fontSize: 12 }}>数量</span>
+          <input
+            type="number" min={1} max={maxQty} value={qty}
+            onChange={e => changeQty(e.target.value)}
+            className="form-input" style={{ width: 64, textAlign: 'center' }}
+          />
+          <span className="text-secondary" style={{ fontSize: 12 }}>{item.stock === -1 ? '' : `上限 ${item.stock}`}</span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--warning)' }}>合计 {item.price * qty}</span>
+        </div>
+      )}
+      <button className="btn btn-primary btn-block" style={{ marginTop: 'auto' }} onClick={() => onBuy(type, item.id, item.name, item.price, item.duration_days, qty)} disabled={buying}>
+        {type === 'permission' ? '立即兑换' : `购买 ×${qty}`}
+      </button>
+    </div>
+  );
+}
+
 export default function Shop() {
   const navigate = useNavigate();
   const { user, updateUser } = useAuth();
   const { showToast } = useToast();
-  const [tab, setTab] = useState('titles');
+  const [tab, setTab] = useState('items'); // 优先展示商品 tab
   const [titles, setTitles] = useState([]);
   const [items, setItems] = useState([]);
   const [permissions, setPermissions] = useState([]);
@@ -37,25 +91,27 @@ export default function Shop() {
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
-  const buy = async (type, id, name, price, durationDays) => {
+  const buy = async (type, id, name, price, durationDays, qty = 1) => {
     if (!requireLogin(navigate, '请先登录后再购买')) return;
     const confirmText = type === 'permission'
       ? `确定用 ${price} 贡献点兑换「${name}」？\n开通后有效期 ${durationDays} 天`
-      : `确定购买「${name}」？\n价格：${price} 贡献点`;
+      : `确定购买「${name}」×${qty}？\n总价：${price * qty} 贡献点（单价 ${price}）\n整批仅生成 1 个核销码`;
     if (!confirm(confirmText)) return;
     setBuying(true);
     try {
       if (type === 'title') {
         await api.post(`/api/titles/${id}/buy`, {});
+        showToast('购买成功！', 'success');
       } else {
-        const data = await api.post(`/api/shop/items/${id}/buy`, { quantity: 1 });
+        const data = await api.post(`/api/shop/items/${id}/buy`, { quantity: qty });
         if (data.purchasedItems?.[0]?.expiresAt) {
           showToast(`兑换成功，有效期至 ${data.purchasedItems[0].expiresAt}`, 'success');
         } else {
-          showToast('购买成功！', 'success');
+          const code = data.purchasedItems?.[0]?.verificationCode;
+          showToast(code ? `购买成功！核销码：${code}（${qty} 件共 1 码）` : '购买成功！', 'success');
         }
       }
-      updateUser({ ...user, contribution: (user?.contribution ?? 0) - price });
+      updateUser({ ...user, contribution: (user?.contribution ?? 0) - price * qty });
       fetchAll();
     } catch (e) {
       showToast(e.message || '购买失败', 'error');
@@ -64,36 +120,7 @@ export default function Shop() {
     }
   };
 
-  const renderItemCard = (item, type) => (
-    <div key={item.id} className="card card-hover" style={{ padding: 24, display: 'flex', flexDirection: 'column' }}>
-      {item.image ? (
-        <img src={item.image} alt={item.name} style={{ width: '100%', height: 140, objectFit: 'cover', borderRadius: 10, marginBottom: 14 }} />
-      ) : (
-        <div className="flex-center" style={{ width: '100%', height: 140, background: 'var(--input-bg)', borderRadius: 10, marginBottom: 14, fontSize: 40, opacity: 0.6 }}>
-          {type === 'permission' ? (
-            <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="1.5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-            </svg>
-          ) : (
-            <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="1.5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-            </svg>
-          )}
-        </div>
-      )}
-      <h3 style={{ fontSize: 17, fontWeight: 700, marginBottom: 6 }}>{item.name}</h3>
-      <p className="text-secondary" style={{ fontSize: 13, marginBottom: 14, minHeight: 40, lineHeight: 1.6 }}>{item.description || '暂无描述'}</p>
-      <div className="flex-between" style={{ marginBottom: 12 }}>
-        <span style={{ fontSize: 20, fontWeight: 700, color: 'var(--warning)' }}>{item.price} <span style={{ fontSize: 13, fontWeight: 400 }}>贡献点</span></span>
-        <span className="text-secondary" style={{ fontSize: 12 }}>
-          {type === 'permission' ? `有效期 ${item.duration_days || 0} 天` : (item.stock === -1 ? '不限量' : `库存 ${item.stock}`)}
-        </span>
-      </div>
-      <button className="btn btn-primary btn-block" style={{ marginTop: 'auto' }} onClick={() => buy(type, item.id, item.name, item.price, item.duration_days)} disabled={buying}>
-        {type === 'permission' ? '立即兑换' : '购买'}
-      </button>
-    </div>
-  );
+  const renderItemCard = (item, type) => <ItemCard key={item.id} item={item} type={type} buying={buying} onBuy={buy} />;
 
   return (
     <div className="fade-in-up">

@@ -529,6 +529,7 @@ const EMPTY_ITEM = { name: '', description: '', type: 'other', ref_id: '', price
 
 function ShopManager({ showToast }) {
   const [items, setItems] = useState([]);
+  const [sales, setSales] = useState(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null); // null=列表，{} = 新增
   const [form, setForm] = useState(EMPTY_ITEM);
@@ -538,9 +539,13 @@ function ShopManager({ showToast }) {
 
   const fetchItems = () => {
     setLoading(true);
-    api.get('/api/shop/admin/items')
-      .then(data => setItems(data.items || []))
-      .catch(() => setItems([]))
+    Promise.all([
+      api.get('/api/shop/admin/items'),
+      api.get('/api/shop/admin/sales').catch(() => null)
+    ]).then(([d, s]) => {
+      setItems(d.items || []);
+      setSales(s);
+    }).catch(() => setItems([]))
       .finally(() => setLoading(false));
   };
 
@@ -693,6 +698,47 @@ function ShopManager({ showToast }) {
 
   return (
     <div>
+      {/* 商品营业额 */}
+      {sales && (
+        <div className="card" style={{ padding: 20, marginBottom: 16 }}>
+          <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>商品营业额</h3>
+          <div className="grid grid-3" style={{ gap: 10, marginBottom: 14 }}>
+            <div style={{ background: 'var(--input-bg)', borderRadius: 10, padding: '12px 14px' }}>
+              <div className="text-secondary" style={{ fontSize: 12 }}>累计营业额</div>
+              <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--warning)', marginTop: 2 }}>{(sales.total?.revenue || 0).toLocaleString()} <span style={{ fontSize: 12, fontWeight: 400 }}>贡献点</span></div>
+            </div>
+            <div style={{ background: 'var(--input-bg)', borderRadius: 10, padding: '12px 14px' }}>
+              <div className="text-secondary" style={{ fontSize: 12 }}>交易笔数</div>
+              <div style={{ fontSize: 20, fontWeight: 800, marginTop: 2 }}>{sales.total?.transactions || 0}</div>
+            </div>
+            <div style={{ background: 'var(--input-bg)', borderRadius: 10, padding: '12px 14px' }}>
+              <div className="text-secondary" style={{ fontSize: 12 }}>近7天营业额</div>
+              <div style={{ fontSize: 20, fontWeight: 800, marginTop: 2 }}>{(sales.daily || []).reduce((s, d) => s + (d.revenue || 0), 0).toLocaleString()}</div>
+            </div>
+          </div>
+          {(sales.daily || []).length > 0 && (
+            <div className="flex" style={{ gap: 10, flexWrap: 'wrap', marginBottom: 14 }}>
+              {sales.daily.map(d => (
+                <span key={d.d} className="badge" style={{ fontSize: 12, background: 'rgba(0,74,173,0.1)', color: 'var(--text)' }}>
+                  {d.d.slice(5)}：{d.revenue} 点
+                </span>
+              ))}
+            </div>
+          )}
+          {(sales.byItem || []).length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <div className="text-secondary" style={{ fontSize: 12, fontWeight: 600 }}>按商品（累计）</div>
+              {sales.byItem.map((b, i) => (
+                <div key={i} className="flex-between" style={{ padding: '7px 10px', background: 'var(--input-bg)', borderRadius: 8, fontSize: 13 }}>
+                  <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.item_name}</span>
+                  <span style={{ flexShrink: 0 }}>售出 {b.sold} 件 · <b style={{ color: 'var(--warning)' }}>{b.revenue}</b> 点</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="flex-between mb-3">
         <p className="text-secondary" style={{ fontSize: 14 }}>管理商城商品：上架/下架、库存与价格调整</p>
         <button className="btn btn-primary btn-sm" onClick={startCreate}>+ 新增商品</button>
@@ -1212,6 +1258,9 @@ function TaskManager({ showToast }) {
 function VerifyManager({ showToast }) {
   const [code, setCode] = useState('');
   const [result, setResult] = useState(null);
+  const [already, setAlready] = useState(false);
+  const [verifiedAt, setVerifiedAt] = useState(null);
+  const [qty, setQty] = useState(1);
   const [error, setError] = useState('');
   const [checking, setChecking] = useState(false);
   const [confirming, setConfirming] = useState(false);
@@ -1221,9 +1270,15 @@ function VerifyManager({ showToast }) {
     setChecking(true);
     setError('');
     setResult(null);
+    setAlready(false);
+    setVerifiedAt(null);
+    setQty(1);
     try {
       const d = await api.post('/api/shop/verify', { code: code.trim() });
       setResult(d.item);
+      setAlready(!!d.already);
+      setVerifiedAt(d.verifiedAt || null);
+      setQty(d.quantity || 1);
     } catch (e) {
       setError(e.message);
       showToast(e.message, 'error');
@@ -1233,12 +1288,13 @@ function VerifyManager({ showToast }) {
   };
 
   const confirm = async () => {
-    if (!confirm('确认核销此商品？')) return;
+    if (!confirm(already ? '该核销码已核销，仍要确认？' : '确认核销此商品？')) return;
     setConfirming(true);
     try {
       const d = await api.post('/api/shop/confirm', { code: code.trim() });
-      showToast(`${d.message}（${d.itemName}）`, 'success');
+      showToast(`${d.message}（${d.itemName}）${d.quantity ? ` ×${d.quantity}` : ''}`, 'success');
       setResult(null);
+      setAlready(false);
       setCode('');
     } catch (e) {
       setError(e.message);
@@ -1274,7 +1330,15 @@ function VerifyManager({ showToast }) {
 
       {result && (
         <div className="card" style={{ padding: 20, maxWidth: 520 }}>
-          <h4 style={{ color: '#10b981', marginBottom: 12 }}>✓ 核销码有效</h4>
+          <h4 style={{ color: already ? '#f59e0b' : '#10b981', marginBottom: 12 }}>
+            {already ? '⚠ 该核销码已核销' : '✓ 核销码有效'}
+          </h4>
+          {already && verifiedAt && (
+            <div className="text-secondary" style={{ fontSize: 13, marginBottom: 10 }}>核销时间：{formatDate(verifiedAt, false)}</div>
+          )}
+          {!already && qty > 1 && (
+            <div className="text-secondary" style={{ fontSize: 13, marginBottom: 10 }}>本批共 {qty} 件，核销一次整批完成</div>
+          )}
           <div style={{ fontSize: 14, lineHeight: 2 }}>
             <div><span className="text-secondary">商品：</span><b>{result.name}</b></div>
             <div><span className="text-secondary">类型：</span>{result.type === 'title' ? '称号' : '其他'}</div>

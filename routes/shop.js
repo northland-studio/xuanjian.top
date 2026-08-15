@@ -111,45 +111,45 @@ router.post('/items/:id/buy', authMiddleware, async (req, res) => {
                 );
             }
             
-            for (let i = 0; i < quantity; i++) {
-                // 权限类商品：购买即开通，记录有效期，无需核销码
-                if (item.type === 'permission') {
-                    const expiresAt = item.duration_days > 0 ? addDaysLocal(item.duration_days) : null;
-                    const result = await db.run(
-                        'INSERT INTO user_items (user_id, item_id, verification_code, expires_at) VALUES (?, ?, NULL, ?)',
-                        [req.userId, id, expiresAt]
-                    );
-                    purchasedItems.push({
-                        id: result.id,
-                        type: 'permission',
-                        expiresAt
-                    });
-                    continue;
-                }
-
-                const verificationCode = generateVerificationCode();
+            // 权限类商品：购买即开通权限，记录有效期，无需核销码
+            if (item.type === 'permission') {
+                const expiresAt = item.duration_days > 0 ? addDaysLocal(item.duration_days) : null;
                 const result = await db.run(
-                    'INSERT INTO user_items (user_id, item_id, verification_code) VALUES (?, ?, ?)',
-                    [req.userId, id, verificationCode]
+                    'INSERT INTO user_items (user_id, item_id, verification_code, expires_at) VALUES (?, ?, NULL, ?)',
+                    [req.userId, id, expiresAt]
                 );
-                
                 purchasedItems.push({
                     id: result.id,
-                    verificationCode
+                    type: 'permission',
+                    expiresAt
                 });
-                
-                if (item.type === 'title' && item.ref_id) {
-                    await db.run(
-                        'INSERT OR IGNORE INTO user_titles (user_id, title_id) VALUES (?, ?)',
-                        [req.userId, item.ref_id]
+            } else {
+                // 普通商品：整批共用一个核销码（一次购买 N 件 = 一个码，线下一次核销整批）
+                const verificationCode = generateVerificationCode();
+                for (let i = 0; i < quantity; i++) {
+                    const result = await db.run(
+                        'INSERT INTO user_items (user_id, item_id, verification_code) VALUES (?, ?, ?)',
+                        [req.userId, id, verificationCode]
                     );
+                    
+                    purchasedItems.push({
+                        id: result.id,
+                        verificationCode
+                    });
+                    
+                    if (item.type === 'title' && item.ref_id) {
+                        await db.run(
+                            'INSERT OR IGNORE INTO user_titles (user_id, title_id) VALUES (?, ?)',
+                            [req.userId, item.ref_id]
+                        );
+                    }
                 }
             }
         });
         
         await addContributionLog(req.userId, -totalPrice, 'purchase', item.id, item.name);
 
-        res.json({ message: '购买成功', totalPrice, purchasedItems });
+        res.json({ message: '购买成功', totalPrice, quantity, purchasedItems });
     } catch (error) {
         logger.error('购买商品错误:', error);
         res.status(500).json({ error: '购买失败' });
@@ -158,11 +158,14 @@ router.post('/items/:id/buy', authMiddleware, async (req, res) => {
 
 router.get('/my-items', authMiddleware, async (req, res) => {
     try {
+        // 同核销码商品堆叠：普通商品按核销码聚合（quantity=件数），权限/无码记录各自独立
         const items = await db.all(
-            `SELECT ui.*, si.name, si.description, si.type, si.image
+            `SELECT ui.*, si.name, si.description, si.type, si.image,
+                    COUNT(*) AS quantity
              FROM user_items ui
              JOIN shop_items si ON ui.item_id = si.id
              WHERE ui.user_id = ?
+             GROUP BY CASE WHEN ui.verification_code IS NULL OR ui.verification_code = '' THEN ui.id ELSE ui.verification_code END
              ORDER BY ui.purchased_at DESC`,
             [req.userId]
         );
@@ -238,15 +241,32 @@ router.post('/verify', authMiddleware, adminMiddleware, async (req, res) => {
         }
         
         if (item.verified_at) {
-            return res.status(400).json({ 
-                error: '该核销码已使用',
+            // 幂等：已核销时返回已核销信息（前端友好提示，非失败）
+            return res.json({
+                valid: true,
+                already: true,
                 verifiedAt: item.verified_at,
-                verifiedBy: item.verified_by
+                verifiedBy: item.verified_by,
+                item: {
+                    id: item.id,
+                    name: item.name,
+                    description: item.description,
+                    type: item.type,
+                    buyer: item.nickname || item.username,
+                    purchasedAt: item.purchased_at
+                }
             });
         }
         
+        // 该核销码对应的剩余待核销数量（整批共用一个码）
+        const batch = await db.get(
+            'SELECT COUNT(*) AS remaining FROM user_items WHERE verification_code = ? AND verified_at IS NULL',
+            [code.toUpperCase()]
+        );
+        
         res.json({ 
             valid: true,
+            quantity: batch?.remaining || 1,
             item: {
                 id: item.id,
                 name: item.name,
@@ -282,16 +302,26 @@ router.post('/confirm', authMiddleware, adminMiddleware, async (req, res) => {
             return res.status(404).json({ error: '核销码无效' });
         }
         
-        if (item.verified_at) {
-            return res.status(400).json({ error: '该核销码已使用' });
+        // 检查该核销码是否仍有未核销记录（整批共用一个码，核销时整批一次完成）
+        const pending = await db.get(
+            'SELECT COUNT(*) AS c FROM user_items WHERE verification_code = ? AND verified_at IS NULL',
+            [code.toUpperCase()]
+        );
+        if (!pending?.c) {
+            // 幂等：已全部核销时返回成功提示（避免网络重试/重复核销被误判为失败）
+            const done = await db.get(
+                'SELECT verified_at FROM user_items WHERE verification_code = ? AND verified_at IS NOT NULL LIMIT 1',
+                [code.toUpperCase()]
+            );
+            return res.json({ message: '该核销码已核销', itemName: item.name, already: true, verifiedAt: done?.verified_at || null });
         }
         
         await db.run(
-            'UPDATE user_items SET verified_at = ?, verified_by = ? WHERE id = ?',
-            [getLocalTimestamp(), req.userId, item.id]
+            'UPDATE user_items SET verified_at = ?, verified_by = ? WHERE verification_code = ? AND verified_at IS NULL',
+            [getLocalTimestamp(), req.userId, code.toUpperCase()]
         );
         
-        res.json({ message: '核销成功', itemName: item.name });
+        res.json({ message: '核销成功', itemName: item.name, quantity: pending.c });
     } catch (error) {
         logger.error('核销错误:', error);
         res.status(500).json({ error: '核销失败' });
@@ -345,6 +375,41 @@ router.delete('/items/:id', authMiddleware, adminMiddleware, async (req, res) =>
     } catch (error) {
         logger.error('删除商品错误:', error);
         res.status(500).json({ error: '删除商品失败' });
+    }
+});
+
+// 商品营业额统计（管理端）：总营业额 + 近7天每日 + 按商品聚合
+router.get('/admin/sales', authMiddleware, adminMiddleware, async (req, res) => {
+    try {
+        const total = await db.get(
+            `SELECT COALESCE(-SUM(amount), 0) AS revenue,
+                    COUNT(*) AS transactions
+             FROM contribution_logs WHERE type = 'purchase'`
+        );
+
+        const daily = await db.all(
+            `SELECT date(created_at) AS d, COALESCE(-SUM(amount), 0) AS revenue
+             FROM contribution_logs
+             WHERE type = 'purchase' AND created_at >= datetime('now','localtime','-6 day')
+             GROUP BY d ORDER BY d`
+        );
+
+        const byItem = await db.all(
+            `SELECT COALESCE(si.name, '（已删除商品#' || cl.ref_id || '）') AS item_name,
+                    cl.ref_id AS item_id,
+                    COALESCE((SELECT COUNT(*) FROM user_items ui WHERE ui.item_id = cl.ref_id), 0) AS sold,
+                    COALESCE(-SUM(cl.amount), 0) AS revenue
+             FROM contribution_logs cl
+             LEFT JOIN shop_items si ON cl.ref_id = si.id
+             WHERE cl.type = 'purchase'
+             GROUP BY cl.ref_id
+             ORDER BY revenue DESC`
+        );
+
+        res.json({ total, daily, byItem });
+    } catch (error) {
+        logger.error('获取商品营业额错误:', error);
+        res.status(500).json({ error: '获取营业额失败' });
     }
 });
 
