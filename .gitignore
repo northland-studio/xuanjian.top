@@ -10,5 +10,16 @@ data/uploads/*
 .vscode/
 .idea/
 monitor/
-# applicant/ 为独立仓库（多端客户端工程），不纳入主仓库
+# 独立仓库，不纳入主仓库
 applicant/
+xuanjian mod/
+# 部署产物与一次性脚本/资源
+*.tar.gz
+guild-*.db
+actions26.zip
+1.ttf
+scripts/check-notif-deploy.sh
+scripts/check-zjrmuran.sh
+scripts/deploy-projections.sh
+scripts/upload-projections-local.js
+scripts/tmp-*.js
