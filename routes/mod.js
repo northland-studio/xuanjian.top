@@ -44,10 +44,30 @@ async function resolveUserByUuid(uuid) {
     return user;
 }
 
+/* ============ 中间件：玩家 uuid 绑定校验（客户端模组通道） ============ */
+async function playerAuth(req, res, next) {
+    try {
+        const uuid = req.query.uuid || req.body.uuid || req.headers['x-player-uuid'];
+        if (!uuid || typeof uuid !== 'string' || uuid.length > 64) {
+            return res.status(400).json({ error: '缺少或非法的 uuid' });
+        }
+        const user = await resolveUserByUuid(uuid);
+        if (!user) {
+            return res.status(401).json({ error: '该游戏角色未绑定官网账号' });
+        }
+        req.modUser = user;
+        req.modUuid = uuid;
+        next();
+    } catch (e) {
+        logger.error('玩家鉴权错误:', e);
+        res.status(500).json({ error: '鉴权失败' });
+    }
+}
+
 /* ============ 功能2：绑定 ============ */
 
-// 发起绑定：向官网账号邮箱发送确认邮件
-router.post('/bind/request', modAuth, async (req, res) => {
+// 发起绑定：向官网账号邮箱发送确认邮件（公开：需邮箱确认后才生效）
+router.post('/bind/request', async (req, res) => {
     try {
         const { uuid, playerName, accountId } = req.body;
         if (!uuid || !playerName || !accountId) {
@@ -132,8 +152,8 @@ router.get('/bind/confirm', async (req, res) => {
     }
 });
 
-// 查询绑定状态
-router.get('/bind/status', modAuth, async (req, res) => {
+// 查询绑定状态（公开：仅按 uuid 返回其绑定状态）
+router.get('/bind/status', async (req, res) => {
     try {
         const { uuid } = req.query;
         if (!uuid) return res.status(400).json({ error: '缺少 uuid' });
@@ -155,8 +175,8 @@ router.get('/bind/status', modAuth, async (req, res) => {
 
 /* ============ 功能1：自动签到 ============ */
 
-// 签到（模组登录后自动调用）
-router.post('/checkin', modAuth, async (req, res) => {
+// 签到（模组登录后自动调用，玩家级：uuid 须已绑定）
+router.post('/checkin', playerAuth, async (req, res) => {
     try {
         const { uuid } = req.body;
         if (!uuid) return res.status(400).json({ error: '缺少 uuid' });
@@ -202,7 +222,7 @@ router.post('/checkin', modAuth, async (req, res) => {
 });
 
 // 签到状态（今日是否已签）
-router.get('/checkin/status', modAuth, async (req, res) => {
+router.get('/checkin/status', playerAuth, async (req, res) => {
     try {
         const { uuid } = req.query;
         if (!uuid) return res.status(400).json({ error: '缺少 uuid' });
@@ -223,7 +243,7 @@ router.get('/checkin/status', modAuth, async (req, res) => {
 /* ============ 功能4：任务 ============ */
 
 // 任务列表
-router.get('/tasks', modAuth, async (req, res) => {
+router.get('/tasks', playerAuth, async (req, res) => {
     try {
         const { uuid } = req.query;
         if (!uuid) return res.status(400).json({ error: '缺少 uuid' });
@@ -253,7 +273,7 @@ router.get('/tasks', modAuth, async (req, res) => {
 });
 
 // 我的任务
-router.get('/tasks/my', modAuth, async (req, res) => {
+router.get('/tasks/my', playerAuth, async (req, res) => {
     try {
         const { uuid } = req.query;
         if (!uuid) return res.status(400).json({ error: '缺少 uuid' });
@@ -274,7 +294,7 @@ router.get('/tasks/my', modAuth, async (req, res) => {
 });
 
 // 接取任务
-router.post('/tasks/:id/claim', modAuth, async (req, res) => {
+router.post('/tasks/:id/claim', playerAuth, async (req, res) => {
     try {
         const { id } = req.params;
         const { uuid } = req.body;
@@ -297,7 +317,7 @@ router.post('/tasks/:id/claim', modAuth, async (req, res) => {
 });
 
 // 提交验证码完成任务
-router.post('/tasks/:id/complete', modAuth, async (req, res) => {
+router.post('/tasks/:id/complete', playerAuth, async (req, res) => {
     try {
         const { id } = req.params;
         const { uuid, code } = req.body;
@@ -348,7 +368,7 @@ router.post('/tasks/:id/complete', modAuth, async (req, res) => {
 /* ============ 功能6：贡献点余额 / 转账 ============ */
 
 // 余额查询
-router.get('/balance', modAuth, async (req, res) => {
+router.get('/balance', playerAuth, async (req, res) => {
     try {
         const { uuid } = req.query;
         if (!uuid) return res.status(400).json({ error: '缺少 uuid' });
@@ -361,8 +381,8 @@ router.get('/balance', modAuth, async (req, res) => {
     }
 });
 
-// 转账（模组侧已二次确认）
-router.post('/transfer', modAuth, async (req, res) => {
+// 转账（玩家级：fromUuid 须已绑定）
+router.post('/transfer', playerAuth, async (req, res) => {
     try {
         const { fromUuid, toPlayer, amount } = req.body;
         const amt = parseInt(amount);
@@ -414,7 +434,7 @@ router.post('/transfer', modAuth, async (req, res) => {
 /* ============ 功能8：申报 ============ */
 
 // 提交申报
-router.post('/claims', modAuth, async (req, res) => {
+router.post('/claims', playerAuth, async (req, res) => {
     try {
         const { uuid, amount, reason } = req.body;
         if (!uuid || !amount || amount <= 0) return res.status(400).json({ error: '申报数量必须大于0' });
@@ -435,9 +455,33 @@ router.post('/claims', modAuth, async (req, res) => {
 });
 
 // 新申报轮询（功能10：管理员提醒）
-router.get('/admin/claims', modAuth, async (req, res) => {
+// 两种调用通道：
+//  - 服务器模组：带 X-Server-Key，返回 claims + adminUuids（全部管理员已绑定的游戏角色）
+//  - 客户端模组（管理员玩家）：带 uuid，非管理员返回 403
+router.get('/admin/claims', async (req, res) => {
     try {
         const since = parseInt(req.query.since) || 0;
+
+        // 服务器通道
+        let isServer = false;
+        const key = req.headers['x-server-key'];
+        if (key) {
+            const server = await db.get('SELECT * FROM mod_servers WHERE server_key = ?', [key]);
+            if (server) isServer = true;
+        }
+
+        // 玩家通道（uuid 对应官网账号 level >= 1）
+        let isAdminPlayer = false;
+        const uuid = req.query.uuid;
+        if (!isServer && uuid) {
+            const user = await resolveUserByUuid(uuid);
+            if (user && user.level >= 1) isAdminPlayer = true;
+        }
+
+        if (!isServer && !isAdminPlayer) {
+            return res.status(403).json({ error: '无权限：仅官网管理员可查看待审申报' });
+        }
+
         const claims = await db.all(
             `SELECT cc.id, cc.amount, cc.reason, cc.created_at, u.nickname, u.username
              FROM contribution_claims cc
@@ -446,7 +490,18 @@ router.get('/admin/claims', modAuth, async (req, res) => {
              ORDER BY cc.id ASC`,
             [since]
         );
-        res.json({ claims });
+
+        let adminUuids = [];
+        if (isServer) {
+            const rows = await db.all(
+                `SELECT b.uuid FROM mod_bindings b
+                 JOIN users u ON b.user_id = u.id
+                 WHERE u.level >= 1 AND b.status = 'confirmed'`
+            );
+            adminUuids = rows.map(r => r.uuid);
+        }
+
+        res.json({ claims, adminUuids });
     } catch (e) {
         logger.error('模组申报提醒轮询错误:', e);
         res.status(500).json({ error: '查询失败' });
@@ -455,8 +510,8 @@ router.get('/admin/claims', modAuth, async (req, res) => {
 
 /* ============ 功能5：日报/决策更新同步 ============ */
 
-// 增量拉取日报/决策
-router.get('/updates', modAuth, async (req, res) => {
+// 增量拉取日报/决策（公开：官网帖子本就公开）
+router.get('/updates', async (req, res) => {
     try {
         const since = parseInt(req.query.since) || 0;
         const posts = await db.all(
@@ -474,39 +529,83 @@ router.get('/updates', modAuth, async (req, res) => {
 
 /* ============ 功能3+9：在线玩家 ============ */
 
-// 上报本服务器在线玩家
-router.post('/online/report', modAuth, async (req, res) => {
+// 客户端上线上报（玩家级：uuid 须已绑定；server 须匹配管理后台配置的白名单 server_ip）
+router.post('/online/join', playerAuth, async (req, res) => {
     try {
-        const { serverIp, players } = req.body;
-        if (!serverIp || !Array.isArray(players)) {
-            return res.status(400).json({ error: '参数不完整' });
+        const { server } = req.body;
+        if (!server || typeof server !== 'string') {
+            return res.status(400).json({ error: '缺少服务器地址' });
         }
-        await db.transaction(async () => {
-            await db.run('DELETE FROM mod_online WHERE server_ip = ?', [serverIp]);
-            for (const p of players) {
-                if (!p.uuid || !p.name) continue;
-                await db.run(
-                    'INSERT OR REPLACE INTO mod_online (server_ip, uuid, player_name, updated_at) VALUES (?, ?, ?, ?)',
-                    [serverIp, p.uuid, p.name, getLocalTimestamp()]
-                );
-            }
-        });
-        res.json({ message: '已上报', count: players.length });
+        const matched = await matchWhiteList(server);
+        if (!matched) {
+            return res.json({ ignored: true, message: '服务器不在白名单，未记录在线' });
+        }
+        const user = req.modUser;
+        const name = user.game_id || user.nickname || user.username || '';
+        await db.run(
+            'INSERT OR REPLACE INTO mod_online (server_ip, uuid, player_name, updated_at) VALUES (?, ?, ?, ?)',
+            [matched, req.modUuid, name, getLocalTimestamp()]
+        );
+        res.json({ message: '已上线', server: matched });
     } catch (e) {
-        logger.error('模组在线上报错误:', e);
+        logger.error('客户端上线上报错误:', e);
         res.status(500).json({ error: '上报失败' });
     }
 });
 
-// 查询指定服务器在线玩家
-router.get('/online', modAuth, async (req, res) => {
+// 客户端下线上报
+router.post('/online/leave', playerAuth, async (req, res) => {
+    try {
+        const { server } = req.body;
+        if (!server) return res.status(400).json({ error: '缺少服务器地址' });
+        const matched = await matchWhiteList(server);
+        if (!matched) return res.json({ message: '未匹配白名单，无需处理' });
+        await db.run('DELETE FROM mod_online WHERE server_ip = ? AND uuid = ?', [matched, req.modUuid]);
+        res.json({ message: '已下线' });
+    } catch (e) {
+        logger.error('客户端下线上报错误:', e);
+        res.status(500).json({ error: '上报失败' });
+    }
+});
+
+/** 白名单匹配：server 与 mod_servers.server_ip 去掉端口后相等即命中，返回存储的 server_ip；否则返回空 */
+async function matchWhiteList(server) {
+    const base = String(server).split(':')[0];
+    if (!base) return '';
+    const servers = await db.all('SELECT server_ip FROM mod_servers WHERE server_ip IS NOT NULL AND server_ip != ?', ['']);
+    for (const s of servers) {
+        const sBase = String(s.server_ip || '').split(':')[0];
+        if (sBase && sBase === base) return s.server_ip;
+    }
+    return '';
+}
+
+// 查询在线玩家（仅返回已绑定官网账号的玄剑玩家，且记录在 TTL 内未过期）
+// serverIp 可选：带则查指定服务器，不带则查全网各服务器
+router.get('/online', async (req, res) => {
     try {
         const { serverIp } = req.query;
-        if (!serverIp) return res.status(400).json({ error: '缺少 serverIp' });
-        const players = await db.all(
-            'SELECT uuid, player_name AS name FROM mod_online WHERE server_ip = ? ORDER BY player_name',
-            [serverIp]
-        );
+        const ttl = '-60 minutes'; // 在线记录 60 分钟未续报视为离线（由客户端心跳/续报刷新）
+        let players;
+        if (serverIp) {
+            players = await db.all(
+                `SELECT o.uuid, o.player_name AS name
+                 FROM mod_online o
+                 JOIN mod_bindings b ON o.uuid = b.uuid AND b.status = 'confirmed'
+                 WHERE o.server_ip = ? AND o.updated_at >= datetime('now', 'localtime', ?)
+                 ORDER BY o.player_name`,
+                [serverIp, ttl]
+            );
+        } else {
+            players = await db.all(
+                `SELECT o.uuid, o.player_name AS name
+                 FROM mod_online o
+                 JOIN mod_bindings b ON o.uuid = b.uuid AND b.status = 'confirmed'
+                 WHERE o.updated_at >= datetime('now', 'localtime', ?)
+                 ORDER BY o.player_name`,
+                [ttl]
+            );
+        }
         res.json({ players });
     } catch (e) {
         logger.error('模组在线查询错误:', e);
@@ -516,22 +615,25 @@ router.get('/online', modAuth, async (req, res) => {
 
 /* ============ 功能7：活跃心跳 ============ */
 
-// 活跃心跳上报
-router.post('/heartbeat', modAuth, async (req, res) => {
+// 活跃心跳上报（玩家级：仅记录已绑定官网账号的活跃 uuid，防伪造）
+router.post('/heartbeat', async (req, res) => {
     try {
-        const { players, onlineCount } = req.body;
+        const { players } = req.body;
         const now = getLocalTimestamp();
+        let recorded = 0;
         if (Array.isArray(players)) {
             for (const u of players) {
                 const user = await resolveUserByUuid(u);
-                const name = user ? (user.game_id || user.nickname || user.username) : '';
+                if (!user) continue; // 未绑定的 uuid 不参与活跃统计
+                const name = user.game_id || user.nickname || user.username || '';
                 await db.run(
                     'INSERT INTO mod_active (uuid, player_name, last_active_at) VALUES (?, ?, ?) ON CONFLICT(uuid) DO UPDATE SET player_name = ?, last_active_at = ?',
                     [u, name, now, name, now]
                 );
+                recorded++;
             }
         }
-        res.json({ message: '心跳已记录', activeCount: Array.isArray(players) ? players.length : 0 });
+        res.json({ message: '心跳已记录', activeCount: recorded });
     } catch (e) {
         logger.error('模组心跳错误:', e);
         res.status(500).json({ error: '心跳上报失败' });
