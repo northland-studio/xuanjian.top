@@ -1290,8 +1290,8 @@ function VerifyManager({ showToast }) {
     }
   };
 
-  const confirm = async () => {
-    if (!confirm(already ? '该核销码已核销，仍要确认？' : '确认核销此商品？')) return;
+  const handleConfirm = async () => {
+    if (!window.confirm(already ? '该核销码已核销，仍要确认？' : '确认核销此商品？')) return;
     setConfirming(true);
     try {
       const d = await api.post('/api/shop/confirm', { code: code.trim() });
@@ -1353,7 +1353,7 @@ function VerifyManager({ showToast }) {
           </div>
           <div className="flex" style={{ gap: 10, marginTop: 16, justifyContent: 'flex-end' }}>
             <button className="btn btn-secondary" onClick={() => setResult(null)}>取消</button>
-            <button className="btn btn-success" style={{ background: '#10b981' }} disabled={confirming} onClick={confirm}>
+            <button className="btn btn-success" style={{ background: '#10b981' }} disabled={confirming} onClick={handleConfirm}>
               {confirming ? '核销中...' : '确认核销'}
             </button>
           </div>
