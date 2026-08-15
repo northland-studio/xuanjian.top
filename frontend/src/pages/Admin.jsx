@@ -1261,6 +1261,7 @@ function VerifyManager({ showToast }) {
   const [already, setAlready] = useState(false);
   const [verifiedAt, setVerifiedAt] = useState(null);
   const [qty, setQty] = useState(1);
+  const [total, setTotal] = useState(1);
   const [error, setError] = useState('');
   const [checking, setChecking] = useState(false);
   const [confirming, setConfirming] = useState(false);
@@ -1273,12 +1274,14 @@ function VerifyManager({ showToast }) {
     setAlready(false);
     setVerifiedAt(null);
     setQty(1);
+    setTotal(1);
     try {
       const d = await api.post('/api/shop/verify', { code: code.trim() });
       setResult(d.item);
       setAlready(!!d.already);
       setVerifiedAt(d.verifiedAt || null);
       setQty(d.quantity || 1);
+      setTotal(d.total || 1);
     } catch (e) {
       setError(e.message);
       showToast(e.message, 'error');
@@ -1336,8 +1339,10 @@ function VerifyManager({ showToast }) {
           {already && verifiedAt && (
             <div className="text-secondary" style={{ fontSize: 13, marginBottom: 10 }}>核销时间：{formatDate(verifiedAt, false)}</div>
           )}
-          {!already && qty > 1 && (
-            <div className="text-secondary" style={{ fontSize: 13, marginBottom: 10 }}>本批共 {qty} 件，核销一次整批完成</div>
+          {total > 1 && (
+            <div className="text-secondary" style={{ fontSize: 13, marginBottom: 10 }}>
+              同批次共 <b>{total}</b> 件{already ? '（已全部核销）' : `（剩余 ${qty} 件待核销，核销一次整批完成）`}
+            </div>
           )}
           <div style={{ fontSize: 14, lineHeight: 2 }}>
             <div><span className="text-secondary">商品：</span><b>{result.name}</b></div>

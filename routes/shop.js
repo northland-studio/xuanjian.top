@@ -240,11 +240,23 @@ router.post('/verify', authMiddleware, adminMiddleware, async (req, res) => {
             return res.status(404).json({ error: '核销码无效' });
         }
         
+        // 该核销码对应的批次总数与剩余待核销数量（整批共用一个码）
+        const batch = await db.get(
+            `SELECT COUNT(*) AS total,
+                    COALESCE(SUM(CASE WHEN verified_at IS NULL THEN 1 ELSE 0 END), 0) AS remaining
+             FROM user_items WHERE verification_code = ?`,
+            [code.toUpperCase()]
+        );
+        const batchTotal = batch?.total || 1;
+        const batchRemaining = batch?.remaining || 0;
+
         if (item.verified_at) {
             // 幂等：已核销时返回已核销信息（前端友好提示，非失败）
             return res.json({
                 valid: true,
                 already: true,
+                total: batchTotal,
+                remaining: batchRemaining,
                 verifiedAt: item.verified_at,
                 verifiedBy: item.verified_by,
                 item: {
@@ -258,15 +270,11 @@ router.post('/verify', authMiddleware, adminMiddleware, async (req, res) => {
             });
         }
         
-        // 该核销码对应的剩余待核销数量（整批共用一个码）
-        const batch = await db.get(
-            'SELECT COUNT(*) AS remaining FROM user_items WHERE verification_code = ? AND verified_at IS NULL',
-            [code.toUpperCase()]
-        );
-        
         res.json({ 
             valid: true,
-            quantity: batch?.remaining || 1,
+            quantity: batchRemaining || 1,
+            total: batchTotal,
+            remaining: batchRemaining,
             item: {
                 id: item.id,
                 name: item.name,
