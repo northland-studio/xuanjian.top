@@ -21,6 +21,7 @@ actions26.zip
 scripts/check-notif-deploy.sh
 scripts/check-zjrmuran.sh
 scripts/deploy-projections.sh
+scripts/deploy-20260822.sh
 scripts/upload-projections-local.js
 scripts/tmp-*.js
 scripts/_inspect.js
