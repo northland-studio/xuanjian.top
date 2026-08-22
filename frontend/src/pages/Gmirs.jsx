@@ -247,7 +247,7 @@ export default function Gmirs() {
 
               {/* 处分记录 */}
               <div style={{ padding: 24, borderBottom: '1px solid var(--border)' }}>
-                <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 12 }}>处分记录</h3>
+                <h3 className="panel-title">处分记录</h3>
                 {archive.discipline.length ? (
                   <div style={{ overflowX: 'auto' }}>
                     <table className="table" style={{ width: '100%' }}>
@@ -284,7 +284,7 @@ export default function Gmirs() {
 
               {/* 贡献点明细（按类型分区段） */}
               <div style={{ padding: 24 }}>
-                <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 12 }}>贡献点明细</h3>
+                <h3 className="panel-title">贡献点明细</h3>
                 {sortGroups(archive.contribution?.groups).length === 0 ? (
                   <div className="empty-state" style={{ padding: 16 }}><p>暂无贡献点流水</p></div>
                 ) : (

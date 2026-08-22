@@ -18,6 +18,7 @@ xuanjian mod/
 guild-*.db
 actions26.zip
 1.ttf
+frontend/public/fonts/*.ttf
 scripts/check-notif-deploy.sh
 scripts/check-zjrmuran.sh
 scripts/deploy-projections.sh

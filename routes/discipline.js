@@ -27,7 +27,7 @@ function decorate(row) {
 }
 
 // ===== 管理员：新增处分 =====
-router.post('/', adminMiddleware, async (req, res) => {
+router.post('/', authMiddleware, adminMiddleware, async (req, res) => {
     try {
         const { userId, username, level, reason, extra_penalty, deduct_points } = req.body;
         const lv = parseInt(level);
@@ -101,7 +101,7 @@ router.post('/', adminMiddleware, async (req, res) => {
 });
 
 // ===== 管理员：撤销/解除处分 =====
-router.post('/:id/revoke', adminMiddleware, async (req, res) => {
+router.post('/:id/revoke', authMiddleware, adminMiddleware, async (req, res) => {
     try {
         const { id } = req.params;
         const { reason } = req.body;
@@ -144,7 +144,7 @@ router.post('/:id/revoke', adminMiddleware, async (req, res) => {
 });
 
 // ===== 管理员：处分列表（可筛选） =====
-router.get('/list', adminMiddleware, async (req, res) => {
+router.get('/list', authMiddleware, adminMiddleware, async (req, res) => {
     try {
         const { status, level, userId } = req.query;
         let sql = `

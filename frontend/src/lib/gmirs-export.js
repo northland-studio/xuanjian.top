@@ -67,6 +67,83 @@ function groupColumns(type) {
   ];
 }
 
+// ===== 中文字体加载与注册（jsPDF 默认字体不含中文，需嵌入 CJK 字体） =====
+const CJK_FONT_FILE = 'cjk.ttf';
+const CJK_FONT_NAME = 'XuanjianCJK';
+let cjkFontBase64Promise = null;
+
+function arrayBufferToBase64(buffer) {
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+  }
+  return btoa(binary);
+}
+
+// 缓存字体 Base64，避免重复请求与编码
+function getCjkFontBase64() {
+  if (!cjkFontBase64Promise) {
+    cjkFontBase64Promise = fetch(`/fonts/${CJK_FONT_FILE}`)
+      .then(res => { if (!res.ok) throw new Error('中文字体加载失败'); return res.arrayBuffer(); })
+      .then(buf => arrayBufferToBase64(buf));
+  }
+  return cjkFontBase64Promise;
+}
+
+// 为单个 jsPDF 实例注册并启用中文字体（VFS 按文档实例存储）
+async function registerCjkFont(doc) {
+  const base64 = await getCjkFontBase64();
+  doc.addFileToVFS(CJK_FONT_FILE, base64);
+  doc.addFont(CJK_FONT_FILE, CJK_FONT_NAME, 'normal');
+  doc.setFont(CJK_FONT_NAME, 'normal');
+}
+
+// 远程图片转 dataURL（用于同步嵌入 jsPDF，保证圆形裁剪生效且避免跨域缺失）
+async function loadImageDataURL(url) {
+  if (!url) return null;
+  try {
+    const res = await fetch(url, { mode: 'cors' });
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    return await new Promise(resolve => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result);
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return null;
+  }
+}
+
+// 圆形头像绘制（裁剪圆形后绘制图片，无图时显示首字占位）
+function drawCircularAvatar(doc, avatar, fallbackChar, x, y, size) {
+  const r = size / 2;
+  const cx = x + r;
+  const cy = y + r;
+  doc.saveGraphicsState();
+  doc.circle(cx, cy, r, null);
+  doc.clip();
+  let drawn = false;
+  if (avatar) {
+    try { doc.addImage(avatar, x, y, size, size); drawn = true; }
+    catch { drawn = false; }
+  }
+  if (!drawn) {
+    doc.setFillColor(240, 244, 250);
+    doc.rect(x, y, size, size, 'F');
+    doc.setTextColor(150);
+    doc.setFontSize(14);
+    doc.text(String(fallbackChar || '?'), cx, cy + 4, { align: 'center' });
+  }
+  doc.restoreGraphicsState();
+  doc.setDrawColor(210);
+  doc.setLineWidth(0.3);
+  doc.circle(cx, cy, r, 'S');
+}
+
 // ===== 离线渲染皮肤 → PNG dataURL =====
 // 通过动态 import skinview3d（独立 chunk），用 preserveDrawingBuffer 的离屏 canvas 截图
 async function renderSkinToDataURL(skinUrl, width = 160, height = 200) {
@@ -116,42 +193,35 @@ function buildHeader(archive) {
 
 // ===== PDF 导出（jspdf + autotable） =====
 export async function exportArchivePdf(archive) {
-  const skin = await renderSkinToDataURL(archive.user.skin_path);
+  const [skin, avatar] = await Promise.all([
+    renderSkinToDataURL(archive.user.skin_path),
+    loadImageDataURL(archive.user.avatar)
+  ]);
   const doc = new jsPDF('p', 'mm', 'a4'); // 210 x 297
+  await registerCjkFont(doc);
   const pageW = 210, pageH = 297;
   const left = 20, right = 190;
 
   // 标题
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(CJK_FONT_NAME, 'normal');
   doc.setFontSize(16);
   doc.setTextColor(20, 20, 20);
   doc.text('玄剑公会成员档案信息查询管理系统', 105, 20, { align: 'center' });
   doc.setFontSize(9);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(CJK_FONT_NAME, 'normal');
   doc.setTextColor(120);
   doc.text('Xuanjian Guild Member Information Retrieval System', 105, 25, { align: 'center' });
 
-  // 头像（圆形→方形，简化用方形）+ 名称
+  // 圆形头像 + 名称
   const headY = 34;
-  doc.setDrawColor(200);
-  doc.setFillColor(245, 245, 247);
-  doc.roundedRect(left, headY, 26, 26, 3, 3, 'FD');
-  // 头像图
-  if (archive.user.avatar) {
-    try { doc.addImage(archive.user.avatar, 'JPEG', left, headY, 26, 26); }
-    catch { /* 图片加载失败忽略 */ }
-  } else {
-    doc.setTextColor(150);
-    doc.setFontSize(14);
-    doc.text(String((archive.user.nickname || archive.user.username || '?').slice(0, 1)), left + 13, headY + 16, { align: 'center' });
-  }
+  drawCircularAvatar(doc, avatar, (archive.user.nickname || archive.user.username || '?').slice(0, 1), left, headY, 26);
   doc.setTextColor(20);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(CJK_FONT_NAME, 'normal');
   doc.setFontSize(15);
   doc.text('【用户昵称】', 52, headY + 11);
   doc.setFontSize(12);
   doc.text(`${archive.user.nickname || archive.user.username}`, 52, headY + 11, { align: 'left' });
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(CJK_FONT_NAME, 'normal');
   doc.setFontSize(10);
   doc.setTextColor(90);
   doc.text(`用户ID：${archive.user.id}`, 52, headY + 18);
@@ -174,22 +244,22 @@ export async function exportArchivePdf(archive) {
     startY: infoY,
     margin: { left, right: 20 },
     theme: 'grid',
-    styles: { fontSize: 9, cellPadding: 2.5 },
-    headStyles: { fillColor: [238, 240, 245], textColor: [30, 30, 30] },
+    styles: { font: CJK_FONT_NAME, fontSize: 9, cellPadding: 2.5 },
+    headStyles: { fillColor: [238, 240, 245], textColor: [30, 30, 30], fontStyle: 'normal' },
     body: [
       ['游戏ID', fmtText(archive.user.game_id), '注册时间', fmtDate(archive.user.created_at, false)],
       ['绑定邮箱', fmtText(archive.user.email), '贡献点余额', `${fmtPoints(archive.user.contribution)} 点`]
     ],
     columnStyles: {
-      0: { cellWidth: 28, fontStyle: 'bold' },
-      2: { cellWidth: 28, fontStyle: 'bold' }
+      0: { cellWidth: 28, fontStyle: 'normal' },
+      2: { cellWidth: 28, fontStyle: 'normal' }
     }
   });
 
   let y = doc.lastAutoTable.finalY + 10;
 
   // 处分记录
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(CJK_FONT_NAME, 'normal');
   doc.setFontSize(11);
   doc.setTextColor(20);
   doc.text('处分记录', left, y);
@@ -205,15 +275,15 @@ export async function exportArchivePdf(archive) {
     startY: y,
     margin: { left, right: 20 },
     theme: 'striped',
-    styles: { fontSize: 8.5, cellPadding: 2.5 },
-    headStyles: { fillColor: [238, 240, 245], textColor: [30, 30, 30] },
+    styles: { font: CJK_FONT_NAME, fontSize: 8.5, cellPadding: 2.5 },
+    headStyles: { fillColor: [238, 240, 245], textColor: [30, 30, 30], fontStyle: 'normal' },
     head: [['日期', '处分等级', '处分原因/附加惩罚', '处分人', '状态']],
     body: discRows.length ? discRows : [['暂无处分记录', '', '', '', '']]
   });
   y = doc.lastAutoTable.finalY + 10;
 
   // 贡献点明细（按类型分区段）
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(CJK_FONT_NAME, 'normal');
   doc.setFontSize(11);
   doc.setTextColor(20);
   doc.text('贡献点明细', left, y);
@@ -222,7 +292,7 @@ export async function exportArchivePdf(archive) {
   if (!groups.length) {
     autoTable(doc, {
       startY: y, margin: { left, right: 20 },
-      theme: 'plain', styles: { fontSize: 9 },
+      theme: 'plain', styles: { font: CJK_FONT_NAME, fontSize: 9 },
       body: [['暂无贡献点流水']]
     });
     y = doc.lastAutoTable.finalY + 6;
@@ -238,7 +308,7 @@ export async function exportArchivePdf(archive) {
         return fmtText(it[c.key]);
       }));
       // 分段标题：类型名
-      doc.setFont('helvetica', 'bold');
+      doc.setFont(CJK_FONT_NAME, 'normal');
       doc.setFontSize(9);
       doc.setTextColor(60);
       doc.text(g.type_label || TYPE_LABELS[g.type] || g.type, left, y);
@@ -246,8 +316,8 @@ export async function exportArchivePdf(archive) {
         startY: y + 2,
         margin: { left, right: 20 },
         theme: 'grid',
-        styles: { fontSize: 8, cellPadding: 2 },
-        headStyles: { fillColor: [244, 246, 250], textColor: [40, 40, 40] },
+        styles: { font: CJK_FONT_NAME, fontSize: 8, cellPadding: 2 },
+        headStyles: { fillColor: [244, 246, 250], textColor: [40, 40, 40], fontStyle: 'normal' },
         head: [cols.map(c => c.header)],
         body: rows.length ? rows : [cols.map(() => '—')]
       });
@@ -262,7 +332,7 @@ export async function exportArchivePdf(archive) {
   doc.setFontSize(9);
   doc.setTextColor(90);
   doc.text(`导出日期：${fmtDate(new Date(), true)}`, left, footY);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(CJK_FONT_NAME, 'normal');
   doc.setTextColor(60);
   doc.text(`验证码查伪：${archive.verify_code}`, right, footY, { align: 'right' });
 
@@ -281,7 +351,7 @@ export async function exportArchiveDocx(archive) {
 
   // 头块：头像+昵称+皮肤图
   children.push(new Paragraph({ spacing: { before: 200 } }));
-  if (skin) children.push(new Paragraph({ children: [new ImageRun({ data: dataURLToUint8(skin), transformation: { width: 120, height: 150 } })] }));
+  if (skin) children.push(new Paragraph({ children: [new ImageRun({ type: 'png', data: dataURLToUint8(skin), transformation: { width: 120, height: 150 } })] }));
   children.push(new Paragraph({ text: `${u.nickname || u.username}（用户ID：${u.id}）`, heading: HeadingLevel.HEADING_2 }));
 
   // 基本信息表
@@ -352,8 +422,8 @@ export async function exportArchiveDocx(archive) {
   children.push(new Paragraph({ text: `导出日期：${fmtDate(new Date(), true)}    验证码查伪：${archive.verify_code}`, spacing: { before: 300 } }));
 
   const doc = new Document({ sections: [{ children }] });
-  const blob = await Packer.toBuffer(doc);
-  saveAs(new Blob([blob]), `玄剑公会成员档案-${u.nickname || u.username}-${u.id}.docx`);
+  const blob = await Packer.toBlob(doc);
+  saveAs(blob, `玄剑公会成员档案-${u.nickname || u.username}-${u.id}.docx`);
 }
 
 // ===== 一键导出所有成员（ZIP：每个成员 PDF + 索引） =====
@@ -363,8 +433,11 @@ export async function exportAllArchivesZip(archives) {
   for (let i = 0; i < archives.length; i++) {
     const a = archives[i];
     const u = a.user;
-    const skin = await renderSkinToDataURL(u.skin_path);
-    const doc = await buildPdfBuffer(a, skin);
+    const [skin, avatar] = await Promise.all([
+      renderSkinToDataURL(u.skin_path),
+      loadImageDataURL(u.avatar)
+    ]);
+    const doc = await buildPdfBuffer(a, skin, avatar);
     const fname = `成员档案_${(u.nickname || u.username)}_${u.id}.pdf`;
     zip.file(fname, doc.output('arraybuffer'));
     indexLines.push(`${(u.nickname || u.username)} | 用户ID:${u.id} | 验证码:${a.verify_code}`);
@@ -375,21 +448,21 @@ export async function exportAllArchivesZip(archives) {
 }
 
 // ===== PDF 生成复用（返回 jsPDF 实例，供单/批量共用） =====
-async function buildPdfBuffer(archive, skin) {
+async function buildPdfBuffer(archive, skin, avatar) {
   const doc = new jsPDF('p', 'mm', 'a4');
+  await registerCjkFont(doc);
   const pageW = 210, pageH = 297;
   const left = 20, right = 190;
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(16); doc.setTextColor(20);
+  doc.setFont(CJK_FONT_NAME, 'normal'); doc.setFontSize(16); doc.setTextColor(20);
   doc.text('玄剑公会成员档案信息查询管理系统', 105, 20, { align: 'center' });
-  doc.setFontSize(9); doc.setFont('helvetica', 'normal'); doc.setTextColor(120);
+  doc.setFontSize(9); doc.setFont(CJK_FONT_NAME, 'normal'); doc.setTextColor(120);
   doc.text('Xuanjian Guild Member Information Retrieval System', 105, 25, { align: 'center' });
 
   const headY = 34;
-  doc.setFillColor(245, 245, 247); doc.roundedRect(left, headY, 26, 26, 3, 3, 'FD');
-  if (archive.user.avatar) { try { doc.addImage(archive.user.avatar, 'JPEG', left, headY, 26, 26); } catch {} }
-  doc.setTextColor(20); doc.setFont('helvetica', 'bold'); doc.setFontSize(15);
+  drawCircularAvatar(doc, avatar, (archive.user.nickname || archive.user.username || '?').slice(0, 1), left, headY, 26);
+  doc.setTextColor(20); doc.setFont(CJK_FONT_NAME, 'normal'); doc.setFontSize(15);
   doc.text(`${archive.user.nickname || archive.user.username}`, 52, headY + 11);
-  doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(90);
+  doc.setFont(CJK_FONT_NAME, 'normal'); doc.setFontSize(10); doc.setTextColor(90);
   doc.text(`用户ID：${archive.user.id}`, 52, headY + 18);
   if (skin) doc.addImage(skin, 'PNG', 168, headY - 4, 22, 27);
   else { doc.setFillColor(240, 244, 250); doc.roundedRect(168, headY - 4, 22, 27, 2, 2, 'FD'); doc.setTextColor(150); doc.setFontSize(7); doc.text('用户皮肤图', 179, headY + 8, { align: 'center' }); }
@@ -397,16 +470,16 @@ async function buildPdfBuffer(archive, skin) {
   const infoY = headY + 32;
   autoTable(doc, {
     startY: infoY, margin: { left, right: 20 }, theme: 'grid',
-    styles: { fontSize: 9, cellPadding: 2.5 }, headStyles: { fillColor: [238, 240, 245], textColor: [30, 30, 30] },
+    styles: { font: CJK_FONT_NAME, fontSize: 9, cellPadding: 2.5 }, headStyles: { fillColor: [238, 240, 245], textColor: [30, 30, 30], fontStyle: 'normal' },
     body: [
       ['游戏ID', fmtText(archive.user.game_id), '注册时间', fmtDate(archive.user.created_at, false)],
       ['绑定邮箱', fmtText(archive.user.email), '贡献点余额', `${fmtPoints(archive.user.contribution)} 点`]
     ],
-    columnStyles: { 0: { cellWidth: 28, fontStyle: 'bold' }, 2: { cellWidth: 28, fontStyle: 'bold' } }
+    columnStyles: { 0: { cellWidth: 28, fontStyle: 'normal' }, 2: { cellWidth: 28, fontStyle: 'normal' } }
   });
   let y = doc.lastAutoTable.finalY + 10;
 
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(20);
+  doc.setFont(CJK_FONT_NAME, 'normal'); doc.setFontSize(11); doc.setTextColor(20);
   doc.text('处分记录', left, y); y += 4;
   const discRows = (archive.discipline || []).map(d => [
     fmtDate(d.created_at, false), d.level_text || String(d.level),
@@ -415,17 +488,17 @@ async function buildPdfBuffer(archive, skin) {
   ]);
   autoTable(doc, {
     startY: y, margin: { left, right: 20 }, theme: 'striped',
-    styles: { fontSize: 8.5, cellPadding: 2.5 }, headStyles: { fillColor: [238, 240, 245], textColor: [30, 30, 30] },
+    styles: { font: CJK_FONT_NAME, fontSize: 8.5, cellPadding: 2.5 }, headStyles: { fillColor: [238, 240, 245], textColor: [30, 30, 30], fontStyle: 'normal' },
     head: [['日期', '处分等级', '处分原因/附加惩罚', '处分人', '状态']],
     body: discRows.length ? discRows : [['暂无处分记录', '', '', '', '']]
   });
   y = doc.lastAutoTable.finalY + 10;
 
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(20);
+  doc.setFont(CJK_FONT_NAME, 'normal'); doc.setFontSize(11); doc.setTextColor(20);
   doc.text('贡献点明细', left, y); y += 4;
   const groups = sortGroups(archive.contribution?.groups);
   if (!groups.length) {
-    autoTable(doc, { startY: y, margin: { left, right: 20 }, theme: 'plain', styles: { fontSize: 9 }, body: [['暂无贡献点流水']] });
+    autoTable(doc, { startY: y, margin: { left, right: 20 }, theme: 'plain', styles: { font: CJK_FONT_NAME, fontSize: 9 }, body: [['暂无贡献点流水']] });
     y = doc.lastAutoTable.finalY + 6;
   } else {
     groups.forEach(g => {
@@ -438,11 +511,11 @@ async function buildPdfBuffer(archive, skin) {
         if (c.key === 'reply') return fmtText(it.reply) || '—';
         return fmtText(it[c.key]);
       }));
-      doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(60);
+      doc.setFont(CJK_FONT_NAME, 'normal'); doc.setFontSize(9); doc.setTextColor(60);
       doc.text(g.type_label || TYPE_LABELS[g.type] || g.type, left, y);
       autoTable(doc, {
         startY: y + 2, margin: { left, right: 20 }, theme: 'grid',
-        styles: { fontSize: 8, cellPadding: 2 }, headStyles: { fillColor: [244, 246, 250], textColor: [40, 40, 40] },
+        styles: { font: CJK_FONT_NAME, fontSize: 8, cellPadding: 2 }, headStyles: { fillColor: [244, 246, 250], textColor: [40, 40, 40], fontStyle: 'normal' },
         head: [cols.map(c => c.header)],
         body: rows.length ? rows : [cols.map(() => '—')]
       });
@@ -454,7 +527,7 @@ async function buildPdfBuffer(archive, skin) {
   doc.setDrawColor(220); doc.line(left, footY - 5, right, footY - 5);
   doc.setFontSize(9); doc.setTextColor(90);
   doc.text(`导出日期：${fmtDate(new Date(), true)}`, left, footY);
-  doc.setFont('helvetica', 'bold'); doc.setTextColor(60);
+  doc.setFont(CJK_FONT_NAME, 'normal'); doc.setTextColor(60);
   doc.text(`验证码查伪：${archive.verify_code}`, right, footY, { align: 'right' });
   return doc;
 }
