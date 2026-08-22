@@ -115,7 +115,7 @@ export default function Gmirs() {
   };
 
   return (
-    <div className="fade-in-up">
+    <div className="fade-in-up no-radius">
       <div className="page-banner" style={{ background: 'linear-gradient(135deg, #004AAD 0%, #0066cc 100%)' }}>
         <div className="page-banner-content">
           <h1 style={{ fontSize: 30 }}>玄剑公会成员档案信息查询管理系统</h1>

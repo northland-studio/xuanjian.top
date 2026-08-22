@@ -1000,6 +1000,12 @@ img {
   margin-bottom: 18px;
 }
 
+/* 独立系统页（GMIRS 档案查询 / GDARS 处分查询）：取消圆角，采用直角设计 */
+.no-radius .card,
+.no-radius .page-banner {
+  border-radius: 0;
+}
+
 /* 搜索栏 */
 .search-bar input {
   background: var(--card);

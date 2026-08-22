@@ -14,7 +14,7 @@ xuanjian.top 2.0 - React 重构版
 ![Vite](https://img.shields.io/badge/Vite-8-646CFF?style=flat-square)
 ![SQLite](https://img.shields.io/badge/SQLite-3-003B49?style=flat-square)
 ![Qiniu](https://img.shields.io/badge/Qiniu-Kodo-0080FF?style=flat-square)
-![Version](https://img.shields.io/badge/Version-v2.0.1-blue?style=flat-square)
+![Version](https://img.shields.io/badge/Version-v2.2.0-blue?style=flat-square)
 ![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
 
 **在线地址**: https://xuanjian.top
@@ -217,6 +217,24 @@ QINIU_UPLOAD_URL=https://up-as0.qiniup.com
 ---
 
 ## 更新日志
+
+### v2.2.0（2026-08-22）
+
+Aug 15 与 Aug 22 两次批量提交合并记录：
+
+- **GMIRS 成员档案查询系统**：模糊查询（用户名 / 昵称 / 游戏ID）、PDF / docx 导出（嵌入 CJK 等线字体、canvas 圆形头像）、一键 zip（每成员独立文件）、皮肤图渲染、验证码查伪、独立 /gmirs 前端；头像走 /api/gmirs/proxy-image 同源代理绕过 CORS；新增导出进度回调与进度条
+- **GDARS 处分记录查询系统**：三级处分 + 冻结 / freeze、记录管理员、公开查询接口、独立 /gdars 前端，管理后台处分管理 Tab（撤销 / 解冻）
+- **处分接口鉴权补全**：处分管理接口补全 authMiddleware；docx 改用 Packer.toBlob
+- **异常登录邮件提醒**：login_attempts 表 + 陌生 IP 检测 + sendAbnormalLoginAlert，异地登录及时告警
+- **贡献点全量流水日志**：contribution_logs type CHECK 扩展 discipline / post，带 balance_after / ref_id / note
+- **申报入口迁移**：申报入口移至转账页，移除重复入口；修复 @number516567 申报可见性（claims.js 改用 fetchLatestLevel 实时读库判断管理员）
+- **商城批量购买与整批核销**：管理端支持同批次商品数量查看（含已核销批次）、营业额统计
+- **模组玩家接口**：routes/mod.js 扩充分绑定 / 签到 / 任务 / 转账 / 申报
+- **称号购买修复**：购买价格为空时清空余额改为补记称号购买流水（补补偿 HOMO114514 63 点）
+- **核销修复**：修复核销确认函数遮蔽 window.confirm 导致无限自递归循环发请求
+- **接口限流调整**：限流阈值调整并返回友好提示
+- **GMIRS / GDARS 页面**：移除昵称占位与横幅图片引用，字体 URL 加版本号
+- **数据库迁移**：新增 scripts/migrate-20260822.js
 
 ### v2.1.0（2026-08-07）
 

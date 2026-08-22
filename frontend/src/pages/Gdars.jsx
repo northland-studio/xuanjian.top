@@ -45,7 +45,7 @@ export default function Gdars() {
   const hasActive = (actions) => actions.some(a => a.is_active);
 
   return (
-    <div className="fade-in-up">
+    <div className="fade-in-up no-radius">
       {/* 顶部横幅 */}
       <div className="page-banner" style={{ background: 'linear-gradient(135deg, #004AAD 0%, #0066cc 100%)' }}>
         <div className="page-banner-content">
