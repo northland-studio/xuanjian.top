@@ -2,13 +2,14 @@ const express = require('express');
 const logger = require('../lib/logger');
 const db = require('../database');
 const { getLocalTimestamp } = require('../database');
+const { addContributionLog } = require('../lib/contribution');
 const { authMiddleware, adminMiddleware } = require('../middleware/auth');
 const router = express.Router();
 
 router.get('/', async (req, res) => {
     try {
         const titles = await db.all(
-            'SELECT * FROM titles WHERE is_active = 1 ORDER BY is_preset DESC, price ASC'
+            'SELECT * FROM titles WHERE is_active = 1 AND in_shop = 1 ORDER BY is_preset DESC, price ASC'
         );
         res.json({ titles });
     } catch (error) {
@@ -56,9 +57,16 @@ router.post('/:id/buy', authMiddleware, async (req, res) => {
     try {
         const { id } = req.params;
         
-        const title = await db.get('SELECT * FROM titles WHERE id = ? AND is_active = 1', [id]);
+        const title = await db.get(
+            'SELECT * FROM titles WHERE id = ? AND is_active = 1 AND in_shop = 1',
+            [id]
+        );
         if (!title) {
-            return res.status(404).json({ error: '称号不存在' });
+            return res.status(404).json({ error: '称号不存在或未上架' });
+        }
+        // 防御：价格为空/非法时禁止购买（历史数据存在 price=NULL 的称号，会算成 balance - NULL = NULL 清空余额）
+        if (title.price == null || !(title.price >= 0)) {
+            return res.status(400).json({ error: '该称号价格异常，无法购买' });
         }
         
         const existing = await db.get(
@@ -70,19 +78,23 @@ router.post('/:id/buy', authMiddleware, async (req, res) => {
         }
         
         const user = await db.get('SELECT contribution FROM users WHERE id = ?', [req.userId]);
-        if (user.contribution < title.price) {
+        if ((user.contribution || 0) < title.price) {
             return res.status(400).json({ error: '贡献点不足' });
         }
         
-        await db.run(
-            'UPDATE users SET contribution = COALESCE(contribution, 0) - ? WHERE id = ?',
-            [title.price, req.userId]
-        );
-        
-        await db.run(
-            'INSERT INTO user_titles (user_id, title_id) VALUES (?, ?)',
-            [req.userId, id]
-        );
+        await db.transaction(async () => {
+            await db.run(
+                'UPDATE users SET contribution = COALESCE(contribution, 0) - ? WHERE id = ?',
+                [title.price, req.userId]
+            );
+            
+            await db.run(
+                'INSERT INTO user_titles (user_id, title_id) VALUES (?, ?)',
+                [req.userId, id]
+            );
+            
+            await addContributionLog(req.userId, -title.price, 'title', id, title.name);
+        });
         
         res.json({ message: '购买成功', title });
     } catch (error) {
