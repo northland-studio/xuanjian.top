@@ -23,3 +23,5 @@ scripts/check-zjrmuran.sh
 scripts/deploy-projections.sh
 scripts/upload-projections-local.js
 scripts/tmp-*.js
+scripts/_inspect.js
+scripts/repair-user52-null.js

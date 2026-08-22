@@ -4,6 +4,7 @@ const db = require('../database');
 const { getLocalTimestamp } = require('../database');
 const { authMiddleware, adminMiddleware } = require('../middleware/auth');
 const { createNotification } = require('./notifications');
+const { addContributionLog } = require('../lib/contribution');
 const router = express.Router();
 
 function processImages(images) {
@@ -220,6 +221,7 @@ router.post('/', authMiddleware, async (req, res) => {
         );
 
         await db.run('UPDATE users SET contribution = COALESCE(contribution, 0) + 2 WHERE id = ?', [req.userId]);
+        await addContributionLog(req.userId, 2, 'post', result.id, '发布内容奖励');
 
         if (type === 'daily' || type === 'decision') {
             const typeText = type === 'daily' ? '日报' : '决策';

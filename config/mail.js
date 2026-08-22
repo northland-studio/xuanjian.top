@@ -294,6 +294,43 @@ async function sendTaskResult(email, task, user) {
     return await sendEmail(email, '玄剑公会 - 任务完成奖励', html);
 }
 
+// 异常登录提醒邮件
+async function sendAbnormalLoginAlert(email, info) {
+    const location = info.location ? `${info.location} · ` : '';
+    const html = getEmailTemplate({
+        title: '检测到异常登录',
+        greeting: `您好，${info.nickname || info.username || '账号'}！`,
+        content: `
+            <p style="margin: 0 0 16px 0; color: #ef4444; font-size: 16px; font-weight: 600;">
+                我们检测到您的账号有一次新的登录行为，可能来自陌生设备或异地。
+            </p>
+            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background: #f8fafc; border-radius: 12px; padding: 24px;">
+                <tr>
+                    <td style="padding: 8px 0;"><span style="color: #64748b; font-size: 14px;">账号：</span><span style="color: #1e293b; font-size: 15px; font-weight: 600;">${info.username}</span></td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px 0;"><span style="color: #64748b; font-size: 14px;">登录IP：</span><span style="color: #1e293b; font-size: 15px; font-weight: 600;">${info.ip || '未知'}</span></td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px 0;"><span style="color: #64748b; font-size: 14px;">登录时间：</span><span style="color: #1e293b; font-size: 15px;">${info.time || ''}</span></td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px 0;"><span style="color: #64748b; font-size: 14px;">设备：</span><span style="color: #1e293b; font-size: 13px; word-break: break-all;">${info.userAgent || '未知'}</span></td>
+                </tr>
+            </table>
+            <p style="margin: 20px 0 0 0; color: #475569; font-size: 14px; line-height: 1.7;">
+                ${location}若为本人操作，请忽略此邮件。若并非您本人登录，您的账号可能面临风险，建议立即修改密码并检查账号安全。
+            </p>
+        `,
+        actionButton: {
+            text: '前往账户设置',
+            url: `${SITE_URL}/settings`
+        },
+        accentColor: '#ef4444'
+    });
+    return await sendEmail(email, '玄剑公会 - 异常登录提醒', html);
+}
+
 // 模组绑定确认邮件
 async function sendBindConfirm(email, info) {
     const html = getEmailTemplate({
@@ -335,5 +372,6 @@ module.exports = {
     sendClaimNotification,
     sendClaimResult,
     sendTaskResult,
-    sendBindConfirm
+    sendBindConfirm,
+    sendAbnormalLoginAlert
 };

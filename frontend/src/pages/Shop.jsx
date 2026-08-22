@@ -130,7 +130,7 @@ export default function Shop() {
           <p>按劳分配，贡献点兑换称号、物品与公会资源使用权限</p>
           <div className="flex" style={{ gap: 10 }}>
             <Link to="/inventory" className="btn btn-primary">我的库存</Link>
-            <Link to="/claims" className="btn btn-ghost" style={{ color: '#fff', borderColor: 'rgba(255,255,255,0.4)' }}>贡献点申报</Link>
+            <Link to="/trade" className="btn btn-ghost" style={{ color: '#fff', borderColor: 'rgba(255,255,255,0.4)' }}>贡献点交易</Link>
           </div>
         </div>
       </div>

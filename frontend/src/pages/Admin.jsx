@@ -15,6 +15,7 @@ const TABS = [
   { key: 'claims', label: '申报审核' },
   { key: 'tasks', label: '任务管理' },
   { key: 'logs', label: '贡献点日志' },
+  { key: 'discipline', label: '处分管理' },
   { key: 'verify', label: '核销商品' },
   { key: 'mod', label: '模组管理' }
 ];
@@ -66,6 +67,7 @@ export default function Admin() {
       {tab === 'claims' && <ClaimReview showToast={showToast} />}
       {tab === 'tasks' && <TaskManager showToast={showToast} />}
       {tab === 'logs' && <ContributionLogs showToast={showToast} />}
+      {tab === 'discipline' && <DisciplineManager showToast={showToast} />}
       {tab === 'verify' && <VerifyManager showToast={showToast} />}
       {tab === 'mod' && <ModServerManager showToast={showToast} />}
     </div>
@@ -1061,6 +1063,241 @@ function ContributionLogs({ showToast }) {
       )}
     </div>
   );
+}
+
+/* ============ 处分管理 ============ */
+const DISCIPLINE_LEVELS = [
+  { value: 1, label: '① 全会通报批评' },
+  { value: 2, label: '② 全会通报批评+扣除贡献点' },
+  { value: 3, label: '③ 开除会籍（冻结账号）' }
+];
+
+function DisciplineManager({ showToast }) {
+  const [actions, setActions] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState('active');
+
+  // 新增处分表单
+  const [searchUser, setSearchUser] = useState('');
+  const [userResults, setUserResults] = useState([]);
+  const [searching, setSearching] = useState(false);
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [level, setLevel] = useState(1);
+  const [reason, setReason] = useState('');
+  const [extraPenalty, setExtraPenalty] = useState('');
+  const [deductPoints, setDeductPoints] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const loadActions = (f) => {
+    setLoading(true);
+    const q = f ? `?status=${f}` : '';
+    api.get(`/api/discipline/list${q}`)
+      .then(d => setActions(d.actions || []))
+      .catch(() => setActions([]))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => { loadActions(filter); }, [filter]);
+
+  const doSearchUsers = async (kw) => {
+    const q = (kw || '').trim();
+    if (!q) { setUserResults([]); return; }
+    setSearching(true);
+    try {
+      const d = await api.get(`/api/admin/users?search=${encodeURIComponent(q)}&limit=10`);
+      setUserResults(d.users || []);
+    } catch (e) {
+      setUserResults([]);
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const pickUser = (u) => {
+    setSelectedUser(u);
+    setUserResults([]);
+    setSearchUser(u.nickname || u.username);
+  };
+
+  const resetForm = () => {
+    setSearchUser(''); setUserResults([]); setSelectedUser(null);
+    setLevel(1); setReason(''); setExtraPenalty(''); setDeductPoints('');
+  };
+
+  const submit = async () => {
+    if (!selectedUser) { showToast('请先选择处分对象', 'error'); return; }
+    if (!reason.trim() || reason.trim().length < 2) { showToast('请填写处分理由（至少2个字符）', 'error'); return; }
+    if (level === 2 && (!(Number(deductPoints) >= 1))) { showToast('级别②必须填写扣除贡献点数量（≥1）', 'error'); return; }
+    setSaving(true);
+    try {
+      await api.post('/api/discipline', {
+        userId: selectedUser.id,
+        level: Number(level),
+        reason: reason.trim(),
+        extra_penalty: extraPenalty.trim(),
+        deduct_points: Number(deductPoints) || 0
+      });
+      showToast('处分已记录', 'success');
+      resetForm();
+      loadActions(filter);
+    } catch (e) {
+      showToast(e.message || '处分失败', 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const revoke = async (a) => {
+    const tip = a.level === 3
+      ? '撤销该处分将解除账号冻结；若扣点将返还贡献点。确定撤销？'
+      : '撤销该处分；若扣点将返还贡献点。确定撤销？';
+    if (!confirm(tip)) return;
+    try {
+      await api.post(`/api/discipline/${a.id}/revoke`, { reason: '' });
+      showToast('处分已撤销', 'success');
+      loadActions(filter);
+    } catch (e) {
+      showToast(e.message || '撤销失败', 'error');
+    }
+  };
+
+  const LEVEL_BADGE = {
+    1: { text: '通报批评', color: 'var(--warning)' },
+    2: { text: '通报+扣点', color: 'var(--danger)' },
+    3: { text: '开除(冻结)', color: 'var(--danger)' }
+  };
+
+  return (
+    <div>
+      {/* 新增处分 */}
+      <div className="card" style={{ padding: 20, marginBottom: 16 }}>
+        <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 14 }}>对成员作出处分</h3>
+        <div className="grid grid-2" style={{ gap: 14 }}>
+          <div className="form-group" style={{ marginBottom: 0 }}>
+            <label className="form-label">处分对象（搜索用户名/昵称）</label>
+            <div className="flex" style={{ gap: 8 }}>
+              <input
+                className="form-input"
+                placeholder="输入成员用户名/昵称搜索"
+                value={searchUser}
+                onChange={e => { setSearchUser(e.target.value); setSelectedUser(null); doSearchUsers(e.target.value); }}
+                style={{ flex: 1 }}
+              />
+              <button className="btn btn-secondary btn-sm" onClick={() => doSearchUsers(searchUser)} disabled={searching}>
+                {searching ? '搜索...' : '搜索'}
+              </button>
+            </div>
+            {userResults.length > 0 && (
+              <div style={{ marginTop: 8, border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden', maxHeight: 200, overflowY: 'auto' }}>
+                {userResults.map(u => (
+                  <button key={u.id} type="button" onClick={() => pickUser(u)} className="flex"
+                    style={{ width: '100%', padding: '8px 12px', border: 'none', background: selectedUser?.id === u.id ? 'var(--primary-soft)' : 'transparent', gap: 10, alignItems: 'center', cursor: 'pointer', borderBottom: '1px solid var(--border)', fontSize: 14, textAlign: 'left' }}>
+                    <img src={u.avatar || '/images/default-avatar.png'} alt="" style={{ width: 26, height: 26, borderRadius: '50%', objectFit: 'cover' }} />
+                    <span>{u.nickname || u.username}</span>
+                    <span className="text-secondary" style={{ fontSize: 12 }}>@{u.username} · {fmtLevel(u.level)}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+            {selectedUser && (
+              <div className="text-secondary" style={{ fontSize: 13, marginTop: 8, background: 'var(--input-bg)', padding: '8px 12px', borderRadius: 8 }}>
+                已选：<b>{selectedUser.nickname || selectedUser.username}</b>（@{selectedUser.username}）· ID {selectedUser.id} · 贡献点 {fmtPoints(selectedUser.contribution)}
+                {selectedUser.is_frozen === 1 && <span className="badge" style={{ marginLeft: 8, background: 'rgba(220,53,69,0.15)', color: 'var(--danger)' }}>已冻结</span>}
+              </div>
+            )}
+          </div>
+
+          <div className="form-group" style={{ marginBottom: 0 }}>
+            <label className="form-label">处分级别</label>
+            <select className="form-select" value={level} onChange={e => setLevel(Number(e.target.value))}>
+              {DISCIPLINE_LEVELS.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
+            </select>
+            {level === 2 && (
+              <div className="form-group" style={{ marginTop: 10, marginBottom: 0 }}>
+                <label className="form-label">扣除贡献点数量（≥1）*</label>
+                <input type="number" className="form-input" min="1" placeholder="例如：50" value={deductPoints} onChange={e => setDeductPoints(e.target.value)} />
+              </div>
+            )}
+            {level === 3 && (
+              <div className="form-group" style={{ marginTop: 10, marginBottom: 0 }}>
+                <label className="form-label">附加扣除贡献点（可选，默认0）</label>
+                <input type="number" className="form-input" min="0" placeholder="0" value={deductPoints} onChange={e => setDeductPoints(e.target.value)} />
+              </div>
+            )}
+          </div>
+
+          <div className="form-group" style={{ marginBottom: 0, gridColumn: 'span 2' }}>
+            <label className="form-label">处分理由 *</label>
+            <textarea className="form-textarea" placeholder="填写处分事实与依据" value={reason} onChange={e => setReason(e.target.value)} style={{ minHeight: 76 }} />
+          </div>
+
+          <div className="form-group" style={{ marginBottom: 0, gridColumn: 'span 2' }}>
+            <label className="form-label">附加惩罚（可选，文本描述）</label>
+            <input className="form-input" placeholder="如：禁言7天、撤销称号等" value={extraPenalty} onChange={e => setExtraPenalty(e.target.value)} />
+          </div>
+        </div>
+        <div className="flex" style={{ gap: 10, justifyContent: 'flex-end', marginTop: 16 }}>
+          <button className="btn btn-secondary" onClick={resetForm}>清空</button>
+          <button className="btn btn-danger" style={{ background: 'var(--danger)' }} disabled={saving} onClick={submit}>
+            {saving ? '提交中...' : '作出处分'}
+          </button>
+        </div>
+      </div>
+
+      {/* 处分列表 */}
+      <div className="flex" style={{ gap: 10, marginBottom: 16 }}>
+        {[{ k: 'active', l: '生效中' }, { k: 'revoked', l: '已撤销' }, { k: '', l: '全部' }].map(f => (
+          <button key={f.k} className={`btn ${filter === f.k ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setFilter(f.k)}>{f.l}</button>
+        ))}
+      </div>
+
+      {loading ? (
+        <div className="loading"><div className="spinner" /></div>
+      ) : actions.length === 0 ? (
+        <div className="empty-state"><p>暂无处分记录</p></div>
+      ) : (
+        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+          {actions.map(a => {
+            const badge = LEVEL_BADGE[a.level] || { text: a.level_text || '未知', color: 'var(--text-secondary)' };
+            return (
+              <div key={a.id} className="flex" style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)', gap: 12, alignItems: 'center', flexWrap: 'wrap', opacity: a.is_active ? 1 : 0.7 }}>
+                <div style={{ flex: 1, minWidth: 200 }}>
+                  <div className="flex" style={{ gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <span style={{ fontWeight: 700 }}>{a.nickname || a.username}</span>
+                    <span className="badge" style={{ background: `${badge.color}1a`, color: badge.color }}>{a.level_text || badge.text}</span>
+                    {a.is_active
+                      ? <span className="badge badge-danger" style={{ background: 'rgba(220,53,69,0.15)', color: 'var(--danger)' }}>生效中</span>
+                      : <span className="badge badge-info" style={{ background: 'rgba(23,162,184,0.15)', color: 'var(--info)' }}>已撤销</span>}
+                    {a.is_frozen === 1 && <span className="badge" style={{ background: 'rgba(220,53,69,0.15)', color: 'var(--danger)' }}>冻结</span>}
+                  </div>
+                  <div className="text-secondary" style={{ fontSize: 13, marginTop: 4 }}>
+                    理由：{a.reason || '—'}{a.extra_penalty ? ` · 附加：${a.extra_penalty}` : ''}
+                  </div>
+                  <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
+                    处分人：{a.admin_name || '系统'} · {formatDate(a.created_at, false)}
+                    {a.deduct_points > 0 && ` · 扣 ${a.deduct_points} 点`}
+                    {a.revoked_at && ` · 撤销：${formatDate(a.revoked_at, false)}`}
+                  </div>
+                </div>
+                {a.is_active && (
+                  <button className="btn btn-secondary btn-sm" style={{ color: 'var(--danger)', borderColor: 'var(--danger)' }} onClick={() => revoke(a)}>撤销/解除</button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// 辅工具：等级中文与贡献点格式化（与上方其他组件一致）
+function fmtLevel(level) {
+  return LEVEL_NAMES[level] || '成员';
+}
+function fmtPoints(n) {
+  if (n === null || n === undefined) return '0';
+  return Number(n).toLocaleString('zh-CN', { maximumFractionDigits: 2 });
 }
 
 /* ============ 任务管理 ============ */

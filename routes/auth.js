@@ -6,8 +6,34 @@ const crypto = require('crypto');
 const db = require('../database');
 const { getLocalTimestamp } = require('../database');
 const { JWT_SECRET, authMiddleware } = require('../middleware/auth');
-const { sendVerificationCode } = require('../config/mail');
+const { sendVerificationCode, sendAbnormalLoginAlert } = require('../config/mail');
 const router = express.Router();
+
+// 获取客户端IP与UA
+function getClientIp(req) {
+    return (req.headers['x-forwarded-for'] || req.ip || '').toString().split(',')[0].trim();
+}
+function getUserAgent(req) {
+    return req.headers['user-agent'] || '';
+}
+// 记录登录尝试到 login_attempts 表（异常登录审计）
+async function recordLoginAttempt({ userId = null, username = '', ip = '', userAgent = '', success = 0 }) {
+    try {
+        await db.run(
+            'INSERT INTO login_attempts (user_id, username, ip, user_agent, success) VALUES (?, ?, ?, ?, ?)',
+            [userId, username || '', ip || '', userAgent || '', success ? 1 : 0]
+        );
+    } catch (e) { logger.error('记录登录尝试失败:', e.message); }
+}
+// 统计指定用户名近15分钟内连续失败次数（用于爆破检测）
+async function countRecentFailures(username) {
+    const row = await db.get(
+        `SELECT COUNT(*) AS c FROM login_attempts WHERE username = ? AND success = 0
+         AND created_at > datetime('now', '-15 minutes')`,
+        [username]
+    );
+    return row ? row.c : 0;
+}
 
 // 生成6位验证码
 function generateCode() {
@@ -91,18 +117,60 @@ router.post('/login', async (req, res) => {
 
         // 查找用户
         const user = await db.get(
-            'SELECT id, username, nickname, email, password, level, contribution, avatar, email_verified, password_set FROM users WHERE username = ?',
+            'SELECT id, username, nickname, email, password, level, contribution, avatar, email_verified, password_set, is_frozen, last_login_ip FROM users WHERE username = ?',
             [username]
         );
 
         if (!user) {
+            await recordLoginAttempt({ username, ip: getClientIp(req), userAgent: getUserAgent(req), success: 0 });
             return res.status(401).json({ error: '用户名或密码错误' });
+        }
+
+        // 冻结账号拦截：提示前端跳转 /freeze
+        if (user.is_frozen) {
+            await recordLoginAttempt({ userId: user.id, username, ip: getClientIp(req), userAgent: getUserAgent(req), success: 0 });
+            return res.status(403).json({ error: '账号已被冻结，请联系管理员', frozen: true });
         }
 
         // 验证密码
         const isValidPassword = await bcrypt.compare(password, user.password);
         if (!isValidPassword) {
+            await recordLoginAttempt({ userId: user.id, username, ip: getClientIp(req), userAgent: getUserAgent(req), success: 0 });
+            // 近15分钟失败较多时触发异常提醒（防爆破）
+            try {
+                const fails = await countRecentFailures(username);
+                if (fails >= 5 && user.email && user.email_verified) {
+                    const attempt = await db.get(
+                        'SELECT COUNT(*) AS c, MAX(created_at) AS last_time FROM login_attempts WHERE username = ? AND success = 0',
+                        [username]
+                    );
+                    await sendAbnormalLoginAlert(user.email, {
+                        username,
+                        nickname: user.nickname,
+                        ip: getClientIp(req),
+                        userAgent: getUserAgent(req),
+                        time: attempt?.last_time || getLocalTimestamp(),
+                        location: `近 15 分钟内连续 ${fails} 次密码错误`
+                    }).catch(e => logger.error('发送异常登录提醒失败:', e.message));
+                }
+            } catch (e) { logger.error('爆破检测错误:', e.message); }
             return res.status(401).json({ error: '用户名或密码错误' });
+        }
+
+        const ip = getClientIp(req);
+        const isNewIp = user.last_login_ip ? user.last_login_ip !== ip : false;
+        await recordLoginAttempt({ userId: user.id, username, ip, userAgent: getUserAgent(req), success: 1 });
+        // 更新最近登录IP/时间（成功登录后）
+        await db.run('UPDATE users SET last_login_ip = ?, last_login_at = ? WHERE id = ?', [ip, getLocalTimestamp(), user.id]);
+        // 陌生IP/异地登录 → 邮件提醒
+        if (isNewIp && user.email && user.email_verified) {
+            sendAbnormalLoginAlert(user.email, {
+                username,
+                nickname: user.nickname,
+                ip,
+                userAgent: getUserAgent(req),
+                time: getLocalTimestamp()
+            }).catch(e => logger.error('发送异常登录提醒失败:', e.message));
         }
 
         // 生成JWT令牌
@@ -556,6 +624,26 @@ router.get('/qq/callback', async (req, res) => {
             );
 
             user = await db.get('SELECT * FROM users WHERE id = ?', [result.id]);
+        }
+
+        // 冻结账号拦截：跳转到 /freeze
+        if (user.is_frozen) {
+            return res.redirect('/freeze');
+        }
+
+        // 记录登录并检测陌生IP/异地
+        const ip = getClientIp(req);
+        const isNewIp = user.last_login_ip ? user.last_login_ip !== ip : false;
+        await recordLoginAttempt({ userId: user.id, username: user.username, ip, userAgent: getUserAgent(req), success: 1 });
+        await db.run('UPDATE users SET last_login_ip = ?, last_login_at = ? WHERE id = ?', [ip, getLocalTimestamp(), user.id]);
+        if (isNewIp && user.email && user.email_verified) {
+            sendAbnormalLoginAlert(user.email, {
+                username: user.username,
+                nickname: user.nickname,
+                ip,
+                userAgent: getUserAgent(req),
+                time: getLocalTimestamp()
+            }).catch(e => logger.error('发送异常登录提醒失败:', e.message));
         }
 
         // 签发JWT（QQ登录固定30天有效）

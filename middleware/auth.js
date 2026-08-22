@@ -62,5 +62,6 @@ module.exports = {
     authMiddleware,
     adminMiddleware,
     superAdminMiddleware,
+    fetchLatestLevel,
     JWT_SECRET
 };

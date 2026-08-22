@@ -2,7 +2,7 @@ const express = require('express');
 const logger = require('../lib/logger');
 const db = require('../database');
 const { getLocalTimestamp } = require('../database');
-const { authMiddleware, adminMiddleware } = require('../middleware/auth');
+const { authMiddleware, adminMiddleware, fetchLatestLevel } = require('../middleware/auth');
 const { sendClaimNotification, sendClaimResult } = require('../config/mail');
 const { createNotification } = require('./notifications');
 const { addContributionLog } = require('../lib/contribution');
@@ -32,7 +32,8 @@ router.get('/', authMiddleware, async (req, res) => {
         `;
         let params = [];
         
-        const isAdmin = req.userLevel >= 1;
+        // 实时读取数据库等级，避免 JWT 快照过时（提升权限后无需重新登录）
+        const isAdmin = (await fetchLatestLevel(req.userId)) >= 1;
         
         if (!isAdmin) {
             sql += ' WHERE cc.user_id = ?';
@@ -77,7 +78,7 @@ router.get('/:id', authMiddleware, async (req, res) => {
             return res.status(404).json({ error: '申报不存在' });
         }
         
-        const isAdmin = req.userLevel >= 1;
+        const isAdmin = (await fetchLatestLevel(req.userId)) >= 1;
         if (!isAdmin && claim.user_id !== req.userId) {
             return res.status(403).json({ error: '无权查看此申报' });
         }

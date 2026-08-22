@@ -26,14 +26,15 @@ import Trade from './pages/Trade';
 import Economics from './pages/Economics';
 import Mods from './pages/Mods';
 import Projections from './pages/Projections';
+import Freeze from './pages/Freeze';
+import Gdars from './pages/Gdars';
+import Gmirs from './pages/Gmirs';
 
-export default function App() {
+// 主站路由：统一包裹在 Layout（含主站导航/页脚）内
+function MainSite() {
   return (
-    <>
-      <AnnouncementPopup />
-      <UpdateCheck />
-      <Layout>
-        <Routes>
+    <Layout>
+      <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
@@ -63,8 +64,25 @@ export default function App() {
         <Route path="/mods" element={<Mods />} />
         <Route path="/projections" element={<Projections />} />
         <Route path="*" element={<Home />} />
-        </Routes>
-      </Layout>
+      </Routes>
+    </Layout>
+  );
+}
+
+export default function App() {
+  return (
+    <>
+      <AnnouncementPopup />
+      <UpdateCheck />
+      <Routes>
+        {/* 独立前端子路由：不挂载主站导航栏（/gdars /gmirs 后续 CNAME 绑定子域名） */}
+        <Route path="/freeze" element={<Freeze />} />
+        <Route path="/gdars" element={<Gdars />} />
+        <Route path="/gmirs" element={<Gmirs />} />
+
+        {/* 其余主站路由统一走带导航的布局 */}
+        <Route path="/*" element={<MainSite />} />
+      </Routes>
     </>
   );
 }

@@ -21,7 +21,7 @@ router.get('/users', authMiddleware, adminMiddleware, async (req, res) => {
         }
         
         const users = await db.all(
-            `SELECT id, username, nickname, email, level, contribution, avatar, created_at 
+            `SELECT id, username, nickname, email, level, contribution, avatar, created_at, is_frozen 
              FROM users ${whereClause} 
              ORDER BY created_at DESC 
              LIMIT ? OFFSET ?`,
