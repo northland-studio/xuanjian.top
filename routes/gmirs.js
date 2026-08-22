@@ -248,4 +248,25 @@ router.get('/export', async (req, res) => {
     }
 });
 
+// ===== 图片代理：将 CDN 头像转同源，绕过浏览器 CORS 限制（仅允许七牛 CDN） =====
+router.get('/proxy-image', async (req, res) => {
+    try {
+        const url = String(req.query.url || '');
+        if (!/^https?:\/\/cdn\.xuanjian\.top\//.test(url)) {
+            return res.status(400).json({ error: '不支持的图片地址' });
+        }
+        const resp = await fetch(url, { redirect: 'follow' });
+        if (!resp.ok) {
+            return res.status(404).json({ error: '图片不存在' });
+        }
+        const buf = Buffer.from(await resp.arrayBuffer());
+        res.set('Content-Type', resp.headers.get('content-type') || 'image/png');
+        res.set('Cache-Control', 'public, max-age=86400');
+        res.send(buf);
+    } catch (error) {
+        logger.error('GMIRS 图片代理错误:', error);
+        res.status(500).json({ error: '获取图片失败' });
+    }
+});
+
 module.exports = router;

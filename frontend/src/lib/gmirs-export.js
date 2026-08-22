@@ -85,7 +85,7 @@ function arrayBufferToBase64(buffer) {
 // 缓存字体 Base64，避免重复请求与编码
 function getCjkFontBase64() {
   if (!cjkFontBase64Promise) {
-    cjkFontBase64Promise = fetch(`/fonts/${CJK_FONT_FILE}`)
+    cjkFontBase64Promise = fetch(`/fonts/${CJK_FONT_FILE}?v=20260822b`)
       .then(res => { if (!res.ok) throw new Error('中文字体加载失败'); return res.arrayBuffer(); })
       .then(buf => arrayBufferToBase64(buf));
   }
@@ -104,7 +104,11 @@ async function registerCjkFont(doc) {
 async function loadCircularAvatarDataURL(url, size = 256) {
   if (!url) return null;
   try {
-    const res = await fetch(url, { mode: 'cors' });
+    // CDN 图片走同源代理，绕过浏览器 CORS 限制；相对路径直接请求
+    const target = /^https?:\/\//.test(url)
+      ? `/api/gmirs/proxy-image?url=${encodeURIComponent(url)}`
+      : url;
+    const res = await fetch(target);
     if (!res.ok) return null;
     const blob = await res.blob();
     const bmp = await createImageBitmap(blob);
@@ -214,9 +218,7 @@ export async function exportArchivePdf(archive, onProgress) {
   doc.setTextColor(20);
   doc.setFont(CJK_FONT_NAME, 'normal');
   doc.setFontSize(15);
-  doc.text('【用户昵称】', 52, headY + 11);
-  doc.setFontSize(12);
-  doc.text(`${archive.user.nickname || archive.user.username}`, 52, headY + 11, { align: 'left' });
+  doc.text(`${archive.user.nickname || archive.user.username}`, 52, headY + 11);
   doc.setFont(CJK_FONT_NAME, 'normal');
   doc.setFontSize(10);
   doc.setTextColor(90);

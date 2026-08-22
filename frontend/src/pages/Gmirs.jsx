@@ -116,7 +116,7 @@ export default function Gmirs() {
 
   return (
     <div className="fade-in-up">
-      <div className="page-banner" style={{ backgroundImage: 'linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url(/7.png?v=20260806)' }}>
+      <div className="page-banner" style={{ background: 'linear-gradient(135deg, #004AAD 0%, #0066cc 100%)' }}>
         <div className="page-banner-content">
           <h1 style={{ fontSize: 30 }}>玄剑公会成员档案信息查询管理系统</h1>
           <p style={{ letterSpacing: 1 }}>Xuanjian Guild Member Information Retrieval System · GMIRS</p>
