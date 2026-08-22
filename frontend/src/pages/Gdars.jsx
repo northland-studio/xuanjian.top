@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { api } from '../api';
-import { formatDate } from '../utils';
+import { formatDate, fmtPoints } from '../utils';
 
 // 处分级别标签（与后端 LEVEL_TEXT 对齐）
 const LEVEL_META = {
@@ -8,12 +8,6 @@ const LEVEL_META = {
   2: { text: '通报批评+扣点', color: 'var(--danger)' },
   3: { text: '开除会籍（冻结）', color: 'var(--danger)' }
 };
-
-// 贡献点格式化
-function fmtPoints(n) {
-  if (n === null || n === undefined) return '0';
-  return Number(n).toLocaleString('zh-CN', { maximumFractionDigits: 2 });
-}
 
 export default function Gdars() {
   const [keyword, setKeyword] = useState('');

@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/UI';
-import { requireLogin, formatDate } from '../utils';
+import { requireLogin, formatDate, fmtPoints } from '../utils';
 
 const LOG_TYPE_META = {
   claim: { label: '申报', color: 'var(--success)' },
@@ -85,7 +85,7 @@ export default function Trade() {
       {user && (
         <div className="card mb-4" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, padding: '16px 20px' }}>
           <span style={{ fontSize: 15 }}>当前贡献点：</span>
-          <span style={{ fontSize: 22, fontWeight: 800, color: 'var(--warning)' }}>{user.contribution ?? 0} <span style={{ fontSize: 13, fontWeight: 400 }}>点</span></span>
+          <span style={{ fontSize: 22, fontWeight: 800, color: 'var(--warning)' }}>{fmtPoints(user.contribution ?? 0)} <span style={{ fontSize: 13, fontWeight: 400 }}>点</span></span>
         </div>
       )}
 
@@ -107,7 +107,7 @@ export default function Trade() {
             <input className="form-input" value={note} onChange={e => setNote(e.target.value)} placeholder="转账用途说明" />
           </div>
           <div className="flex-between" style={{ alignItems: 'center' }}>
-            <span className="text-secondary" style={{ fontSize: 13 }}>我的贡献点：{user?.contribution ?? 0}</span>
+            <span className="text-secondary" style={{ fontSize: 13 }}>我的贡献点：{fmtPoints(user?.contribution ?? 0)}</span>
             <button className="btn btn-primary" onClick={doTransfer} disabled={transferring}>
               {transferring ? '转账中...' : '确认转账'}
             </button>
@@ -144,7 +144,7 @@ export default function Trade() {
                   <div key={l.id} className="flex-between" style={{ padding: '12px 14px', background: 'var(--input-bg)', borderRadius: 10, alignItems: 'center' }}>
                     <div style={{ minWidth: 0 }}>
                       <div className="flex" style={{ gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                        <span style={{ fontWeight: 700, color: positive ? 'var(--success)' : 'var(--danger)' }}>{positive ? '+' : ''}{l.amount} 贡献点</span>
+                        <span style={{ fontWeight: 700, color: positive ? 'var(--success)' : 'var(--danger)' }}>{positive ? '+' : ''}{fmtPoints(l.amount)} 贡献点</span>
                         <span className="badge" style={{ background: `${meta.color}1a`, color: meta.color }}>{meta.label}</span>
                       </div>
                       {l.note && <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>{l.note}</div>}

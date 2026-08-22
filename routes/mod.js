@@ -47,7 +47,8 @@ async function resolveUserByUuid(uuid) {
 /* ============ 中间件：玩家 uuid 绑定校验（客户端模组通道） ============ */
 async function playerAuth(req, res, next) {
     try {
-        const uuid = req.query.uuid || req.body.uuid || req.headers['x-player-uuid'];
+        // 兼容两种传参：通用 uuid / 转账接口的 fromUuid（模组 ContributionManager 发 fromUuid）
+        const uuid = req.query.uuid || req.body.uuid || req.body.fromUuid || req.headers['x-player-uuid'];
         if (!uuid || typeof uuid !== 'string' || uuid.length > 64) {
             return res.status(400).json({ error: '缺少或非法的 uuid' });
         }

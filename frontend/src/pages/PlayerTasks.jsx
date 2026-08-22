@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { api, uploadImages, uploadProjection } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/UI';
+import { fmtPoints } from '../utils';
 import LitematicViewer from '../components/LitematicViewer';
 import { formatDate } from '../utils';
 
@@ -144,7 +145,7 @@ export default function PlayerTasks() {
     setSubmitting(true);
     try {
       const data = await api.post(`/api/player-tasks/${completeTask.id}/complete`, { code: code.trim() });
-      showToast(`${data.message}（+${data.reward} 贡献点）`, 'success');
+      showToast(`${data.message}（+${fmtPoints(data.reward)} 贡献点）`, 'success');
       setCompleteTask(null);
       setCode('');
       loadAll();
@@ -260,7 +261,7 @@ export default function PlayerTasks() {
                   <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>{t.title}</h3>
                   <p className="text-secondary" style={{ fontSize: 13, marginBottom: 10, flex: 1, minHeight: 40, whiteSpace: 'pre-wrap' }}>{t.description || '暂无说明'}</p>
                   <div className="flex" style={{ alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                    <span className="badge badge-warning" style={{ fontSize: 13 }}>悬赏 {t.reward} 贡献点</span>
+                    <span className="badge badge-warning" style={{ fontSize: 13 }}>悬赏 {fmtPoints(t.reward)} 贡献点</span>
                     <span className="badge" style={{ fontSize: 12, background: 'var(--input-bg)', color: 'var(--text-secondary)' }}>{t.status_text}</span>
                   </div>
                   <div className="text-secondary" style={{ fontSize: 12, marginBottom: 10 }}>
@@ -296,7 +297,7 @@ export default function PlayerTasks() {
                     <div style={{ flex: 1, minWidth: 200 }}>
                       <div style={{ fontWeight: 600 }}>{t.title}</div>
                       <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
-                        {t.status_text} · 悬赏 {t.reward} 贡献点
+                        {t.status_text} · 悬赏 {fmtPoints(t.reward)} 贡献点
                         {t.acceptor_nickname ? ` · 接取者 ${t.acceptor_nickname}` : ''}
                         {t.status === 'accepted' && (
                           <span style={{ color: 'var(--primary)' }}> · 完成验证码：<code style={{ background: 'var(--input-bg)', padding: '1px 5px', borderRadius: 5 }}>{t.code}</code></span>
@@ -332,7 +333,7 @@ export default function PlayerTasks() {
                     <div style={{ flex: 1, minWidth: 200 }}>
                       <div style={{ fontWeight: 600 }}>{t.title}</div>
                       <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
-                        {t.status_text} · 发布者 {t.author_nickname || t.author_username} · 悬赏 {t.reward} 贡献点
+                        {t.status_text} · 发布者 {t.author_nickname || t.author_username} · 悬赏 {fmtPoints(t.reward)} 贡献点
                       </div>
                     </div>
                     <div className="flex" style={{ gap: 8, alignItems: 'center' }}>

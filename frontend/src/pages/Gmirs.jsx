@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { api } from '../api';
 import SkinViewer from '../components/SkinViewer';
-import { formatDate } from '../utils';
+import { formatDate, fmtPoints } from '../utils';
 import { exportArchivePdf, exportArchiveDocx, exportAllArchivesZip } from '../lib/gmirs-export';
 
 // 档案展示用的类型标签（无子列时显示通用列名）
@@ -12,11 +12,6 @@ const TYPE_LABELS = {
   admin: '管理调整', discipline: '处分扣点', post: '发帖奖励'
 };
 const GROUP_ORDER = ['task', 'player_task', 'claim', 'transfer_in', 'transfer_out', 'purchase', 'title', 'reward', 'discipline', 'post', 'admin'];
-
-function fmtPoints(n) {
-  if (n === null || n === undefined) return '0';
-  return Number(n).toLocaleString('zh-CN', { maximumFractionDigits: 2 });
-}
 
 export default function Gmirs() {
   const [keyword, setKeyword] = useState('');
@@ -328,7 +323,7 @@ export default function Gmirs() {
                                 {groupColumns(g.type).map(c => (
                                   <td key={c.key}>
                                     {c.key === '__type__' ? (g.type_label || TYPE_LABELS[g.type] || g.type)
-                                      : c.key === 'amount' ? <span style={{ color: (it.amount ?? 0) >= 0 ? 'var(--success)' : 'var(--danger)' }}>{(it.amount ?? 0) >= 0 ? '+' : ''}{it.amount}</span>
+                                      : c.key === 'amount' ? <span style={{ color: (it.amount ?? 0) >= 0 ? 'var(--success)' : 'var(--danger)' }}>{(it.amount ?? 0) >= 0 ? '+' : ''}{fmtPoints(it.amount)}</span>
                                       : c.key === 'created_at' ? formatDate(it.created_at, false)
                                       : c.key === 'detail' ? (it.detail || it.note || '—')
                                       : c.key === 'reply' ? (it.reply || '—')

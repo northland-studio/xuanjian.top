@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api';
 import { useToast } from '../components/UI';
-import { requireLogin, formatDate } from '../utils';
+import { requireLogin, formatDate, fmtPoints } from '../utils';
 
 const TYPE_NAMES = { daily: '日报', decision: '决策', forum: '贴吧' };
 
@@ -109,7 +109,7 @@ export default function Following() {
               <img src={u.avatar || '/images/default-avatar.png'} alt="" style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover' }} />
               <Link to={`/profile/${u.username}`} style={{ flex: 1, minWidth: 0, textDecoration: 'none', color: 'inherit' }}>
                 <div style={{ fontWeight: 600 }}>{u.nickname || u.username}</div>
-                <div className="text-secondary" style={{ fontSize: 12 }}>@{u.username} · {u.contribution} 贡献点</div>
+                <div className="text-secondary" style={{ fontSize: 12 }}>@{u.username} · {fmtPoints(u.contribution)} 贡献点</div>
               </Link>
               <button className="btn btn-secondary btn-sm" onClick={() => unfollow(u.id)}>取消关注</button>
             </div>

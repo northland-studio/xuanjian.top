@@ -3,7 +3,7 @@ import { Link, useParams, useNavigate } from 'react-router-dom';
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/UI';
-import { formatDate } from '../utils';
+import { formatDate, fmtPoints } from '../utils';
 import PostCard from '../components/PostCard';
 import SkinViewer from '../components/SkinViewer';
 
@@ -153,7 +153,7 @@ export default function Profile() {
           {/* 统计 */}
           <div className="grid grid-4" style={{ gap: 12, marginTop: 20 }}>
             {[
-              { label: '贡献点', value: u.contribution ?? 0 },
+              { label: '贡献点', value: fmtPoints(u.contribution ?? 0) },
               { label: '帖子', value: u.posts_count ?? 0 },
               { label: '评论', value: u.comments_count ?? 0 },
               { label: '获赞', value: u.likes_count ?? 0 }

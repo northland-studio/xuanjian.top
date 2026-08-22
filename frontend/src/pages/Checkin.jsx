@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/UI';
-import { requireLogin, formatDate } from '../utils';
+import { requireLogin, formatDate, fmtPoints } from '../utils';
 
 export default function Checkin() {
   const navigate = useNavigate();
@@ -30,7 +30,7 @@ export default function Checkin() {
     setChecking(true);
     try {
       const data = await api.post('/api/checkin/checkin', {});
-      showToast(`签到成功！获得 ${data.rewardPoints} 贡献点`, 'success');
+      showToast(`签到成功！获得 ${fmtPoints(data.rewardPoints)} 贡献点`, 'success');
       setStatus(prev => ({ ...prev, todayCheckedIn: true, todayReward: data.rewardPoints, continuousDays: data.continuousDays, totalCheckins: (prev?.totalCheckins || 0) + 1, maxContinuousDays: Math.max(prev?.maxContinuousDays || 0, data.continuousDays) }));
       refreshMe();
     } catch (e) {
@@ -65,7 +65,7 @@ export default function Checkin() {
           </div>
           <div className="text-secondary" style={{ fontSize: 13, marginBottom: 6 }}>当前连续签到天数</div>
           <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 20 }}>
-            {status?.todayCheckedIn ? `今日已签到（+${status.todayReward || 0} 贡献点）` : `今日签到可获得 ${status?.todayReward || 0} 贡献点`}
+            {status?.todayCheckedIn ? `今日已签到（+${fmtPoints(status.todayReward || 0)} 贡献点）` : `今日签到可获得 ${fmtPoints(status?.todayReward || 0)} 贡献点`}
           </div>
           <button className="btn btn-primary btn-block" disabled={status?.todayCheckedIn || checking} onClick={doCheckin} style={{ fontSize: 16, padding: 14 }}>
             {status?.todayCheckedIn ? '今日已签到' : checking ? '签到中...' : '立即签到'}

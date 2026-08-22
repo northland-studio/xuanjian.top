@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api';
+import { fmtPoints } from '../utils';
 
 const STATUS_META = {
   normal: { text: '健康', color: 'var(--success)' },
@@ -106,11 +107,11 @@ export default function Economics() {
           {[
             { label: '成员总数', value: totals.totalUsers },
             { label: '持有贡献点成员', value: totals.holders },
-            { label: '当前流通总量', value: totals.totalSupply.toLocaleString() },
-            { label: '累计获得', value: totals.totalGain.toLocaleString() },
-            { label: '累计消费（商城）', value: totals.totalPurchase.toLocaleString() },
-            { label: '累计总流出', value: totals.totalOutflow.toLocaleString() },
-            { label: '期初存量（推算）', value: totals.startSupply.toLocaleString() },
+            { label: '当前流通总量', value: fmtPoints(totals.totalSupply) },
+            { label: '累计获得', value: fmtPoints(totals.totalGain) },
+            { label: '累计消费（商城）', value: fmtPoints(totals.totalPurchase) },
+            { label: '累计总流出', value: fmtPoints(totals.totalOutflow) },
+            { label: '期初存量（推算）', value: fmtPoints(totals.startSupply) },
             { label: '近30天活跃成员', value: totals.activeUsers }
           ].map(s => (
             <div key={s.label} style={{ background: 'var(--input-bg)', borderRadius: 10, padding: '12px 14px' }}>
@@ -203,7 +204,7 @@ export default function Economics() {
                   <div style={{ flex: 1, height: 10, background: 'var(--input-bg)', borderRadius: 5, overflow: 'hidden' }}>
                     <div style={{ width: `${pct}%`, height: '100%', background: 'var(--gradient)', borderRadius: 5 }} />
                   </div>
-                  <span style={{ fontSize: 13, fontWeight: 700, width: 70, textAlign: 'right' }}>{u.contribution}</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, width: 70, textAlign: 'right' }}>{fmtPoints(u.contribution)}</span>
                 </div>
               );
             })}
@@ -224,7 +225,7 @@ export default function Economics() {
                   <span className="badge badge-primary" style={{ fontSize: 11, marginRight: 8 }}>{p.kind}</span>
                   {p.name}
                 </span>
-                <span style={{ fontSize: 13, fontWeight: 700 }}>{p.price} 点</span>
+                <span style={{ fontSize: 13, fontWeight: 700 }}>{fmtPoints(p.price)} 点</span>
               </div>
             ))}
           </div>

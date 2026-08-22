@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api';
+import { fmtPoints } from '../utils';
 
 const TABS = [
   { key: 'contribution', label: '贡献点排行' },
@@ -79,7 +80,7 @@ export default function Rankings() {
                     <div className="text-secondary" style={{ fontSize: 12 }}>连续 · 共{r.total_checkins || 0}次</div>
                   </div>
                 ) : (
-                  <div style={{ fontWeight: 700, color: 'var(--warning)' }}>{r.contribution ?? 0} <span style={{ fontSize: 12, fontWeight: 400 }}>贡献点</span></div>
+                  <div style={{ fontWeight: 700, color: 'var(--warning)' }}>{fmtPoints(r.contribution ?? 0)} <span style={{ fontSize: 12, fontWeight: 400 }}>贡献点</span></div>
                 )}
               </Link>
             );

@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { api, uploadImages } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/UI';
+import { fmtPoints } from '../utils';
 import { requireLogin, formatDate } from '../utils';
 
 const STATUS_META = {
@@ -158,7 +159,7 @@ export default function Claims() {
               {claims.map(c => (
                 <div key={c.id} className="card" style={{ padding: 14, background: 'var(--input-bg)' }}>
                   <div className="flex-between mb-1">
-                    <span style={{ fontWeight: 700, color: 'var(--warning)' }}>+{c.amount} 贡献点</span>
+                    <span style={{ fontWeight: 700, color: 'var(--warning)' }}>+{fmtPoints(c.amount)} 贡献点</span>
                     <span className="badge" style={{ background: `${STATUS_META[c.status]?.color}1a`, color: STATUS_META[c.status]?.color }}>
                       {STATUS_META[c.status]?.label || c.status}
                     </span>

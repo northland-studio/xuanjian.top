@@ -707,7 +707,7 @@ function ShopManager({ showToast }) {
           <div className="grid grid-3" style={{ gap: 10, marginBottom: 14 }}>
             <div style={{ background: 'var(--input-bg)', borderRadius: 10, padding: '12px 14px' }}>
               <div className="text-secondary" style={{ fontSize: 12 }}>累计营业额</div>
-              <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--warning)', marginTop: 2 }}>{(sales.total?.revenue || 0).toLocaleString()} <span style={{ fontSize: 12, fontWeight: 400 }}>贡献点</span></div>
+              <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--warning)', marginTop: 2 }}>{fmtPoints(sales.total?.revenue || 0)} <span style={{ fontSize: 12, fontWeight: 400 }}>贡献点</span></div>
             </div>
             <div style={{ background: 'var(--input-bg)', borderRadius: 10, padding: '12px 14px' }}>
               <div className="text-secondary" style={{ fontSize: 12 }}>交易笔数</div>
@@ -715,14 +715,14 @@ function ShopManager({ showToast }) {
             </div>
             <div style={{ background: 'var(--input-bg)', borderRadius: 10, padding: '12px 14px' }}>
               <div className="text-secondary" style={{ fontSize: 12 }}>近7天营业额</div>
-              <div style={{ fontSize: 20, fontWeight: 800, marginTop: 2 }}>{(sales.daily || []).reduce((s, d) => s + (d.revenue || 0), 0).toLocaleString()}</div>
+              <div style={{ fontSize: 20, fontWeight: 800, marginTop: 2 }}>{fmtPoints((sales.daily || []).reduce((s, d) => s + (d.revenue || 0), 0))}</div>
             </div>
           </div>
           {(sales.daily || []).length > 0 && (
             <div className="flex" style={{ gap: 10, flexWrap: 'wrap', marginBottom: 14 }}>
               {sales.daily.map(d => (
                 <span key={d.d} className="badge" style={{ fontSize: 12, background: 'rgba(0,74,173,0.1)', color: 'var(--text)' }}>
-                  {d.d.slice(5)}：{d.revenue} 点
+                  {d.d.slice(5)}：{fmtPoints(d.revenue)} 点
                 </span>
               ))}
             </div>
@@ -733,7 +733,7 @@ function ShopManager({ showToast }) {
               {sales.byItem.map((b, i) => (
                 <div key={i} className="flex-between" style={{ padding: '7px 10px', background: 'var(--input-bg)', borderRadius: 8, fontSize: 13 }}>
                   <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.item_name}</span>
-                  <span style={{ flexShrink: 0 }}>售出 {b.sold} 件 · <b style={{ color: 'var(--warning)' }}>{b.revenue}</b> 点</span>
+                  <span style={{ flexShrink: 0 }}>售出 {b.sold} 件 · <b style={{ color: 'var(--warning)' }}>{fmtPoints(b.revenue)}</b> 点</span>
                 </div>
               ))}
             </div>
@@ -765,7 +765,7 @@ function ShopManager({ showToast }) {
                   {item.is_active ? <span className="badge badge-success">上架</span> : <span className="badge badge-gray">下架</span>}
                 </div>
                 <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
-                  {item.price} 贡献点 · {item.stock === -1 ? '不限量' : `库存 ${item.stock}`}
+                  {fmtPoints(item.price)} 贡献点 · {item.stock === -1 ? '不限量' : `库存 ${item.stock}`}
                   {item.type === 'permission' ? ` · 有效期 ${item.duration_days || 0} 天` : ''}
                   {item.ref_id ? ` · 称号ID ${item.ref_id}` : ''}
                 </div>
@@ -849,7 +849,7 @@ function ClaimReview({ showToast }) {
                   </span>
                 </div>
                 <div className="flex" style={{ gap: 14, alignItems: 'center' }}>
-                  <span style={{ fontSize: 18, fontWeight: 800, color: '#f59e0b' }}>+{c.amount} <span style={{ fontSize: 12, fontWeight: 400 }}>贡献点</span></span>
+                  <span style={{ fontSize: 18, fontWeight: 800, color: '#f59e0b' }}>+{fmtPoints(c.amount)} <span style={{ fontSize: 12, fontWeight: 400 }}>贡献点</span></span>
                   <span className="text-secondary" style={{ fontSize: 12 }}>{formatDate(c.created_at)}</span>
                 </div>
               </div>
@@ -945,7 +945,7 @@ function Dashboard({ showToast }) {
             {data.contributionByType.map(t => (
               <div key={t.type} className="flex" style={{ justifyContent: 'space-between', padding: '2px 0' }}>
                 <span>{TYPE_NAMES[t.type] || t.type}</span>
-                <b>{t.amount > 0 ? '+' : ''}{t.amount}</b>
+                <b>{t.amount > 0 ? '+' : ''}{fmtPoints(t.amount)}</b>
               </div>
             ))}
           </div>
@@ -959,7 +959,7 @@ function Dashboard({ showToast }) {
             <div className="flex" style={{ alignItems: 'flex-end', gap: 8, height: 120 }}>
               {data.contributionFlow.map(d => (
                 <div key={d.date} style={{ flex: 1, textAlign: 'center' }}>
-                  <div style={{ fontSize: 11, color: d.amount >= 0 ? '#10b981' : '#ef4444', marginBottom: 4 }}>{d.amount > 0 ? '+' : ''}{d.amount}</div>
+                  <div style={{ fontSize: 11, color: d.amount >= 0 ? '#10b981' : '#ef4444', marginBottom: 4 }}>{d.amount > 0 ? '+' : ''}{fmtPoints(d.amount)}</div>
                   <div style={{ height: Math.max(4, Math.abs(d.amount) / maxFlow * 80), background: d.amount >= 0 ? 'var(--primary)' : '#ef4444', borderRadius: '4px 4px 0 0' }} />
                   <div style={{ fontSize: 10, color: 'var(--text-secondary)', marginTop: 4 }}>{d.date.slice(5)}</div>
                 </div>
@@ -1006,7 +1006,7 @@ function Dashboard({ showToast }) {
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.nickname || u.username}</div>
               </div>
-              <b style={{ fontSize: 13, color: 'var(--primary)' }}>{u.contribution}</b>
+              <b style={{ fontSize: 13, color: 'var(--primary)' }}>{fmtPoints(u.contribution)}</b>
             </div>
           ))}
         </div>
@@ -1056,7 +1056,7 @@ function ContributionLogs({ showToast }) {
                 <div className="text-secondary" style={{ fontSize: 12 }}>{formatDate(l.created_at, false)}</div>
               </div>
               <span className="badge badge-gray" style={{ fontSize: 11 }}>{LOG_TYPE_NAMES[l.type] || l.type}</span>
-              <b style={{ fontSize: 14, color: l.amount >= 0 ? '#10b981' : '#ef4444' }}>{l.amount >= 0 ? '+' : ''}{l.amount}</b>
+              <b style={{ fontSize: 14, color: l.amount >= 0 ? '#10b981' : '#ef4444' }}>{l.amount >= 0 ? '+' : ''}{fmtPoints(l.amount)}</b>
             </div>
           ))}
         </div>
@@ -1296,8 +1296,8 @@ function fmtLevel(level) {
   return LEVEL_NAMES[level] || '成员';
 }
 function fmtPoints(n) {
-  if (n === null || n === undefined) return '0';
-  return Number(n).toLocaleString('zh-CN', { maximumFractionDigits: 2 });
+  if (n === null || n === undefined) return '0.00';
+  return Number(n).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 /* ============ 任务管理 ============ */
@@ -1461,7 +1461,7 @@ function TaskManager({ showToast }) {
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 600 }}>{t.title} {!t.is_active && <span className="badge badge-gray" style={{ fontSize: 10 }}>已下线</span>}</div>
                   <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
-                    奖励 {t.reward} · 领取 {t.claim_count} · 完成 {t.completed_count} · 验证码 <code style={{ background: 'var(--input-bg)', padding: '1px 5px', borderRadius: 4, fontSize: 11 }}>{t.code}</code>
+                    奖励 {fmtPoints(t.reward)} · 领取 {t.claim_count} · 完成 {t.completed_count} · 验证码 <code style={{ background: 'var(--input-bg)', padding: '1px 5px', borderRadius: 4, fontSize: 11 }}>{t.code}</code>
                   </div>
                 </div>
                 <button className="btn btn-secondary btn-sm" onClick={() => loadClaims(t.id)}>{expanded === t.id ? '收起' : '领取记录'}</button>

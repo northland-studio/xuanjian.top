@@ -3,11 +3,12 @@ import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/UI';
-import { requireLogin, formatDate } from '../utils';
+import { requireLogin, formatDate, fmtPoints } from '../utils';
 
 // 商品/权限卡片：普通商品支持选择数量批量购买（整批 1 个核销码），权限类商品不支持数量
 function ItemCard({ item, type, buying, onBuy }) {
-  const maxQty = item.stock === -1 ? 99 : Math.max(1, item.stock || 1);
+  // 不限量商品不再限制单次购买件数（取消 99 上限）；限量商品受库存约束
+  const maxQty = item.stock === -1 ? 999999 : Math.max(1, item.stock || 1);
   const [qty, setQty] = useState(1);
 
   const changeQty = (v) => {
@@ -35,7 +36,7 @@ function ItemCard({ item, type, buying, onBuy }) {
       <h3 style={{ fontSize: 17, fontWeight: 700, marginBottom: 6 }}>{item.name}</h3>
       <p className="text-secondary" style={{ fontSize: 13, marginBottom: 14, minHeight: 40, lineHeight: 1.6 }}>{item.description || '暂无描述'}</p>
       <div className="flex-between" style={{ marginBottom: 12 }}>
-        <span style={{ fontSize: 20, fontWeight: 700, color: 'var(--warning)' }}>{item.price} <span style={{ fontSize: 13, fontWeight: 400 }}>贡献点</span></span>
+        <span style={{ fontSize: 20, fontWeight: 700, color: 'var(--warning)' }}>{fmtPoints(item.price)} <span style={{ fontSize: 13, fontWeight: 400 }}>贡献点</span></span>
         <span className="text-secondary" style={{ fontSize: 12 }}>
           {type === 'permission' ? `有效期 ${item.duration_days || 0} 天` : (item.stock === -1 ? '不限量' : `库存 ${item.stock}`)}
         </span>
@@ -49,7 +50,7 @@ function ItemCard({ item, type, buying, onBuy }) {
             className="form-input" style={{ width: 64, textAlign: 'center' }}
           />
           <span className="text-secondary" style={{ fontSize: 12 }}>{item.stock === -1 ? '' : `上限 ${item.stock}`}</span>
-          <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--warning)' }}>合计 {item.price * qty}</span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--warning)' }}>合计 {fmtPoints(item.price * qty)}</span>
         </div>
       )}
       <button className="btn btn-primary btn-block" style={{ marginTop: 'auto' }} onClick={() => onBuy(type, item.id, item.name, item.price, item.duration_days, qty)} disabled={buying}>
@@ -94,8 +95,8 @@ export default function Shop() {
   const buy = async (type, id, name, price, durationDays, qty = 1) => {
     if (!requireLogin(navigate, '请先登录后再购买')) return;
     const confirmText = type === 'permission'
-      ? `确定用 ${price} 贡献点兑换「${name}」？\n开通后有效期 ${durationDays} 天`
-      : `确定购买「${name}」×${qty}？\n总价：${price * qty} 贡献点（单价 ${price}）\n整批仅生成 1 个核销码`;
+      ? `确定用 ${fmtPoints(price)} 贡献点兑换「${name}」？\n开通后有效期 ${durationDays} 天`
+      : `确定购买「${name}」×${qty}？\n总价：${fmtPoints(price * qty)} 贡献点（单价 ${fmtPoints(price)}）\n整批仅生成 1 个核销码`;
     if (!confirm(confirmText)) return;
     setBuying(true);
     try {
@@ -138,7 +139,7 @@ export default function Shop() {
       {user && (
         <div className="card mb-4" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, padding: '16px 20px' }}>
           <span style={{ fontSize: 15 }}>当前贡献点：</span>
-          <span style={{ fontSize: 22, fontWeight: 800, color: 'var(--warning)' }}>{user.contribution ?? 0} <span style={{ fontSize: 13, fontWeight: 400 }}>点</span></span>
+          <span style={{ fontSize: 22, fontWeight: 800, color: 'var(--warning)' }}>{fmtPoints(user.contribution ?? 0)} <span style={{ fontSize: 13, fontWeight: 400 }}>点</span></span>
         </div>
       )}
 
@@ -167,7 +168,7 @@ export default function Shop() {
               </div>
               <h3 style={{ fontSize: 18, fontWeight: 700, color: t.color || 'var(--text)', marginBottom: 10 }}>{t.name}</h3>
               {t.description && <p className="text-secondary" style={{ fontSize: 13, marginBottom: 16, minHeight: 40 }}>{t.description}</p>}
-              <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--warning)', marginBottom: 14 }}>{t.price} <span style={{ fontSize: 13, fontWeight: 400 }}>贡献点</span></div>
+              <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--warning)', marginBottom: 14 }}>{fmtPoints(t.price)} <span style={{ fontSize: 13, fontWeight: 400 }}>贡献点</span></div>
               <button className="btn btn-primary btn-block" style={{ marginTop: 'auto' }} onClick={() => buy('title', t.id, t.name, t.price)} disabled={buying}>购买</button>
             </div>
           ))}

@@ -1,5 +1,13 @@
 // 通用工具函数
 
+// 贡献点格式化：固定保留小数点后两位，四舍五入（如 21 -> 21.00, 20.8 -> 20.80）
+export function fmtPoints(n) {
+  if (n === null || n === undefined || n === '') return '0.00';
+  const num = Number(n);
+  if (isNaN(num)) return '0.00';
+  return num.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 // 格式化日期时间
 export function formatDate(dateStr, withTime = true) {
   if (!dateStr) return '';

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/UI';
+import { fmtPoints } from '../utils';
 import LitematicViewer from '../components/LitematicViewer';
 import { requireLogin, formatDate } from '../utils';
 import PlayerTasks from './PlayerTasks';
@@ -53,7 +54,7 @@ export default function Tasks() {
     setSubmitting(true);
     try {
       const data = await api.post(`/api/tasks/${completeTask.id}/complete`, { code: code.trim() });
-      showToast(`${data.message}（+${data.reward} 贡献点）`, 'success');
+      showToast(`${data.message}（+${fmtPoints(data.reward)} 贡献点）`, 'success');
       setCompleteTask(null);
       setCode('');
       loadAll();
@@ -102,7 +103,7 @@ export default function Tasks() {
                 <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>{t.title}</h3>
                 <p className="text-secondary" style={{ fontSize: 13, marginBottom: 10, flex: 1, minHeight: 40 }}>{t.description || '暂无说明'}</p>
                 <div className="flex" style={{ alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                  <span className="badge badge-warning" style={{ fontSize: 13 }}>奖励 {t.reward} 贡献点</span>
+                  <span className="badge badge-warning" style={{ fontSize: 13 }}>奖励 {fmtPoints(t.reward)} 贡献点</span>
                   {user?.level >= 1 && t.code && (
                     <code style={{ background: 'var(--input-bg)', padding: '2px 6px', borderRadius: 6, fontSize: 12, color: 'var(--primary)' }}>{t.code}</code>
                   )}
@@ -141,7 +142,7 @@ export default function Tasks() {
                 <div style={{ fontWeight: 600 }}>{c.title}</div>
                 <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>接取于 {formatDate(c.created_at, false)}</div>
               </div>
-              <span className="badge badge-warning" style={{ fontSize: 12 }}>+{c.reward}</span>
+              <span className="badge badge-warning" style={{ fontSize: 12 }}>+{fmtPoints(c.reward)}</span>
               {c.status === 'completed' ? (
                 <span className="badge badge-success">已完成 {c.completed_at ? formatDate(c.completed_at, false) : ''}</span>
               ) : (

@@ -31,8 +31,8 @@ function fmtDate(ts, withTime = false) {
   return `${date} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 function fmtPoints(n) {
-  if (n === null || n === undefined) return '0';
-  return Number(n).toLocaleString('zh-CN', { maximumFractionDigits: 2 });
+  if (n === null || n === undefined) return '0.00';
+  return Number(n).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 function sortGroups(groups) {
   if (!groups || !groups.length) return [];
