@@ -680,6 +680,22 @@ img {
   flex-shrink: 0;
 }
 
+/* 进度条 */
+.progress-track {
+  width: 100%;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--input-bg);
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--gradient);
+  transition: width 0.25s ease;
+}
+
 /* 轮播图 */
 .carousel {
   position: relative;

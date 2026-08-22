@@ -27,6 +27,8 @@ export default function Gmirs() {
   const [archive, setArchive] = useState(null);
   const [archiveLoading, setArchiveLoading] = useState(false);
   const [exporting, setExporting] = useState('');
+  const [exportProgress, setExportProgress] = useState(0);
+  const [exportLabel, setExportLabel] = useState('');
 
   // 验证码查伪
   const [verifyCode, setVerifyCode] = useState('');
@@ -80,25 +82,35 @@ export default function Gmirs() {
   const doExport = async (type) => {
     if (!archive) return;
     setExporting(type);
+    setExportProgress(0);
+    setExportLabel(type === 'pdf' ? '正在生成 PDF…' : '正在生成 Word 文档…');
     try {
-      if (type === 'pdf') await exportArchivePdf(archive);
-      else if (type === 'docx') await exportArchiveDocx(archive);
+      if (type === 'pdf') await exportArchivePdf(archive, setExportProgress);
+      else if (type === 'docx') await exportArchiveDocx(archive, setExportProgress);
     } catch (e) {
       alert(`导出失败：${e.message || e}`);
     } finally {
       setExporting('');
+      setExportProgress(0);
+      setExportLabel('');
     }
   };
 
   const doExportAll = async () => {
     setExporting('zip');
+    setExportProgress(0);
+    setExportLabel('正在获取成员档案数据…');
     try {
       const data = await api.get('/api/gmirs/export');
-      await exportAllArchivesZip(data.archives || []);
+      const archives = data.archives || [];
+      setExportLabel(archives.length ? '正在打包成员档案…' : '正在打包…');
+      await exportAllArchivesZip(archives, setExportProgress);
     } catch (e) {
       alert(`批量导出失败：${e.message || e}`);
     } finally {
       setExporting('');
+      setExportProgress(0);
+      setExportLabel('');
     }
   };
 
@@ -154,6 +166,18 @@ export default function Gmirs() {
           <div className="empty-state" style={{ marginTop: 12 }}><p>未查询到相关成员</p></div>
         )}
       </div>
+
+      {exporting && (
+        <div className="card mb-4" style={{ padding: 14 }}>
+          <div className="flex" style={{ justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, fontSize: 13 }}>
+            <span>{exportLabel}</span>
+            <span className="text-secondary">{exportProgress}%</span>
+          </div>
+          <div className="progress-track">
+            <div className="progress-fill" style={{ width: `${exportProgress}%` }} />
+          </div>
+        </div>
+      )}
 
       <div className="grid" style={{ gridTemplateColumns: selectedId && archive ? '280px 1fr' : '1fr', gap: 16, alignItems: 'start' }}>
         {/* 结果列表 */}

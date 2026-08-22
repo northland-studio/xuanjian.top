@@ -69,7 +69,7 @@ function groupColumns(type) {
 
 // ===== 中文字体加载与注册（jsPDF 默认字体不含中文，需嵌入 CJK 字体） =====
 const CJK_FONT_FILE = 'cjk.ttf';
-const CJK_FONT_NAME = 'XuanjianCJK';
+const CJK_FONT_NAME = 'DengXian';
 let cjkFontBase64Promise = null;
 
 function arrayBufferToBase64(buffer) {
@@ -100,48 +100,41 @@ async function registerCjkFont(doc) {
   doc.setFont(CJK_FONT_NAME, 'normal');
 }
 
-// 远程图片转 dataURL（用于同步嵌入 jsPDF，保证圆形裁剪生效且避免跨域缺失）
-async function loadImageDataURL(url) {
+// 远程头像 → 圆形 PNG dataURL（用 canvas 裁剪为圆形，透明圆角，直接嵌入即可保证圆形显示）
+async function loadCircularAvatarDataURL(url, size = 256) {
   if (!url) return null;
   try {
     const res = await fetch(url, { mode: 'cors' });
     if (!res.ok) return null;
     const blob = await res.blob();
-    return await new Promise(resolve => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result);
-      reader.onerror = () => resolve(null);
-      reader.readAsDataURL(blob);
-    });
+    const bmp = await createImageBitmap(blob);
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    ctx.beginPath();
+    ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
+    ctx.clip();
+    ctx.drawImage(bmp, 0, 0, size, size);
+    if (bmp.close) bmp.close();
+    return canvas.toDataURL('image/png');
   } catch {
     return null;
   }
 }
 
-// 圆形头像绘制（裁剪圆形后绘制图片，无图时显示首字占位）
-function drawCircularAvatar(doc, avatar, fallbackChar, x, y, size) {
+// 圆形头像绘制：优先圆形 PNG，无图时绘制圆形底色 + 首字占位
+function drawAvatar(doc, avatarDataUrl, fallbackChar, x, y, size) {
+  if (avatarDataUrl) {
+    doc.addImage(avatarDataUrl, x, y, size, size);
+    return;
+  }
   const r = size / 2;
-  const cx = x + r;
-  const cy = y + r;
-  doc.saveGraphicsState();
-  doc.circle(cx, cy, r, null);
-  doc.clip();
-  let drawn = false;
-  if (avatar) {
-    try { doc.addImage(avatar, x, y, size, size); drawn = true; }
-    catch { drawn = false; }
-  }
-  if (!drawn) {
-    doc.setFillColor(240, 244, 250);
-    doc.rect(x, y, size, size, 'F');
-    doc.setTextColor(150);
-    doc.setFontSize(14);
-    doc.text(String(fallbackChar || '?'), cx, cy + 4, { align: 'center' });
-  }
-  doc.restoreGraphicsState();
-  doc.setDrawColor(210);
-  doc.setLineWidth(0.3);
-  doc.circle(cx, cy, r, 'S');
+  doc.setFillColor(240, 244, 250);
+  doc.circle(x + r, y + r, r, 'F');
+  doc.setTextColor(150);
+  doc.setFontSize(14);
+  doc.text(String(fallbackChar || '?'), x + r, y + r + 4, { align: 'center' });
 }
 
 // ===== 离线渲染皮肤 → PNG dataURL =====
@@ -192,13 +185,16 @@ function buildHeader(archive) {
 }
 
 // ===== PDF 导出（jspdf + autotable） =====
-export async function exportArchivePdf(archive) {
+export async function exportArchivePdf(archive, onProgress) {
+  onProgress?.(10);
   const [skin, avatar] = await Promise.all([
     renderSkinToDataURL(archive.user.skin_path),
-    loadImageDataURL(archive.user.avatar)
+    loadCircularAvatarDataURL(archive.user.avatar)
   ]);
+  onProgress?.(35);
   const doc = new jsPDF('p', 'mm', 'a4'); // 210 x 297
   await registerCjkFont(doc);
+  onProgress?.(80);
   const pageW = 210, pageH = 297;
   const left = 20, right = 190;
 
@@ -214,7 +210,7 @@ export async function exportArchivePdf(archive) {
 
   // 圆形头像 + 名称
   const headY = 34;
-  drawCircularAvatar(doc, avatar, (archive.user.nickname || archive.user.username || '?').slice(0, 1), left, headY, 26);
+  drawAvatar(doc, avatar, (archive.user.nickname || archive.user.username || '?').slice(0, 1), left, headY, 26);
   doc.setTextColor(20);
   doc.setFont(CJK_FONT_NAME, 'normal');
   doc.setFontSize(15);
@@ -336,13 +332,16 @@ export async function exportArchivePdf(archive) {
   doc.setTextColor(60);
   doc.text(`验证码查伪：${archive.verify_code}`, right, footY, { align: 'right' });
 
+  onProgress?.(100);
   doc.save(`玄剑公会成员档案-${archive.user.nickname || archive.user.username}-${archive.user.id}.pdf`);
 }
 
 // ===== docx 导出 =====
-export async function exportArchiveDocx(archive) {
+export async function exportArchiveDocx(archive, onProgress) {
   const u = archive.user;
+  onProgress?.(10);
   const skin = await renderSkinToDataURL(u.skin_path);
+  onProgress?.(60);
   const children = [];
 
   // 标题
@@ -423,28 +422,33 @@ export async function exportArchiveDocx(archive) {
 
   const doc = new Document({ sections: [{ children }] });
   const blob = await Packer.toBlob(doc);
+  onProgress?.(90);
   saveAs(blob, `玄剑公会成员档案-${u.nickname || u.username}-${u.id}.docx`);
+  onProgress?.(100);
 }
 
 // ===== 一键导出所有成员（ZIP：每个成员 PDF + 索引） =====
-export async function exportAllArchivesZip(archives) {
+export async function exportAllArchivesZip(archives, onProgress) {
   const zip = new JSZip();
   const indexLines = [];
+  const total = archives.length || 1;
   for (let i = 0; i < archives.length; i++) {
     const a = archives[i];
     const u = a.user;
     const [skin, avatar] = await Promise.all([
       renderSkinToDataURL(u.skin_path),
-      loadImageDataURL(u.avatar)
+      loadCircularAvatarDataURL(u.avatar)
     ]);
     const doc = await buildPdfBuffer(a, skin, avatar);
     const fname = `成员档案_${(u.nickname || u.username)}_${u.id}.pdf`;
     zip.file(fname, doc.output('arraybuffer'));
     indexLines.push(`${(u.nickname || u.username)} | 用户ID:${u.id} | 验证码:${a.verify_code}`);
+    onProgress?.(Math.round(((i + 1) / total) * 100));
   }
   zip.file('全部成员档案索引.txt', `玄剑公会成员档案索引（共 ${archives.length} 人）\n\n${indexLines.join('\n')}`);
   const blob = await zip.generateAsync({ type: 'blob' });
   saveAs(blob, `玄剑公会全部成员档案_${fmtDate(new Date(), false).replace(/[年月日]/g, '')}.zip`);
+  onProgress?.(100);
 }
 
 // ===== PDF 生成复用（返回 jsPDF 实例，供单/批量共用） =====
@@ -459,7 +463,7 @@ async function buildPdfBuffer(archive, skin, avatar) {
   doc.text('Xuanjian Guild Member Information Retrieval System', 105, 25, { align: 'center' });
 
   const headY = 34;
-  drawCircularAvatar(doc, avatar, (archive.user.nickname || archive.user.username || '?').slice(0, 1), left, headY, 26);
+  drawAvatar(doc, avatar, (archive.user.nickname || archive.user.username || '?').slice(0, 1), left, headY, 26);
   doc.setTextColor(20); doc.setFont(CJK_FONT_NAME, 'normal'); doc.setFontSize(15);
   doc.text(`${archive.user.nickname || archive.user.username}`, 52, headY + 11);
   doc.setFont(CJK_FONT_NAME, 'normal'); doc.setFontSize(10); doc.setTextColor(90);
