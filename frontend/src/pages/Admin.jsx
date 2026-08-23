@@ -385,7 +385,7 @@ function AnnouncementManager({ showToast }) {
   const fetchList = () => {
     setLoading(true);
     api.get('/api/admin/announcements')
-      .then(data => setAnnouncements(data.announcements || []))
+      .then(data => setAnnouncements(Array.isArray(data) ? data : (data.announcements || [])))
       .catch(() => setAnnouncements([]))
       .finally(() => setLoading(false));
   };

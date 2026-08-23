@@ -184,7 +184,7 @@ router.get('/announcements', authMiddleware, adminMiddleware, async (req, res) =
              ORDER BY a.created_at DESC`
         );
         
-        res.json(announcements);
+        res.json({ announcements });
     } catch (error) {
         logger.error('获取公告列表错误:', error);
         res.status(500).json({ error: '获取公告列表失败' });

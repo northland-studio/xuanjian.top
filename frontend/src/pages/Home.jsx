@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Carousel from '../components/Carousel';
+import AnnouncementMarquee from '../components/AnnouncementMarquee';
 import { api } from '../api';
 
 const features = [
@@ -77,6 +78,9 @@ export default function Home() {
 
   return (
     <div className="fade-in-up">
+      {/* 首页顶部滚动公告 */}
+      <AnnouncementMarquee />
+
       {/* 轮播图（主页 Hero） */}
       <Carousel />
 

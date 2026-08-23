@@ -573,6 +573,69 @@ img {
   background: var(--primary-dark);
 }
 
+/* ===== 首页顶部滚动公告条 ===== */
+.announcement-marquee {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 16px;
+  margin-bottom: 20px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.announcement-marquee-tag {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  background: var(--gradient);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 999px;
+}
+
+.announcement-marquee-viewport {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.announcement-marquee-track {
+  display: inline-block;
+  white-space: nowrap;
+  font-size: 13px;
+  color: var(--text);
+  animation: marquee-scroll 30s linear infinite;
+  will-change: transform;
+}
+
+.announcement-marquee-track.paused {
+  animation-play-state: paused;
+}
+
+@keyframes marquee-scroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+/* 移动端：缩小公告条，便于阅读 */
+@media (width <= 600px) {
+  .announcement-marquee {
+    padding: 8px 12px;
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+  .announcement-marquee-track {
+    font-size: 12px;
+  }
+}
+
 /* 原生客户端更新悬浮按钮 */
 .update-fab {
   position: fixed;
