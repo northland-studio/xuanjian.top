@@ -252,7 +252,8 @@ router.get('/export', async (req, res) => {
 router.get('/proxy-image', async (req, res) => {
     try {
         const url = String(req.query.url || '');
-        if (!/^https?:\/\/cdn\.xuanjian\.top\//.test(url)) {
+        // 仅允许白名单域名：七牛 CDN 与 QQ 头像（QQ 登录用户的头像存于 thirdqq.qlogo.cn）
+        if (!/^https?:\/\/(cdn\.xuanjian\.top|thirdqq\.qlogo\.cn)\//.test(url)) {
             return res.status(400).json({ error: '不支持的图片地址' });
         }
         const resp = await fetch(url, { redirect: 'follow' });
