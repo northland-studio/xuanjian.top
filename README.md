@@ -14,7 +14,7 @@ xuanjian.top 2.0 - React 重构版
 ![Vite](https://img.shields.io/badge/Vite-8-646CFF?style=flat-square)
 ![SQLite](https://img.shields.io/badge/SQLite-3-003B49?style=flat-square)
 ![Qiniu](https://img.shields.io/badge/Qiniu-Kodo-0080FF?style=flat-square)
-![Version](https://img.shields.io/badge/Version-v2.2.0-blue?style=flat-square)
+![Version](https://img.shields.io/badge/Version-v2.3.0-blue?style=flat-square)
 ![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
 
 **在线地址**: https://xuanjian.top
@@ -50,7 +50,8 @@ xuanjian.top 2.0 - React 重构版
 - 称号系统：购买、装备、自定义称号
 - 贡献点申报：用户提交申报，管理员审核发放
 - 每日签到：连续签到奖励递增、补签卡、签到排行榜
-- 排行榜：贡献点、帖子阅读 / 点赞、签到排行
+- 排行榜：贡献点、上线时长、帖子阅读 / 点赞、签到排行
+- 贡献点显示统一保留两位小数（四舍五入），覆盖余额、价格、流水、排行等全站展示
 
 ### 管理后台
 
@@ -61,6 +62,7 @@ xuanjian.top 2.0 - React 重构版
 
 - 通知中心：日报 / 决策更新、评论、点赞、申报审核结果实时提醒
 - 弹窗公告：管理后台发布后可全站弹窗展示，按公告 ID 记忆已读
+- 滚动公告：首页顶部无缝滚动展示全部启用公告（含弹窗 / 普通公告），悬停暂停
 - OAuth 2.0 授权码模式：第三方应用可使用公会账号登录
 - 七牛云对象存储：前端 XHR 直传，实时上传进度回调
 - 日志系统：控制台 + 按天滚动文件日志（data/logs/app-YYYYMMDD.log）
@@ -217,6 +219,16 @@ QINIU_UPLOAD_URL=https://up-as0.qiniup.com
 ---
 
 ## 更新日志
+
+### v2.3.0（2026-08-23）
+
+- **上线时长排行榜**：新增 online_time 累计表（模组 JOIN / 下线 / 心跳上报时自动累加在线时长，单次会话上限 90 分钟防虚高），新增 /api/rankings/online-time 接口，排行榜页新增「在线时长」Tab（X 小时 Y 分格式化）
+- **首页滚动公告**：新增首页顶部无缝滚动公告条（AnnouncementMarquee 组件），复用公告系统、悬停暂停，风格与现有组件一致；管理面板修复公告列表接口返回结构（{ announcements }），弹窗公告历史现可正常查看
+- **贡献点显示统一两位小数**：新增 utils.fmtPoints 统一格式化（minimumFractionDigits=2 四舍五入），全站贡献点 / 价格 / 奖励 / 流水 / 排行榜显示均改为 xx.xx 两位小数
+- **商城购买上限调整**：不限量商品单次购买数量上限由 99 件取消（可批量购买任意数量），仓库同核销码堆叠无上限
+- **商城数据维护**：公会地皮购买商品（含其购买记录与贡献点流水）下线并退回相关成员贡献点，恢复到上架前状态（直接改库、不写流水）
+- **子域名反向代理**：新增 profiles.xuanjian.top → /gmirs、chufen.xuanjian.top → /gdars 的 Nginx 反代配置（Cloudflare 边缘 HTTPS 回源）
+- **模组更新**：设置页改为 vanilla 自写 GUI（原生 Screen+EditBox+Button，移除 cloth-config 依赖，jar 大幅瘦身）；修复转账 playerAuth 鉴权（fromUuid 兼容）；新增 26.1 分支（支持 Minecraft 26.1.2），CI 三分支构建并发布 GitHub Release
 
 ### v2.2.0（2026-08-22）
 
