@@ -547,6 +547,7 @@ router.post('/online/join', playerAuth, async (req, res) => {
             'INSERT OR REPLACE INTO mod_online (server_ip, uuid, player_name, updated_at) VALUES (?, ?, ?, ?)',
             [matched, req.modUuid, name, getLocalTimestamp()]
         );
+        await accumulateOnlineTime(req.modUuid, user); // 累计上线时长
         res.json({ message: '已上线', server: matched });
     } catch (e) {
         logger.error('客户端上线上报错误:', e);
@@ -562,6 +563,7 @@ router.post('/online/leave', playerAuth, async (req, res) => {
         const matched = await matchWhiteList(server);
         if (!matched) return res.json({ message: '未匹配白名单，无需处理' });
         await db.run('DELETE FROM mod_online WHERE server_ip = ? AND uuid = ?', [matched, req.modUuid]);
+        await accumulateOnlineTime(req.modUuid, req.modUser, true); // 下线：累计并清空会话
         res.json({ message: '已下线' });
     } catch (e) {
         logger.error('客户端下线上报错误:', e);
@@ -579,6 +581,54 @@ async function matchWhiteList(server) {
         if (sBase && sBase === base) return s.server_ip;
     }
     return '';
+}
+
+/* ============ 上线时长累计（在线时长排行榜） ============ */
+
+/**
+ * 累计玩家在线时长到 online_time 表。
+ * 策略：记录最近一次"在线确认"时间 last_seen_at；每次确认在线（join 续报 / leave / 心跳）时，
+ * 累加 上次确认到本次确认 的时间差（秒），再刷新 last_seen_at。
+ * 为避免掉线后未上报导致的虚高，单次累加上限为 90 分钟（5400 秒），超出按新会话处理。
+ * @param {string} uuid 玩家游戏 uuid
+ * @param {object} user 官网用户（含 id/nickname/game_id/username），可为 null
+ * @param {boolean} isLeave 是否下线（下线后清空 last_seen_at）
+ */
+async function accumulateOnlineTime(uuid, user, isLeave = false) {
+    try {
+        const now = Date.now();
+        const nowStr = getLocalTimestamp();
+        const row = await db.get('SELECT id, total_seconds, last_seen_at FROM online_time WHERE uuid = ?', [uuid]);
+        let total = row ? (row.total_seconds || 0) : 0;
+        let lastTs = null;
+
+        if (row && row.last_seen_at) {
+            // last_seen_at 是本地时间字符串（getLocalTimestamp 返回本地时间），用本地时区解析还原时间戳
+            lastTs = Date.parse(String(row.last_seen_at).replace(' ', 'T'));
+            if (!isNaN(lastTs)) {
+                let delta = Math.floor((now - lastTs) / 1000);
+                const MAX_SESSION = 5400; // 90 分钟
+                if (delta > 0 && delta < MAX_SESSION) {
+                    total += delta;
+                }
+            }
+        }
+
+        await db.run(
+            `INSERT INTO online_time (uuid, user_id, player_name, total_seconds, last_seen_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?)
+             ON CONFLICT(uuid) DO UPDATE SET
+                user_id = excluded.user_id,
+                player_name = excluded.player_name,
+                total_seconds = excluded.total_seconds,
+                last_seen_at = excluded.last_seen_at,
+                updated_at = excluded.updated_at`,
+            [uuid, user ? user.id : null, user ? (user.game_id || user.nickname || user.username || '') : '',
+             total, isLeave ? null : nowStr, nowStr]
+        );
+    } catch (e) {
+        logger.error('上线时长累计错误:', e.message);
+    }
 }
 
 // 查询在线玩家（仅返回已绑定官网账号的玄剑玩家，且记录在 TTL 内未过期）
@@ -631,6 +681,7 @@ router.post('/heartbeat', async (req, res) => {
                     'INSERT INTO mod_active (uuid, player_name, last_active_at) VALUES (?, ?, ?) ON CONFLICT(uuid) DO UPDATE SET player_name = ?, last_active_at = ?',
                     [u, name, now, name, now]
                 );
+                await accumulateOnlineTime(u, user); // 心跳同时累计上线时长
                 recorded++;
             }
         }

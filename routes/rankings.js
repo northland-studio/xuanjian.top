@@ -170,4 +170,36 @@ router.get('/stock', async (req, res) => {
     }
 });
 
+// 上线时长排行榜（模组采集的在线时长累计，online_time 表）
+router.get('/online-time', async (req, res) => {
+    try {
+        const { limit = 20 } = req.query;
+        
+        const users = await db.all(
+            `SELECT o.uuid, o.user_id, o.player_name,
+                    u.username, u.nickname, u.avatar, u.equipped_title,
+                    (SELECT name FROM titles WHERE id = u.equipped_title) as title_name,
+                    (SELECT color FROM titles WHERE id = u.equipped_title) as title_color,
+                    o.total_seconds
+             FROM online_time o
+             LEFT JOIN users u ON u.id = o.user_id
+             WHERE o.total_seconds > 0
+             ORDER BY o.total_seconds DESC
+             LIMIT ?`,
+            [parseInt(limit)]
+        );
+        
+        res.json({
+            rankings: users.map((u, i) => ({
+                ...u,
+                total_seconds: u.total_seconds || 0,
+                rank: i + 1
+            }))
+        });
+    } catch (error) {
+        logger.error('获取上线时长排行榜错误:', error);
+        res.status(500).json({ error: '获取排行榜失败' });
+    }
+});
+
 module.exports = router;

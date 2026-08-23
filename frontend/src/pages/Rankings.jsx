@@ -5,10 +5,22 @@ import { fmtPoints } from '../utils';
 
 const TABS = [
   { key: 'contribution', label: '贡献点排行' },
+  { key: 'online-time', label: '在线时长' },
   { key: 'posts-views', label: '内容热度' },
   { key: 'posts-likes', label: '点赞排行' },
   { key: 'checkin', label: '签到排行' }
 ];
+
+// 秒数 → "X小时Y分"（不足1小时显示"Y分钟"，不足1分钟显示"Y秒"）
+function formatDuration(totalSeconds) {
+  const s = Math.max(0, Math.floor(totalSeconds || 0));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  if (h > 0) return `${h}小时${m}分`;
+  if (m > 0) return `${m}分钟`;
+  return `${sec}秒`;
+}
 
 export default function Rankings() {
   const [tab, setTab] = useState('contribution');
@@ -78,6 +90,11 @@ export default function Rankings() {
                   <div style={{ textAlign: 'right' }}>
                     <div style={{ fontWeight: 700, color: 'var(--success)' }}>{r.continuous_days || 0} 天</div>
                     <div className="text-secondary" style={{ fontSize: 12 }}>连续 · 共{r.total_checkins || 0}次</div>
+                  </div>
+                ) : tab === 'online-time' ? (
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontWeight: 700, color: 'var(--primary)' }}>{formatDuration(r.total_seconds)}</div>
+                    <div className="text-secondary" style={{ fontSize: 12 }}>累计在线时长</div>
                   </div>
                 ) : (
                   <div style={{ fontWeight: 700, color: 'var(--warning)' }}>{fmtPoints(r.contribution ?? 0)} <span style={{ fontSize: 12, fontWeight: 400 }}>贡献点</span></div>
