@@ -363,6 +363,31 @@ async function sendBindConfirm(email, info) {
     return await sendEmail(email, '玄剑公会 - 游戏角色绑定确认', html);
 }
 
+/**
+ * 通用业务通知邮件（商品购入/核销、处分、玩家任务等）
+ * @param {string} email 收件人
+ * @param {object} opt { title, greeting, rows:[[label,value]...], note, actionText, actionUrl, accentColor }
+ */
+async function sendGenericNotification(email, opt) {
+    const rows = (opt.rows || []).map(([label, value]) => `
+        <tr>
+            <td style="padding: 8px 0;"><span style="color: #64748b; font-size: 14px;">${label}：</span><span style="color: #1e293b; font-size: 15px; font-weight: 600; word-break: break-all;">${value}</span></td>
+        </tr>`).join('');
+    const html = getEmailTemplate({
+        title: opt.title || '玄剑公会通知',
+        greeting: opt.greeting || '您好！',
+        content: `
+            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background: #f8fafc; border-radius: 12px; padding: 24px;">
+                ${rows}
+            </table>
+            ${opt.note ? `<p style="margin: 20px 0 0 0; color: #475569; font-size: 14px; line-height: 1.7;">${opt.note}</p>` : ''}
+        `,
+        actionButton: opt.actionText && opt.actionUrl ? { text: opt.actionText, url: opt.actionUrl } : null,
+        accentColor: opt.accentColor || '#004AAD'
+    });
+    return await sendEmail(email, opt.subject || opt.title || '玄剑公会通知', html);
+}
+
 module.exports = {
     transporter,
     sendEmail,
@@ -373,5 +398,6 @@ module.exports = {
     sendClaimResult,
     sendTaskResult,
     sendBindConfirm,
-    sendAbnormalLoginAlert
+    sendAbnormalLoginAlert,
+    sendGenericNotification
 };

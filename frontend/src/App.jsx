@@ -45,6 +45,7 @@ function MainSite() {
         <Route path="/decision" element={<ContentList type="decision" title="决策公示" />} />
         <Route path="/forum" element={<ContentList type="forum" title="公会贴吧" />} />
         <Route path="/post/:id" element={<PostDetail />} />
+        <Route path="/posts/:id" element={<PostDetail />} />
         <Route path="/editor" element={<Editor />} />
         <Route path="/editor/:id" element={<Editor />} />
         <Route path="/shop" element={<Shop />} />

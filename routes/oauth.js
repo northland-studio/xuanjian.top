@@ -30,8 +30,14 @@ router.get('/authorize', async (req, res) => {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>授权确认 - 玄剑公会</title>
-    <link rel="stylesheet" href="/css/style.css">
     <style>
+        :root {
+            --primary: #004aad; --primary-dark: #003a87; --primary-light: #2e6cc9;
+            --bg: #f6f8fb; --card: #fff; --text: #1e293b; --text-secondary: #64748b;
+            --border: #e2e8f0; --radius: 12px; --radius-lg: 16px;
+            --shadow: 0 2px 10px rgba(0,0,0,.08); --shadow-lg: 0 10px 40px rgba(0,0,0,.12);
+            --gradient: linear-gradient(135deg, #004aad 0%, #06c 100%);
+        }
         * {
             margin: 0;
             padding: 0;
@@ -42,18 +48,19 @@ router.get('/authorize', async (req, res) => {
             display: flex;
             align-items: center;
             justify-content: center;
-            background: linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), url('/2.png') center/cover no-repeat;
+            background: var(--bg);
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             padding: 20px;
         }
         .oauth-container {
-            background: rgba(255, 255, 255, 0.285);
-            padding: 40px;
-            border-radius: 20px;
+            background: var(--card);
+            padding: 40px 36px;
+            border-radius: var(--radius-lg);
             max-width: 420px;
             width: 100%;
             text-align: center;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            box-shadow: var(--shadow-lg);
+            border: 1px solid var(--border);
         }
         .oauth-logo {
             width: 80px;
@@ -63,12 +70,12 @@ router.get('/authorize', async (req, res) => {
         }
         .oauth-title {
             font-size: 24px;
-            font-weight: 600;
+            font-weight: 800;
             margin-bottom: 8px;
-            color: #fff;
+            color: var(--text);
         }
         .oauth-subtitle {
-            color: #94979a;
+            color: var(--text-secondary);
             font-size: 14px;
             margin-bottom: 24px;
         }
@@ -76,19 +83,21 @@ router.get('/authorize', async (req, res) => {
             display: inline-flex;
             align-items: center;
             gap: 8px;
-            background: rgba(0, 74, 173, 0.3);
-            color: #fff;
+            background: rgba(0, 74, 173, 0.08);
+            color: var(--primary);
             padding: 10px 16px;
             border-radius: 8px;
-            font-weight: 500;
+            font-weight: 600;
             margin-bottom: 24px;
             font-size: 14px;
+            border: 1px solid rgba(0, 74, 173, 0.15);
         }
         .user-info {
-            background: rgba(255, 255, 255, 0.1);
+            background: var(--bg);
             padding: 20px;
-            border-radius: 12px;
+            border-radius: var(--radius);
             margin-bottom: 24px;
+            border: 1px solid var(--border);
         }
         .user-avatar-img {
             width: 56px;
@@ -97,15 +106,16 @@ router.get('/authorize', async (req, res) => {
             object-fit: cover;
             margin: 0 auto 12px;
             display: block;
-            background: #e2e8f0;
+            background: var(--bg);
+            border: 2px solid var(--primary-light);
         }
         .user-name {
-            color: #fff;
-            font-weight: 600;
+            color: var(--text);
+            font-weight: 700;
             font-size: 16px;
         }
         .user-label {
-            color: #94979a;
+            color: var(--text-secondary);
             font-size: 12px;
             margin-top: 4px;
         }
@@ -118,27 +128,31 @@ router.get('/authorize', async (req, res) => {
             padding: 12px 20px;
             border-radius: 10px;
             font-size: 15px;
-            font-weight: 500;
+            font-weight: 600;
             cursor: pointer;
-            transition: all 0.3s;
+            transition: all 0.25s;
             border: none;
         }
         .btn-allow {
-            background: #004AAD;
+            background: var(--gradient);
             color: white;
+            box-shadow: 0 4px 12px rgba(0,74,173,.25);
         }
         .btn-allow:hover {
-            background: #003a87;
+            transform: translateY(-1px);
+            box-shadow: 0 6px 16px rgba(0,74,173,.3);
         }
         .btn-deny {
-            background: rgba(255,255,255,0.1);
-            color: #94979a;
+            background: var(--bg);
+            color: var(--text-secondary);
+            border: 1px solid var(--border);
         }
         .btn-deny:hover {
-            background: rgba(255,255,255,0.2);
+            background: var(--border);
+            color: var(--text);
         }
         .loading {
-            color: #94979a;
+            color: var(--text-secondary);
             font-size: 14px;
         }
         .loading::after {
@@ -152,7 +166,7 @@ router.get('/authorize', async (req, res) => {
         }
         .switch-account {
             display: inline-block;
-            color: #94979a;
+            color: var(--primary);
             font-size: 13px;
             margin-top: 16px;
             cursor: pointer;
@@ -160,10 +174,11 @@ router.get('/authorize', async (req, res) => {
             transition: color 0.3s;
         }
         .switch-account:hover {
-            color: #fff;
+            color: var(--primary-dark);
+            text-decoration: underline;
         }
         .oauth-notice {
-            color: #6b7280;
+            color: var(--text-secondary);
             font-size: 12px;
             margin-top: 20px;
             line-height: 1.5;

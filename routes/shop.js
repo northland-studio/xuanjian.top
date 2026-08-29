@@ -5,6 +5,8 @@ const db = require('../database');
 const { getLocalTimestamp } = require('../database');
 const { authMiddleware, adminMiddleware } = require('../middleware/auth');
 const { addContributionLog } = require('../lib/contribution');
+const { createNotification } = require('./notifications');
+const { sendGenericNotification } = require('../config/mail');
 const router = express.Router();
 
 const generateVerificationCode = () => {
@@ -148,6 +150,36 @@ router.post('/items/:id/buy', authMiddleware, async (req, res) => {
         });
         
         await addContributionLog(req.userId, -totalPrice, 'purchase', item.id, item.name);
+
+        // 站内通知 + 邮件：购买成功
+        try {
+            await createNotification({
+                userId: req.userId,
+                type: 'purchase',
+                title: '购买成功',
+                content: `您已成功购买「${item.name}」×${quantity}，共消费 ${totalPrice} 贡献点。`
+            });
+            const buyer = await db.get('SELECT email, nickname, username FROM users WHERE id = ?', [req.userId]);
+            if (buyer && buyer.email) {
+                await sendGenericNotification(buyer.email, {
+                    title: '购买成功',
+                    subject: '玄剑公会 - 购买成功',
+                    greeting: `您好，${buyer.nickname || buyer.username}！`,
+                    rows: [
+                        ['商品', item.name],
+                        ['数量', `${quantity} 件`],
+                        ['消费', `${totalPrice} 贡献点`],
+                        ['核销码', purchasedItems[0]?.verificationCode || '无']
+                    ],
+                    note: '请前往「我的库存」查看核销码，线下交付时向管理员出示。',
+                    actionText: '查看我的库存',
+                    actionUrl: `${process.env.SITE_URL || 'https://xuanjian.top'}/inventory`,
+                    accentColor: '#10b981'
+                });
+            }
+        } catch (e) {
+            logger.error('购买通知/邮件失败:', e.message);
+        }
 
         res.json({ message: '购买成功', totalPrice, quantity, purchasedItems });
     } catch (error) {
@@ -328,7 +360,36 @@ router.post('/confirm', authMiddleware, adminMiddleware, async (req, res) => {
             'UPDATE user_items SET verified_at = ?, verified_by = ? WHERE verification_code = ? AND verified_at IS NULL',
             [getLocalTimestamp(), req.userId, code.toUpperCase()]
         );
-        
+
+        // 站内通知 + 邮件：核销成功（通知购买者）
+        try {
+            await createNotification({
+                userId: item.user_id,
+                type: 'purchase',
+                title: '商品已核销',
+                content: `您的「${item.name}」已由管理员核销（共 ${pending.c} 件）。`
+            });
+            const buyer = await db.get('SELECT email, nickname, username FROM users WHERE id = ?', [item.user_id]);
+            if (buyer && buyer.email) {
+                await sendGenericNotification(buyer.email, {
+                    title: '商品已核销',
+                    subject: '玄剑公会 - 商品核销通知',
+                    greeting: `您好，${buyer.nickname || buyer.username}！`,
+                    rows: [
+                        ['商品', item.name],
+                        ['核销数量', `${pending.c} 件`],
+                        ['核销码', code.toUpperCase()]
+                    ],
+                    note: '您的商品已由管理员确认核销，感谢使用。',
+                    actionText: '查看我的库存',
+                    actionUrl: `${process.env.SITE_URL || 'https://xuanjian.top'}/inventory`,
+                    accentColor: '#004AAD'
+                });
+            }
+        } catch (e) {
+            logger.error('核销通知/邮件失败:', e.message);
+        }
+
         res.json({ message: '核销成功', itemName: item.name, quantity: pending.c });
     } catch (error) {
         logger.error('核销错误:', error);

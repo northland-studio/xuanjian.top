@@ -4,6 +4,8 @@ const db = require('../database');
 const { getLocalTimestamp } = require('../database');
 const { authMiddleware, adminMiddleware } = require('../middleware/auth');
 const { addContributionLog } = require('../lib/contribution');
+const { createNotification } = require('./notifications');
+const { sendGenericNotification } = require('../config/mail');
 const router = express.Router();
 
 const LEVEL_TEXT = { 1: '全会通报批评', 2: '全会通报批评+扣除贡献点', 3: '开除会籍（冻结账号）' };
@@ -93,6 +95,36 @@ router.post('/', authMiddleware, adminMiddleware, async (req, res) => {
             return actionId;
         });
 
+        // 站内通知 + 邮件：处分通知
+        try {
+            await createNotification({
+                userId: target.id,
+                type: 'discipline',
+                title: `处分通知：${LEVEL_TEXT[lv]}`,
+                content: `您因「${reason.trim()}」被${LEVEL_TEXT[lv]}${actualDeduct > 0 ? `，扣除 ${actualDeduct} 贡献点` : ''}。如对处分有异议请联系管理员。`
+            });
+            const targetFull = await db.get('SELECT email, nickname, username FROM users WHERE id = ?', [target.id]);
+            if (targetFull && targetFull.email) {
+                await sendGenericNotification(targetFull.email, {
+                    title: `处分通知：${LEVEL_TEXT[lv]}`,
+                    subject: '玄剑公会 - 处分通知',
+                    greeting: `您好，${targetFull.nickname || targetFull.username}！`,
+                    rows: [
+                        ['处分级别', LEVEL_TEXT[lv]],
+                        ['处分理由', reason.trim()],
+                        ['附加惩罚', (extra_penalty || '').trim() || '无'],
+                        ['扣除贡献点', actualDeduct > 0 ? `${actualDeduct}` : '无']
+                    ],
+                    note: '如对处分有异议，请联系公会管理员申诉。',
+                    actionText: '查看详情',
+                    actionUrl: `${process.env.SITE_URL || 'https://xuanjian.top'}/gdars`,
+                    accentColor: '#ef4444'
+                });
+            }
+        } catch (e) {
+            logger.error('处分通知/邮件失败:', e.message);
+        }
+
         res.status(201).json({ success: true, actionId: created, deducted: actualDeduct });
     } catch (error) {
         logger.error('新增处分错误:', error);
@@ -135,6 +167,32 @@ router.post('/:id/revoke', authMiddleware, adminMiddleware, async (req, res) => 
                 }
             }
         });
+
+        // 站内通知 + 邮件：处分撤销通知
+        try {
+            await createNotification({
+                userId: action.user_id,
+                type: 'discipline',
+                title: '处分已撤销',
+                content: `您的处分记录（${LEVEL_TEXT[action.level]}）已被撤销${reason ? `，原因：${reason.trim()}` : ''}${action.deduct_points > 0 ? `，已返还 ${action.deduct_points} 贡献点` : ''}。`
+            });
+            const targetFull = await db.get('SELECT email, nickname, username FROM users WHERE id = ?', [action.user_id]);
+            if (targetFull && targetFull.email) {
+                await sendGenericNotification(targetFull.email, {
+                    title: '处分已撤销',
+                    subject: '玄剑公会 - 处分撤销通知',
+                    greeting: `您好，${targetFull.nickname || targetFull.username}！`,
+                    rows: [
+                        ['原处分级别', LEVEL_TEXT[action.level] || action.level],
+                        ['撤销原因', reason || '无'],
+                        ['返还贡献点', action.deduct_points > 0 ? `${action.deduct_points}` : '无']
+                    ],
+                    accentColor: '#10b981'
+                });
+            }
+        } catch (e) {
+            logger.error('撤销处分通知/邮件失败:', e.message);
+        }
 
         res.json({ success: true, message: '处分已撤销' });
     } catch (error) {

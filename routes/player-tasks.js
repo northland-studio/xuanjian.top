@@ -10,6 +10,7 @@ const { getLocalTimestamp } = require('../database');
 const { authMiddleware } = require('../middleware/auth');
 const { addContributionLog } = require('../lib/contribution');
 const { createNotification } = require('./notifications');
+const { sendGenericNotification } = require('../config/mail');
 const router = express.Router();
 
 // 生成完成验证码（发布时生成，仅发布者可查看并线下告知接取者）
@@ -145,6 +146,19 @@ router.post('/:id/accept', authMiddleware, async (req, res) => {
                 title: '任务被接取',
                 content: `您的玩家任务「${task.title}」已被接取，请线下核对完成情况后提供验证码`
             });
+            const author = await db.get('SELECT email, nickname, username FROM users WHERE id = ?', [task.author_id]);
+            if (author && author.email) {
+                await sendGenericNotification(author.email, {
+                    title: '玩家任务被接取',
+                    subject: '玄剑公会 - 玩家任务被接取',
+                    greeting: `您好，${author.nickname || author.username}！`,
+                    rows: [['任务', task.title], ['悬赏', `${task.reward} 贡献点`]],
+                    note: '有人接取了您发布的玩家任务，请线下核对完成情况并提供验证码。',
+                    actionText: '查看任务',
+                    actionUrl: `${process.env.SITE_URL || 'https://xuanjian.top'}/player-tasks`,
+                    accentColor: '#f59e0b'
+                });
+            }
         } catch (e) { /* 通知失败不影响主流程 */ }
 
         res.json({ message: '任务接取成功' });
@@ -191,6 +205,19 @@ router.post('/:id/complete', authMiddleware, async (req, res) => {
                 title: '任务已完成',
                 content: `您的玩家任务「${task.title}」已完成，${task.reward} 贡献点已发放给接取者`
             });
+            const author = await db.get('SELECT email, nickname, username FROM users WHERE id = ?', [task.author_id]);
+            if (author && author.email) {
+                await sendGenericNotification(author.email, {
+                    title: '玩家任务已完成',
+                    subject: '玄剑公会 - 玩家任务已完成',
+                    greeting: `您好，${author.nickname || author.username}！`,
+                    rows: [['任务', task.title], ['发放', `${task.reward} 贡献点`]],
+                    note: '您发布的玩家任务已由接取者完成，悬赏贡献点已发放。',
+                    actionText: '查看任务',
+                    actionUrl: `${process.env.SITE_URL || 'https://xuanjian.top'}/player-tasks`,
+                    accentColor: '#10b981'
+                });
+            }
         } catch (e) { /* 忽略 */ }
 
         res.json({ message: '任务完成，贡献点已到账', reward: task.reward });

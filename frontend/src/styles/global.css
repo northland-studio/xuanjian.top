@@ -219,6 +219,33 @@ img {
   transform: rotate(20deg);
 }
 
+/* 通知铃铛（导航栏，主题切换按钮旁） */
+.notification-bell {
+  position: relative;
+  text-decoration: none;
+  margin-left: 4px;
+}
+.notification-bell:hover {
+  transform: none;
+  border-color: var(--primary);
+  color: var(--primary);
+}
+.notification-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+  border-radius: 999px;
+}
+
 .theme-toggle svg {
   width: 18px;
   height: 18px;
