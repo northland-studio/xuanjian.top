@@ -259,6 +259,7 @@ export default function PlayerTasks() {
                     <img src={imgs[0]} alt={t.title} style={{ width: '100%', height: 120, objectFit: 'cover', borderRadius: 8, marginBottom: 12 }} />
                   )}
                   <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>{t.title}</h3>
+                  <div className="text-secondary" style={{ fontSize: 12, marginBottom: 4 }}>任务ID：{t.id}</div>
                   <p className="text-secondary" style={{ fontSize: 13, marginBottom: 10, flex: 1, minHeight: 40, whiteSpace: 'pre-wrap' }}>{t.description || '暂无说明'}</p>
                   <div className="flex" style={{ alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
                     <span className="badge badge-warning" style={{ fontSize: 13 }}>悬赏 {fmtPoints(t.reward)} 贡献点</span>
@@ -297,7 +298,7 @@ export default function PlayerTasks() {
                     <div style={{ flex: 1, minWidth: 200 }}>
                       <div style={{ fontWeight: 600 }}>{t.title}</div>
                       <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
-                        {t.status_text} · 悬赏 {fmtPoints(t.reward)} 贡献点
+                        任务ID：{t.id} · {t.status_text} · 悬赏 {fmtPoints(t.reward)} 贡献点
                         {t.acceptor_nickname ? ` · 接取者 ${t.acceptor_nickname}` : ''}
                         {t.status === 'accepted' && (
                           <span style={{ color: 'var(--primary)' }}> · 完成验证码：<code style={{ background: 'var(--input-bg)', padding: '1px 5px', borderRadius: 5 }}>{t.code}</code></span>
@@ -333,7 +334,7 @@ export default function PlayerTasks() {
                     <div style={{ flex: 1, minWidth: 200 }}>
                       <div style={{ fontWeight: 600 }}>{t.title}</div>
                       <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
-                        {t.status_text} · 发布者 {t.author_nickname || t.author_username} · 悬赏 {fmtPoints(t.reward)} 贡献点
+                        任务ID：{t.id} · {t.status_text} · 发布者 {t.author_nickname || t.author_username} · 悬赏 {fmtPoints(t.reward)} 贡献点
                       </div>
                     </div>
                     <div className="flex" style={{ gap: 8, alignItems: 'center' }}>

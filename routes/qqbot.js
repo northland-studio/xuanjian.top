@@ -153,18 +153,13 @@ router.get('/user', botTokenAuth, async (req, res) => {
     }
 });
 
-// ===== 机器人：核销码验证（管理员私聊操作，bot token） =====
+// ===== 机器人：核销码验证（群内普通成员可查，bot token） =====
 router.post('/verify-code', botTokenAuth, async (req, res) => {
     try {
         const code = String(req.body.code || '').trim().toUpperCase();
-        const qq = String(req.body.qq || '').trim();
         if (!code) return res.status(400).json({ error: '请输入核销码' });
-        if (!qq) return res.status(400).json({ error: '缺少操作者 QQ' });
 
-        // 校验操作者是否为管理员（level >= 1）
-        const op = await db.get('SELECT id, level FROM users WHERE qq = ?', [qq]);
-        if (!op || (op.level || 0) < 1) return res.status(403).json({ error: '权限不足：仅管理员可核销' });
-
+        // 核销码本身绑定消费用户，持码即可查询核销信息与状态，无需身份验证
         const item = await db.get(
             `SELECT ui.*, si.name, si.description, si.type, u.username, u.nickname
              FROM user_items ui
@@ -186,7 +181,7 @@ router.post('/verify-code', botTokenAuth, async (req, res) => {
             return res.json({
                 valid: true, already: true,
                 total: batch?.total || 1, remaining: batch?.remaining || 0,
-                verifiedAt: item.verified_at, verifiedBy: item.verified_by,
+                verifiedAt: item.verified_at,
                 item: { id: item.id, name: item.name, description: item.description, type: item.type,
                         buyer: item.nickname || item.username, purchasedAt: item.purchased_at }
             });
