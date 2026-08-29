@@ -149,7 +149,7 @@ async function getContributionGroups(userId) {
 async function buildArchive(userId) {
     const user = await db.get(
         `SELECT id, username, nickname, avatar, game_id, email, contribution,
-                skin_path, created_at, is_frozen
+                skin_path, created_at, is_frozen, generation
          FROM users WHERE id = ?`,
         [userId]
     );
@@ -158,8 +158,16 @@ async function buildArchive(userId) {
     const contribution = await getContributionGroups(userId);
     const discipline = await getDiscipline(userId);
 
+    // 解析代系（手动优先，否则按 created_at 自动判定）
+    let generation = null;
+    try {
+        const { resolveGeneration } = require('../lib/generation');
+        const g = await resolveGeneration(user);
+        if (g) generation = { name: g.name, color: g.color, manual: !!g.manual };
+    } catch (e) { /* 代系解析失败不影响档案 */ }
+
     return {
-        user,
+        user: { ...user, generation },
         contribution,
         discipline,
         verify_code: generateVerifyCode(userId)

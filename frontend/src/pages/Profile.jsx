@@ -19,6 +19,17 @@ export default function Profile() {
   const [notFound, setNotFound] = useState(false);
   const [followStatus, setFollowStatus] = useState({ following: false, followers: 0, followingCount: 0 });
   const [followBusy, setFollowBusy] = useState(false);
+  const [generation, setGeneration] = useState(null);
+
+  // 加载用户代系
+  useEffect(() => {
+    if (!profile) { setGeneration(null); return; }
+    const uid = profile.user.id;
+    if (!uid) return;
+    api.get(`/api/generations/user/${uid}`)
+      .then(d => setGeneration(d.generation || null))
+      .catch(() => setGeneration(null));
+  }, [profile]);
 
   const isSelf = !paramUsername || (me && me.username === paramUsername);
 
@@ -128,6 +139,11 @@ export default function Profile() {
                   </span>
                 )}
                 {u.level >= 1 && <span className="badge badge-warning">管理员</span>}
+                {generation && (
+                  <span className="badge" style={{ background: `${generation.color || 'var(--primary)'}22`, color: generation.color || 'var(--primary)', border: `1px solid ${generation.color || 'var(--primary)'}44` }}>
+                    {generation.name}代
+                  </span>
+                )}
               </div>
               <div className="text-secondary" style={{ fontSize: 13, marginTop: 2 }}>
                 @{u.username} · 加入于 {formatDate(u.created_at, false)} · 粉丝 {followStatus.followers}

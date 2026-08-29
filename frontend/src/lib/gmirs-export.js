@@ -474,12 +474,14 @@ async function buildPdfBuffer(archive, skin, avatar) {
   else { doc.setFillColor(240, 244, 250); doc.roundedRect(168, headY - 4, 22, 27, 2, 2, 'FD'); doc.setTextColor(150); doc.setFontSize(7); doc.text('用户皮肤图', 179, headY + 8, { align: 'center' }); }
 
   const infoY = headY + 32;
+  const genName = archive.user.generation?.name || '—';
   autoTable(doc, {
     startY: infoY, margin: { left, right: 20 }, theme: 'grid',
     styles: { font: CJK_FONT_NAME, fontSize: 9, cellPadding: 2.5 }, headStyles: { fillColor: [238, 240, 245], textColor: [30, 30, 30], fontStyle: 'normal' },
     body: [
-      ['游戏ID', fmtText(archive.user.game_id), '注册时间', fmtDate(archive.user.created_at, false)],
-      ['绑定邮箱', fmtText(archive.user.email), '贡献点余额', `${fmtPoints(archive.user.contribution)} 点`]
+      ['所属代系', fmtText(genName), '注册时间', fmtDate(archive.user.created_at, false)],
+      ['游戏ID', fmtText(archive.user.game_id), '贡献点余额', `${fmtPoints(archive.user.contribution)} 点`],
+      ['绑定邮箱', fmtText(archive.user.email), '用户ID', String(archive.user.id)]
     ],
     columnStyles: { 0: { cellWidth: 28, fontStyle: 'normal' }, 2: { cellWidth: 28, fontStyle: 'normal' } }
   });

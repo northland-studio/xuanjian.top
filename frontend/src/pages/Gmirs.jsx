@@ -219,7 +219,14 @@ export default function Gmirs() {
                     <div>
                       <div style={{ fontSize: 21, fontWeight: 800 }}>{archive.user.nickname || archive.user.username}</div>
                       <div className="text-secondary" style={{ fontSize: 13, marginTop: 3 }}>用户ID：{archive.user.id}</div>
-                      {archive.user.is_frozen ? <span className="badge" style={{ background: 'rgba(220,53,69,0.15)', color: 'var(--danger)', marginTop: 4 }}>账号冻结</span> : null}
+                      <div style={{ marginTop: 6, display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                        {archive.user.generation && (
+                          <span className="badge" style={{ background: `${archive.user.generation.color || 'var(--primary)'}22`, color: archive.user.generation.color || 'var(--primary)', border: `1px solid ${archive.user.generation.color || 'var(--primary)'}44` }}>
+                            代系 · {archive.user.generation.name}
+                          </span>
+                        )}
+                        {archive.user.is_frozen ? <span className="badge" style={{ background: 'rgba(220,53,69,0.15)', color: 'var(--danger)' }}>账号冻结</span> : null}
+                      </div>
                     </div>
                   </div>
                   {/* 皮肤渲染（站长立渲染） */}

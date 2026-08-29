@@ -188,6 +188,7 @@ router.post('/checkin', playerAuth, async (req, res) => {
         }
 
         const today = new Date().toISOString().split('T')[0];
+        const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
         const existing = await db.get(
             'SELECT * FROM checkins WHERE user_id = ? AND checkin_date = ?',
             [user.id, today]
@@ -196,17 +197,24 @@ router.post('/checkin', playerAuth, async (req, res) => {
             return res.status(400).json({ error: '今日已签到' });
         }
 
+        // 连续签到天数：昨天已签到则 +1，否则重置为 1（与官网 /api/checkin 逻辑一致）
+        const yesterdayCheckin = await db.get(
+            'SELECT continuous_days FROM checkins WHERE user_id = ? AND checkin_date = ?',
+            [user.id, yesterday]
+        );
+        const continuousDays = yesterdayCheckin ? (yesterdayCheckin.continuous_days + 1) : 1;
+
         const rewardPoints = 2; // 固定签到奖励
         await db.transaction(async () => {
             const result = await db.run(
                 'INSERT INTO checkins (user_id, checkin_date, continuous_days, reward_points, created_at) VALUES (?, ?, ?, ?, ?)',
-                [user.id, today, 1, rewardPoints, getLocalTimestamp()]
+                [user.id, today, continuousDays, rewardPoints, getLocalTimestamp()]
             );
             await db.run(
                 'UPDATE users SET contribution = COALESCE(contribution, 0) + ? WHERE id = ?',
                 [rewardPoints, user.id]
             );
-            await addContributionLog(user.id, rewardPoints, 'reward', result.id, '模组自动签到');
+            await addContributionLog(user.id, rewardPoints, 'reward', result.id, `模组自动签到，连续${continuousDays}天`);
         });
 
         const fresh = await db.get('SELECT contribution FROM users WHERE id = ?', [user.id]);
@@ -214,7 +222,7 @@ router.post('/checkin', playerAuth, async (req, res) => {
             message: '签到成功',
             rewardPoints,
             totalContribution: fresh.contribution || 0,
-            continuousDays: 1
+            continuousDays
         });
     } catch (e) {
         logger.error('模组签到错误:', e);

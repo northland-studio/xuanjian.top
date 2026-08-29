@@ -16,6 +16,7 @@ const TABS = [
   { key: 'tasks', label: '任务管理' },
   { key: 'logs', label: '贡献点日志' },
   { key: 'discipline', label: '处分管理' },
+  { key: 'generations', label: '代系管理' },
   { key: 'verify', label: '核销商品' },
   { key: 'mod', label: '模组管理' }
 ];
@@ -68,6 +69,7 @@ export default function Admin() {
       {tab === 'tasks' && <TaskManager showToast={showToast} />}
       {tab === 'logs' && <ContributionLogs showToast={showToast} />}
       {tab === 'discipline' && <DisciplineManager showToast={showToast} />}
+      {tab === 'generations' && <GenerationManager showToast={showToast} isSuper={user.level >= 2} />}
       {tab === 'verify' && <VerifyManager showToast={showToast} />}
       {tab === 'mod' && <ModServerManager showToast={showToast} />}
     </div>
@@ -1719,6 +1721,161 @@ function ModServerManager({ showToast }) {
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+/* ============ 代系管理 ============ */
+function GenerationManager({ showToast, isSuper }) {
+  const [generations, setGenerations] = useState([]);
+  const [loading, setLoading] = useState(true);
+  // 新增/编辑表单
+  const [form, setForm] = useState({ name: '', start_date: '', end_date: '', color: '#004AAD', sort_order: 0 });
+  const [editingId, setEditingId] = useState(null);
+  // 手动设置用户代系
+  const [userQuery, setUserQuery] = useState('');
+  const [userResult, setUserResult] = useState(null);
+  const [manualGen, setManualGen] = useState('');
+
+  const fetchList = () => {
+    setLoading(true);
+    api.get('/api/generations')
+      .then(d => setGenerations(d.generations || []))
+      .catch(() => setGenerations([]))
+      .finally(() => setLoading(false));
+  };
+  useEffect(fetchList, []);
+
+  const saveGen = async () => {
+    if (!form.name.trim()) { showToast('代系名称不能为空', 'error'); return; }
+    try {
+      const body = { ...form, name: form.name.trim(), start_date: form.start_date || null, end_date: form.end_date || null, sort_order: parseInt(form.sort_order) || 0 };
+      if (editingId) {
+        await api.put(`/api/generations/${editingId}`, body);
+        showToast('代系已更新', 'success');
+      } else {
+        await api.post('/api/generations', body);
+        showToast('代系已创建', 'success');
+      }
+      setForm({ name: '', start_date: '', end_date: '', color: '#004AAD', sort_order: 0 });
+      setEditingId(null);
+      fetchList();
+    } catch (e) { showToast(e.message || '保存失败', 'error'); }
+  };
+
+  const startEdit = (g) => {
+    setEditingId(g.id);
+    setForm({ name: g.name, start_date: (g.start_date || '').slice(0, 10), end_date: (g.end_date || '').slice(0, 10), color: g.color || '#004AAD', sort_order: g.sort_order });
+  };
+
+  const removeGen = async (id) => {
+    if (!confirm('确定删除该代系？')) return;
+    try {
+      await api.delete(`/api/generations/${id}`);
+      showToast('代系已删除', 'success');
+      fetchList();
+    } catch (e) { showToast(e.message, 'error'); }
+  };
+
+  // 搜索用户并设置代系
+  const searchUser = async () => {
+    if (!userQuery.trim()) return;
+    try {
+      const d = await api.get(`/api/admin/users?search=${encodeURIComponent(userQuery.trim())}&limit=10`);
+      const list = d.users || [];
+      if (list.length === 1) {
+        setUserResult(list[0]);
+        setManualGen(list[0].generation || '');
+      } else {
+        setUserResult(null);
+        setManualGen('');
+        showToast(list.length > 1 ? '找到多个用户，请输入更精确的ID' : '未找到该用户', list.length ? 'error' : 'warning');
+      }
+    } catch (e) { showToast(e.message, 'error'); }
+  };
+
+  const saveUserGen = async () => {
+    if (!userResult) { showToast('请先搜索并选择用户', 'error'); return; }
+    try {
+      await api.put(`/api/generations/user/${userResult.id}`, { generation: manualGen || null });
+      showToast(manualGen ? `已设「${userResult.nickname || userResult.username}」为 ${manualGen}` : '已恢复自动判定', 'success');
+    } catch (e) { showToast(e.message, 'error'); }
+  };
+
+  return (
+    <div>
+      <div className="card" style={{ padding: 24, marginBottom: 20 }}>
+        <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 16 }}>{editingId ? '编辑代系' : '新增代系'}</h3>
+        <div className="grid grid-2" style={{ gap: 14 }}>
+          <div className="form-group">
+            <label className="form-label">代系名称</label>
+            <input className="form-input" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="如：元老代 / 第二期" />
+          </div>
+          <div className="form-group">
+            <label className="form-label">排序（小在前）</label>
+            <input className="form-input" type="number" value={form.sort_order} onChange={e => setForm({ ...form, sort_order: e.target.value })} />
+          </div>
+          <div className="form-group">
+            <label className="form-label">起始日期（含）</label>
+            <input className="form-input" type="date" value={form.start_date} onChange={e => setForm({ ...form, start_date: e.target.value })} />
+          </div>
+          <div className="form-group">
+            <label className="form-label">结束日期（含，留空=至今）</label>
+            <input className="form-input" type="date" value={form.end_date} onChange={e => setForm({ ...form, end_date: e.target.value })} />
+          </div>
+          <div className="form-group">
+            <label className="form-label">颜色</label>
+            <input className="form-input" type="color" value={form.color} onChange={e => setForm({ ...form, color: e.target.value })} style={{ height: 40, padding: 2 }} />
+          </div>
+        </div>
+        <div className="flex" style={{ gap: 10, marginTop: 8 }}>
+          <button className="btn btn-primary" onClick={saveGen}>{editingId ? '保存修改' : '新增代系'}</button>
+          {editingId && <button className="btn btn-secondary" onClick={() => { setEditingId(null); setForm({ name: '', start_date: '', end_date: '', color: '#004AAD', sort_order: 0 }); }}>取消</button>}
+        </div>
+      </div>
+
+      <div className="card" style={{ padding: 24, marginBottom: 20 }}>
+        <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 12 }}>代系区间配置</h3>
+        {loading ? <div className="loading" style={{ padding: 20 }}><div className="spinner" /></div> : generations.length === 0 ? (
+          <div className="empty-state" style={{ padding: 20 }}><p>暂无代系配置</p></div>
+        ) : (
+          <div className="flex-col" style={{ gap: 8 }}>
+            {generations.map(g => (
+              <div key={g.id} className="flex-between" style={{ padding: '10px 14px', background: 'var(--input-bg)', borderRadius: 8, alignItems: 'center' }}>
+                <div className="flex" style={{ gap: 10, alignItems: 'center' }}>
+                  <span style={{ width: 14, height: 14, borderRadius: '50%', background: g.color || '#004AAD', flexShrink: 0 }} />
+                  <span style={{ fontWeight: 600 }}>{g.name}</span>
+                  <span className="text-secondary" style={{ fontSize: 12 }}>{g.start_date || '—'} ~ {g.end_date || '至今'}</span>
+                </div>
+                <div className="flex" style={{ gap: 6 }}>
+                  <button className="link-btn" onClick={() => startEdit(g)}>编辑</button>
+                  <button className="link-btn" style={{ color: 'var(--danger)' }} onClick={() => removeGen(g.id)}>删除</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {isSuper && (
+        <div className="card" style={{ padding: 24 }}>
+          <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 12 }}>手动设置成员代系</h3>
+          <div className="flex" style={{ gap: 8, marginBottom: 12 }}>
+            <input className="form-input" value={userQuery} onChange={e => setUserQuery(e.target.value)} placeholder="输入用户ID或用户名" style={{ flex: 1 }} onKeyDown={e => e.key === 'Enter' && searchUser()} />
+            <button className="btn btn-secondary" onClick={searchUser}>搜索</button>
+          </div>
+          {userResult && (
+            <div style={{ background: 'var(--input-bg)', padding: 14, borderRadius: 8, marginBottom: 10 }}>
+              <div style={{ fontWeight: 600 }}>{userResult.nickname || userResult.username} <span className="text-secondary" style={{ fontSize: 12 }}>@{userResult.username} · ID {userResult.id}</span></div>
+              <div className="flex" style={{ gap: 8, marginTop: 10 }}>
+                <input className="form-input" value={manualGen} onChange={e => setManualGen(e.target.value)} placeholder="输入代系名称（留空=按注册时间自动判定）" style={{ flex: 1 }} />
+                <button className="btn btn-primary" onClick={saveUserGen}>保存代系</button>
+              </div>
+            </div>
+          )}
+          <p className="text-secondary" style={{ fontSize: 12 }}>留空代系名称将恢复为按注册时间自动判定。</p>
+        </div>
+      )}
     </div>
   );
 }
