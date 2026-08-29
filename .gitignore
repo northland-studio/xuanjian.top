@@ -13,6 +13,7 @@ monitor/
 # 独立仓库，不纳入主仓库
 applicant/
 xuanjian mod/
+xuanjian-group-bot/
 # 部署产物与一次性脚本/资源
 *.tar.gz
 guild-*.db
