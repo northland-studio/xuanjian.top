@@ -34,6 +34,7 @@ const economicsRoutes = require('./routes/economics');
 const modRoutes = require('./routes/mod');
 const projectionRoutes = require('./routes/projections');
 const launcherRoutes = require('./routes/launcher');
+const pushRoutes = require('./routes/push');
 const db = require('./database');
 
 const app = express();
@@ -153,6 +154,7 @@ app.use('/api/economics', economicsRoutes);
 app.use('/api/mod', modRoutes);
 app.use('/api/projections', projectionRoutes);
 app.use('/launcher', launcherRoutes);
+app.use('/api/push', pushRoutes);
 
 // ============ React前端（frontend/dist）托管 ============
 const frontendDist = path.join(__dirname, 'frontend', 'dist');
@@ -182,11 +184,15 @@ app.use((err, req, res, next) => {
 });
 
 // 启动服务器
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
     console.log(`=================================`);
     console.log(`玄剑公会官网服务器已启动`);
     console.log(`访问地址: http://localhost:${PORT}`);
     console.log(`=================================`);
 });
+
+// WebSocket 实时通知
+const { initRealtime } = require('./lib/realtime');
+initRealtime(server);
 
 module.exports = app;

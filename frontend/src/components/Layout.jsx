@@ -30,6 +30,28 @@ export default function Layout({ children }) {
     return () => { cancelled = true; clearInterval(t); };
   }, [user]);
 
+  // WebSocket 实时通知：收到新通知时立即刷新未读数
+  useEffect(() => {
+    if (!user) return;
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
+    const ws = new WebSocket(`${proto}://${window.location.host}/ws?token=${encodeURIComponent(token)}`);
+    let cancelled = false;
+    ws.onmessage = (ev) => {
+      try {
+        const msg = JSON.parse(ev.data);
+        if (msg.type === 'notification') {
+          // 刷新未读角标
+          api.get('/api/notifications?limit=1')
+            .then(d => { if (!cancelled) setUnread(d.unreadCount || 0); })
+            .catch(() => {});
+        }
+      } catch (e) { /* 忽略 */ }
+    };
+    return () => { cancelled = true; ws.close(); };
+  }, [user]);
+
   useEffect(() => {
     let lastScroll = window.pageYOffset;
     const onScroll = () => {

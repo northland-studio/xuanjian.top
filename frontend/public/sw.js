@@ -77,3 +77,33 @@ self.addEventListener('fetch', (event) => {
     caches.match(request).then((cached) => cached || fetch(request))
   );
 });
+
+// ===== Web Push（站外系统级浏览器通知）=====
+
+self.addEventListener('push', (event) => {
+  let data = { title: '玄剑公会', body: '', url: '/' };
+  try {
+    if (event.data) data = Object.assign(data, event.data.json());
+  } catch (e) { /* 非 JSON 推送忽略 */ }
+  event.waitUntil(
+    self.registration.showNotification(data.title || '玄剑公会', {
+      body: data.body || '',
+      icon: data.icon || '/icon.png',
+      badge: data.badge || '/icon.png',
+      data: { url: data.url || '/notifications' }
+    })
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const url = event.notification.data?.url || '/notifications';
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        if ('focus' in client) { client.navigate(url); return client.focus(); }
+      }
+      return self.clients.openWindow(url);
+    })
+  );
+});

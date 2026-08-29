@@ -32,6 +32,68 @@ export default function Settings() {
   const [uploading, setUploading] = useState(null); // null=空闲, 0-100=上传进度
   const [cropState, setCropState] = useState(null); // { file, aspect, target: 'avatar'|'cover' }
   const [gameIdSaving, setGameIdSaving] = useState(false);
+  // Web Push 浏览器推送
+  const [pushEnabled, setPushEnabled] = useState(false);
+  const [pushBusy, setPushBusy] = useState(false);
+  const [pushMsg, setPushMsg] = useState('');
+
+  useEffect(() => {
+    // 检查当前订阅状态
+    api.get('/api/push/status')
+      .then(d => setPushEnabled(!!d.subscribed))
+      .catch(() => {});
+  }, []);
+
+  // 订阅浏览器推送
+  const subscribePush = async () => {
+    setPushBusy(true);
+    setPushMsg('');
+    try {
+      if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        setPushMsg('当前浏览器不支持推送通知');
+        return;
+      }
+      const reg = await navigator.serviceWorker.ready;
+      const perm = await Notification.requestPermission();
+      if (perm !== 'granted') { setPushMsg('您拒绝了通知权限，请在浏览器设置中允许'); return; }
+      const { publicKey } = await api.get('/api/push/vapid-public-key');
+      if (!publicKey) { setPushMsg('推送服务未启用'); return; }
+      let sub = await reg.pushManager.getSubscription();
+      if (!sub) {
+        sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: publicKey
+        });
+      }
+      await api.post('/api/push/subscribe', { subscription: sub.toJSON() });
+      setPushEnabled(true);
+      setPushMsg('已开启浏览器推送通知');
+    } catch (e) {
+      setPushMsg(e.message || '开启推送失败');
+    } finally {
+      setPushBusy(false);
+    }
+  };
+
+  // 取消订阅浏览器推送
+  const unsubscribePush = async () => {
+    setPushBusy(true);
+    setPushMsg('');
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      if (sub) {
+        await api.post('/api/push/unsubscribe', { endpoint: sub.endpoint });
+        await sub.unsubscribe();
+      }
+      setPushEnabled(false);
+      setPushMsg('已关闭浏览器推送通知');
+    } catch (e) {
+      setPushMsg(e.message || '关闭推送失败');
+    } finally {
+      setPushBusy(false);
+    }
+  };
 
   useEffect(() => {
     if (user) {
@@ -436,6 +498,28 @@ export default function Settings() {
             </div>
           )}
         </div>
+      </div>
+
+      {/* 浏览器推送通知 */}
+      <div className="card">
+        <h3 style={sectionTitle}>
+          <svg width="20" height="20" fill="none" stroke="var(--primary)" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+          </svg>
+          浏览器推送通知
+        </h3>
+        <p className="text-secondary" style={{ fontSize: 13, marginBottom: 12 }}>
+          开启后，即使不打开网页，也能在浏览器收到申报审核、商品核销、处分、玩家任务等系统级通知。
+        </p>
+        <div className="flex" style={{ gap: 10 }}>
+          <button className="btn btn-primary" onClick={subscribePush} disabled={pushBusy}>
+            {pushEnabled ? '已开启推送' : '开启浏览器推送'}
+          </button>
+          <button className="btn btn-secondary" onClick={unsubscribePush} disabled={!pushEnabled || pushBusy}>
+            关闭推送
+          </button>
+        </div>
+        {pushBusy && <div className="text-secondary" style={{ fontSize: 13, marginTop: 10 }}>{pushMsg}</div>}
       </div>
 
       {/* 修改/设置密码 */}

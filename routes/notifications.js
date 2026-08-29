@@ -97,11 +97,39 @@ router.delete('/:id', authMiddleware, async (req, res) => {
 // 创建通知的辅助函数（供其他路由调用）
 async function createNotification({ userId, type, title, content, postId, commentId, actorId }) {
     try {
-        await db.run(
+        const result = await db.run(
             `INSERT INTO notifications (user_id, type, title, content, post_id, comment_id, actor_id)
              VALUES (?, ?, ?, ?, ?, ?, ?)`,
             [userId, type, title, content, postId, commentId, actorId]
         );
+        // WebSocket 实时广播给目标用户
+        try {
+            const { broadcastToUser } = require('../lib/realtime');
+            broadcastToUser(userId, {
+                type: 'notification',
+                data: { id: result.id, type, title, content, postId, commentId, actorId, is_read: 0 }
+            });
+        } catch (e) { /* 广播失败不影响主流程 */ }
+
+        // Web Push 站外弹窗推送（若用户已订阅）
+        try {
+            const { sendPushToSubscriptions } = require('../lib/push');
+            const subs = await db.all('SELECT id, subscription_json FROM push_subscriptions WHERE user_id = ?', [userId]);
+            if (subs && subs.length) {
+                const r = await sendPushToSubscriptions(subs, {
+                    title: title || '玄剑公会通知',
+                    body: content || '',
+                    url: `${process.env.SITE_URL || 'https://xuanjian.top'}/notifications`,
+                    icon: `${process.env.SITE_URL || 'https://xuanjian.top'}/icon.png`,
+                    badge: `${process.env.SITE_URL || 'https://xuanjian.top'}/icon.png`
+                });
+                if (r.expired && r.expired.length) {
+                    await db.run(`DELETE FROM push_subscriptions WHERE id IN (${r.expired.join(',')})`);
+                }
+            }
+        } catch (e) { /* 推送失败不影响主流程 */ }
+
+        return result;
     } catch (error) {
         logger.error('创建通知错误:', error);
     }
