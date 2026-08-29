@@ -21,7 +21,7 @@ const db = require(path.join(__dirname, '..', 'database'));
         }
         // 唯一索引（若 qq 非空且去重后无冲突才建）
         try {
-            await db.run('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_qq ON users(qq) WHERE qq IS NOT NULL AND qq != ?', ['']);
+            await db.run(`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_qq ON users(qq) WHERE qq IS NOT NULL AND qq != ''`);
             console.log('[users] qq 唯一索引已就绪');
         } catch (e) {
             console.log('[users] qq 唯一索引跳过（存在重复值需先清理）:', e.message);
