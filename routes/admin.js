@@ -21,12 +21,21 @@ router.get('/users', authMiddleware, adminMiddleware, async (req, res) => {
         }
         
         const users = await db.all(
-            `SELECT id, username, nickname, email, level, contribution, avatar, created_at, is_frozen 
+            `SELECT id, username, nickname, email, level, contribution, avatar, created_at, is_frozen, generation 
              FROM users ${whereClause} 
              ORDER BY created_at DESC 
              LIMIT ? OFFSET ?`,
             [...params, parseInt(limit), parseInt(offset)]
         );
+
+        // 附加代系解析（手动优先，否则按注册时间自动判定）
+        try {
+            const { resolveGeneration } = require('../lib/generation');
+            for (const u of users) {
+                const g = await resolveGeneration(u);
+                u.generation_display = g ? g.name : '';
+            }
+        } catch (e) { /* 代系解析失败不影响用户列表 */ }
         
         const countResult = await db.get(
             `SELECT COUNT(*) as total FROM users ${whereClause}`,

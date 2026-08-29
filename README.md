@@ -14,7 +14,7 @@ xuanjian.top 2.0 - React 重构版
 ![Vite](https://img.shields.io/badge/Vite-8-646CFF?style=flat-square)
 ![SQLite](https://img.shields.io/badge/SQLite-3-003B49?style=flat-square)
 ![Qiniu](https://img.shields.io/badge/Qiniu-Kodo-0080FF?style=flat-square)
-![Version](https://img.shields.io/badge/Version-v2.3.0-blue?style=flat-square)
+![Version](https://img.shields.io/badge/Version-v2.4.0-blue?style=flat-square)
 ![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
 
 **在线地址**: https://xuanjian.top
@@ -55,8 +55,14 @@ xuanjian.top 2.0 - React 重构版
 
 ### 管理后台
 
-- 轮播图管理、用户管理（等级调整）、内容管理、公告管理（支持弹窗公告）
+- 轮播图管理、用户管理（等级调整、代系分类）、内容管理、公告管理（支持弹窗公告）
 - 商城管理（商品上下架、库存、价格）、申报审核
+- 代系管理：配置代系区间（名称 / 日期 / 颜色 / 排序），成员按注册时间自动归代，可手动分类
+
+### 成员代系
+
+- 按注册时间自动判定所属代系，管理员可手动调整
+- 代系展示于 GMIRS 档案系统、PDF 导出与个人主页
 
 ### 系统能力
 
@@ -219,6 +225,13 @@ QINIU_UPLOAD_URL=https://up-as0.qiniup.com
 ---
 
 ## 更新日志
+
+### v2.4.0（2026-08-29）
+
+- **人员代系分化系统**：新增 generations 配置表（代系名称 / 起止日期 / 颜色 / 排序）与 users.generation 字段；按注册时间自动判定代系，管理员可手动分类；档案系统（GMIRS）、PDF 导出、个人主页均展示代系徽章
+- **管理后台代系管理**：新增「代系管理」Tab（增删改代系区间配置）；成员管理 Tab 内可直接用下拉框为每位成员选择/恢复代系
+- **修复模组自动签到连续天数**：模组签到接口不再硬编码连续天数=1，改为与官网一致（昨天已签则 +1，否则重置），连续签到正常累加
+- **修复代系更新 500**：generations 表补充 updated_at 列，解决 PUT /api/generations/:id 报错
 
 ### v2.3.0（2026-08-23）
 

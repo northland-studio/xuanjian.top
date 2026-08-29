@@ -69,7 +69,7 @@ export default function Admin() {
       {tab === 'tasks' && <TaskManager showToast={showToast} />}
       {tab === 'logs' && <ContributionLogs showToast={showToast} />}
       {tab === 'discipline' && <DisciplineManager showToast={showToast} />}
-      {tab === 'generations' && <GenerationManager showToast={showToast} isSuper={user.level >= 2} />}
+      {tab === 'generations' && <GenerationManager showToast={showToast} />}
       {tab === 'verify' && <VerifyManager showToast={showToast} />}
       {tab === 'mod' && <ModServerManager showToast={showToast} />}
     </div>
@@ -245,6 +245,7 @@ function UserManager({ showToast, isSuper }) {
   const [totalPages, setTotalPages] = useState(1);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
+  const [generations, setGenerations] = useState([]);
 
   const fetchUsers = (p, kw) => {
     setLoading(true);
@@ -258,11 +259,29 @@ function UserManager({ showToast, isSuper }) {
 
   useEffect(() => { fetchUsers(1, ''); }, []);
 
+  // 加载代系列表（下拉选项）
+  useEffect(() => {
+    api.get('/api/generations')
+      .then(d => setGenerations(d.generations || []))
+      .catch(() => {});
+  }, []);
+
   const setLevel = async (id, level) => {
     if (!confirm(`确定将用户等级设为「${LEVEL_NAMES[level] || level}」？`)) return;
     try {
       await api.put(`/api/admin/users/${id}/level`, { level: parseInt(level) });
       showToast('等级更新成功', 'success');
+      fetchUsers(page, search);
+    } catch (e) {
+      showToast(e.message || '操作失败', 'error');
+    }
+  };
+
+  const setGeneration = async (id, generation) => {
+    try {
+      const val = generation || null; // 空值=恢复自动判定
+      await api.put(`/api/generations/user/${id}`, { generation: val });
+      showToast(val ? `已设为「${val}」` : '已恢复自动判定', 'success');
       fetchUsers(page, search);
     } catch (e) {
       showToast(e.message || '操作失败', 'error');
@@ -298,6 +317,15 @@ function UserManager({ showToast, isSuper }) {
                   {Object.entries(LEVEL_NAMES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                 </select>
               )}
+              <select
+                className="form-select"
+                style={{ width: 130, padding: '6px 8px' }}
+                value={u.generation || ''}
+                onChange={e => setGeneration(u.id, e.target.value)}
+              >
+                <option value="">自动（{u.generation_display || '未分代'}）</option>
+                {generations.map(g => <option key={g.id} value={g.name}>{g.name}</option>)}
+              </select>
             </div>
           ))}
         </div>
@@ -1726,16 +1754,12 @@ function ModServerManager({ showToast }) {
 }
 
 /* ============ 代系管理 ============ */
-function GenerationManager({ showToast, isSuper }) {
+function GenerationManager({ showToast }) {
   const [generations, setGenerations] = useState([]);
   const [loading, setLoading] = useState(true);
   // 新增/编辑表单
   const [form, setForm] = useState({ name: '', start_date: '', end_date: '', color: '#004AAD', sort_order: 0 });
   const [editingId, setEditingId] = useState(null);
-  // 手动设置用户代系
-  const [userQuery, setUserQuery] = useState('');
-  const [userResult, setUserResult] = useState(null);
-  const [manualGen, setManualGen] = useState('');
 
   const fetchList = () => {
     setLoading(true);
@@ -1774,31 +1798,6 @@ function GenerationManager({ showToast, isSuper }) {
       await api.delete(`/api/generations/${id}`);
       showToast('代系已删除', 'success');
       fetchList();
-    } catch (e) { showToast(e.message, 'error'); }
-  };
-
-  // 搜索用户并设置代系
-  const searchUser = async () => {
-    if (!userQuery.trim()) return;
-    try {
-      const d = await api.get(`/api/admin/users?search=${encodeURIComponent(userQuery.trim())}&limit=10`);
-      const list = d.users || [];
-      if (list.length === 1) {
-        setUserResult(list[0]);
-        setManualGen(list[0].generation || '');
-      } else {
-        setUserResult(null);
-        setManualGen('');
-        showToast(list.length > 1 ? '找到多个用户，请输入更精确的ID' : '未找到该用户', list.length ? 'error' : 'warning');
-      }
-    } catch (e) { showToast(e.message, 'error'); }
-  };
-
-  const saveUserGen = async () => {
-    if (!userResult) { showToast('请先搜索并选择用户', 'error'); return; }
-    try {
-      await api.put(`/api/generations/user/${userResult.id}`, { generation: manualGen || null });
-      showToast(manualGen ? `已设「${userResult.nickname || userResult.username}」为 ${manualGen}` : '已恢复自动判定', 'success');
     } catch (e) { showToast(e.message, 'error'); }
   };
 
@@ -1856,26 +1855,6 @@ function GenerationManager({ showToast, isSuper }) {
           </div>
         )}
       </div>
-
-      {isSuper && (
-        <div className="card" style={{ padding: 24 }}>
-          <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 12 }}>手动设置成员代系</h3>
-          <div className="flex" style={{ gap: 8, marginBottom: 12 }}>
-            <input className="form-input" value={userQuery} onChange={e => setUserQuery(e.target.value)} placeholder="输入用户ID或用户名" style={{ flex: 1 }} onKeyDown={e => e.key === 'Enter' && searchUser()} />
-            <button className="btn btn-secondary" onClick={searchUser}>搜索</button>
-          </div>
-          {userResult && (
-            <div style={{ background: 'var(--input-bg)', padding: 14, borderRadius: 8, marginBottom: 10 }}>
-              <div style={{ fontWeight: 600 }}>{userResult.nickname || userResult.username} <span className="text-secondary" style={{ fontSize: 12 }}>@{userResult.username} · ID {userResult.id}</span></div>
-              <div className="flex" style={{ gap: 8, marginTop: 10 }}>
-                <input className="form-input" value={manualGen} onChange={e => setManualGen(e.target.value)} placeholder="输入代系名称（留空=按注册时间自动判定）" style={{ flex: 1 }} />
-                <button className="btn btn-primary" onClick={saveUserGen}>保存代系</button>
-              </div>
-            </div>
-          )}
-          <p className="text-secondary" style={{ fontSize: 12 }}>留空代系名称将恢复为按注册时间自动判定。</p>
-        </div>
-      )}
     </div>
   );
 }
