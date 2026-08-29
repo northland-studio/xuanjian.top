@@ -36,6 +36,7 @@ const projectionRoutes = require('./routes/projections');
 const launcherRoutes = require('./routes/launcher');
 const pushRoutes = require('./routes/push');
 const generationRoutes = require('./routes/generations');
+const qqbotRoutes = require('./routes/qqbot');
 const db = require('./database');
 
 const app = express();
@@ -157,6 +158,7 @@ app.use('/api/projections', projectionRoutes);
 app.use('/launcher', launcherRoutes);
 app.use('/api/push', pushRoutes);
 app.use('/api/generations', generationRoutes);
+app.use('/api/qqbot', qqbotRoutes);
 
 // ============ React前端（frontend/dist）托管 ============
 const frontendDist = path.join(__dirname, 'frontend', 'dist');

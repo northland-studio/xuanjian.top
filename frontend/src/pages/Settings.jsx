@@ -36,11 +36,23 @@ export default function Settings() {
   const [pushEnabled, setPushEnabled] = useState(false);
   const [pushBusy, setPushBusy] = useState(false);
   const [pushMsg, setPushMsg] = useState('');
+  // QQ 群机器人绑定
+  const [qqBotBound, setQqBotBound] = useState(false);
+  const [qqBotQq, setQqBotQq] = useState('');
+  const [qqBotCode, setQqBotCode] = useState('');
+  const [qqBotBusy, setQqBotBusy] = useState(false);
 
   useEffect(() => {
     // 检查当前订阅状态
     api.get('/api/push/status')
       .then(d => setPushEnabled(!!d.subscribed))
+      .catch(() => {});
+  }, []);
+
+  // 查询群机器人绑定状态
+  useEffect(() => {
+    api.get('/api/qqbot/me')
+      .then(d => { setQqBotBound(!!d.bound); if (d.qq) setQqBotQq(d.qq); })
       .catch(() => {});
   }, []);
 
@@ -292,6 +304,25 @@ export default function Settings() {
     window.location.href = '/api/auth/qq/bind?token=' + encodeURIComponent(token);
   };
 
+  // 确认群机器人绑定（输入在群里 #绑定 后拿到的一次性码）
+  const qqBotConfirm = async () => {
+    if (!qqBotCode.trim()) {
+      showToast('请输入群机器人绑定码', 'error');
+      return;
+    }
+    setQqBotBusy(true);
+    try {
+      await api.post('/api/qqbot/confirm', { code: qqBotCode.trim(), qq: qqBotQq.trim() });
+      setQqBotBound(true);
+      setQqBotCode('');
+      showToast('群机器人绑定成功', 'success');
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setQqBotBusy(false);
+    }
+  };
+
   const sectionTitle = {
     fontSize: 16,
     fontWeight: 600,
@@ -494,6 +525,49 @@ export default function Settings() {
               <div className="flex mt-2" style={{ gap: 8 }}>
                 <input className="form-input" value={code} onChange={e => setCode(e.target.value)} placeholder="输入邮箱验证码" style={{ flex: 1 }} />
                 <button className="btn btn-primary" onClick={bindEmail} disabled={loading} style={{ whiteSpace: 'nowrap' }}>确认绑定</button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* 群机器人绑定（#绑定） */}
+        <div style={{ paddingTop: 16, borderTop: '1px solid var(--border)', marginTop: 16 }}>
+          <div className="flex-between mb-3">
+            <div>
+              <div style={{ fontWeight: 500 }}>群机器人绑定</div>
+              <div className="text-secondary" style={{ fontSize: 13 }}>在公会QQ群发送「#绑定 你的游戏ID」，将机器人返回的 6 位码填到下方完成绑定，即可使用「#查自己」等指令</div>
+            </div>
+            {qqBotBound ? (
+              <span className="badge badge-success">已绑定</span>
+            ) : (
+              <span className="badge badge-warning">未绑定</span>
+            )}
+          </div>
+
+          {qqBotBound ? (
+            <div className="text-secondary" style={{ fontSize: 14 }}>已绑定 QQ：{qqBotQq}</div>
+          ) : (
+            <div>
+              <div className="flex" style={{ gap: 8 }}>
+                <input
+                  className="form-input"
+                  value={qqBotQq}
+                  onChange={e => setQqBotQq(e.target.value)}
+                  placeholder="你的QQ号"
+                  style={{ flex: 1 }}
+                  maxLength={12}
+                />
+                <input
+                  className="form-input"
+                  value={qqBotCode}
+                  onChange={e => setQqBotCode(e.target.value)}
+                  placeholder="6位绑定码"
+                  style={{ flex: 1 }}
+                  maxLength={6}
+                />
+                <button className="btn btn-primary" onClick={qqBotConfirm} disabled={qqBotBusy} style={{ whiteSpace: 'nowrap' }}>
+                  {qqBotBusy ? '确认中...' : '确认绑定'}
+                </button>
               </div>
             </div>
           )}
