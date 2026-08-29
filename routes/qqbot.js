@@ -18,6 +18,8 @@ const logger = require('../lib/logger');
 const db = require('../database');
 const { getLocalTimestamp } = require('../database');
 const { authMiddleware } = require('../middleware/auth');
+const { addContributionLog } = require('../lib/contribution');
+const { createNotification } = require('./notifications');
 const router = express.Router();
 
 const BOT_TOKEN = process.env.QQBOT_TOKEN || '';
@@ -148,6 +150,153 @@ router.get('/user', botTokenAuth, async (req, res) => {
     } catch (e) {
         logger.error('QQ 绑定用户查询错误:', e);
         res.status(500).json({ error: '查询失败' });
+    }
+});
+
+// ===== 机器人：核销码验证（管理员私聊操作，bot token） =====
+router.post('/verify-code', botTokenAuth, async (req, res) => {
+    try {
+        const code = String(req.body.code || '').trim().toUpperCase();
+        const qq = String(req.body.qq || '').trim();
+        if (!code) return res.status(400).json({ error: '请输入核销码' });
+        if (!qq) return res.status(400).json({ error: '缺少操作者 QQ' });
+
+        // 校验操作者是否为管理员（level >= 1）
+        const op = await db.get('SELECT id, level FROM users WHERE qq = ?', [qq]);
+        if (!op || (op.level || 0) < 1) return res.status(403).json({ error: '权限不足：仅管理员可核销' });
+
+        const item = await db.get(
+            `SELECT ui.*, si.name, si.description, si.type, u.username, u.nickname
+             FROM user_items ui
+             JOIN shop_items si ON ui.item_id = si.id
+             JOIN users u ON ui.user_id = u.id
+             WHERE ui.verification_code = ?`,
+            [code]
+        );
+        if (!item) return res.status(404).json({ error: '核销码无效' });
+
+        const batch = await db.get(
+            `SELECT COUNT(*) AS total,
+                    COALESCE(SUM(CASE WHEN verified_at IS NULL THEN 1 ELSE 0 END), 0) AS remaining
+             FROM user_items WHERE verification_code = ?`,
+            [code]
+        );
+
+        if (item.verified_at) {
+            return res.json({
+                valid: true, already: true,
+                total: batch?.total || 1, remaining: batch?.remaining || 0,
+                verifiedAt: item.verified_at, verifiedBy: item.verified_by,
+                item: { id: item.id, name: item.name, description: item.description, type: item.type,
+                        buyer: item.nickname || item.username, purchasedAt: item.purchased_at }
+            });
+        }
+        res.json({
+            valid: true, quantity: batch?.remaining || 1, total: batch?.total || 1, remaining: batch?.remaining || 0,
+            item: { id: item.id, name: item.name, description: item.description, type: item.type,
+                    buyer: item.nickname || item.username, purchasedAt: item.purchased_at }
+        });
+    } catch (e) {
+        logger.error('QQ 机器人核销验证错误:', e);
+        res.status(500).json({ error: '核销验证失败' });
+    }
+});
+
+// ===== 机器人：核销确认（管理员私聊操作，bot token） =====
+router.post('/confirm-code', botTokenAuth, async (req, res) => {
+    try {
+        const code = String(req.body.code || '').trim().toUpperCase();
+        const qq = String(req.body.qq || '').trim();
+        if (!code) return res.status(400).json({ error: '请输入核销码' });
+        if (!qq) return res.status(400).json({ error: '缺少操作者 QQ' });
+
+        const op = await db.get('SELECT id, level FROM users WHERE qq = ?', [qq]);
+        if (!op || (op.level || 0) < 1) return res.status(403).json({ error: '权限不足：仅管理员可核销' });
+
+        const item = await db.get(
+            `SELECT ui.*, si.name, si.type FROM user_items ui
+             JOIN shop_items si ON ui.item_id = si.id
+             WHERE ui.verification_code = ?`,
+            [code]
+        );
+        if (!item) return res.status(404).json({ error: '核销码无效' });
+
+        const pending = await db.get(
+            'SELECT COUNT(*) AS c FROM user_items WHERE verification_code = ? AND verified_at IS NULL',
+            [code]
+        );
+        if (!pending?.c) {
+            const done = await db.get(
+                'SELECT verified_at FROM user_items WHERE verification_code = ? AND verified_at IS NOT NULL LIMIT 1',
+                [code]
+            );
+            return res.json({ message: '该核销码已核销', itemName: item.name, already: true, verifiedAt: done?.verified_at || null });
+        }
+
+        await db.run(
+            'UPDATE user_items SET verified_at = ?, verified_by = ? WHERE verification_code = ? AND verified_at IS NULL',
+            [getLocalTimestamp(), op.id, code]
+        );
+
+        try {
+            await createNotification({
+                userId: item.user_id, type: 'purchase', title: '商品已核销',
+                content: `您的「${item.name}」已由管理员核销（共 ${pending.c} 件）。`
+            });
+        } catch (ne) { /* 忽略 */ }
+
+        logger.info(`[qqbot] 核销: code=${code} by user=${op.id}(${qq})`);
+        res.json({ message: '核销成功', itemName: item.name, quantity: pending.c });
+    } catch (e) {
+        logger.error('QQ 机器人核销确认错误:', e);
+        res.status(500).json({ error: '核销失败' });
+    }
+});
+
+// ===== 机器人：玩家任务完成验证码（接取者私聊提交，bot token） =====
+router.post('/task-complete', botTokenAuth, async (req, res) => {
+    try {
+        const taskId = parseInt(req.body.taskId);
+        const code = String(req.body.code || '').trim();
+        const qq = String(req.body.qq || '').trim();
+        if (!taskId || !code) return res.status(400).json({ error: '参数不完整' });
+        if (!qq) return res.status(400).json({ error: '缺少提交者 QQ' });
+
+        const user = await db.get('SELECT id, username, nickname FROM users WHERE qq = ?', [qq]);
+        if (!user) return res.status(404).json({ error: '该 QQ 未绑定官网账号' });
+
+        const task = await db.get('SELECT * FROM player_tasks WHERE id = ?', [taskId]);
+        if (!task) return res.status(404).json({ error: '任务不存在' });
+        if (task.acceptor_id !== user.id) return res.status(400).json({ error: '只有接取者才能提交验证码' });
+        if (task.status !== 'accepted') return res.status(400).json({ error: '任务当前状态不可完成' });
+        if (String(code).trim().toUpperCase() !== task.code.toUpperCase()) {
+            return res.status(400).json({ error: '验证码错误' });
+        }
+
+        await db.transaction(async () => {
+            await db.run(
+                "UPDATE player_tasks SET status = 'completed', updated_at = ? WHERE id = ?",
+                [getLocalTimestamp(), taskId]
+            );
+            await db.run(
+                'UPDATE users SET contribution = contribution + ?, updated_at = ? WHERE id = ?',
+                [task.reward, getLocalTimestamp(), user.id]
+            );
+        });
+        await addContributionLog(user.id, task.reward, 'player_task', task.id, `完成玩家任务：${task.title}`);
+
+        try {
+            await createNotification({
+                userId: task.author_id, type: 'player_task', title: '任务已完成',
+                content: `您的玩家任务「${task.title}」已完成，${task.reward} 贡献点已发放给接取者`
+            });
+        } catch (ne) { /* 忽略 */ }
+
+        logger.info(`[qqbot] 任务完成: task=${taskId} by user=${user.id}(${qq})`);
+        res.json({ message: '任务完成，贡献点已到账', reward: task.reward });
+    } catch (e) {
+        logger.error('QQ 机器人任务完成错误:', e);
+        res.status(500).json({ error: '操作失败' });
     }
 });
 
