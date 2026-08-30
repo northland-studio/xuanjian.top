@@ -262,16 +262,23 @@ router.post('/task-complete', botTokenAuth, async (req, res) => {
 
         const task = await db.get('SELECT * FROM player_tasks WHERE id = ?', [taskId]);
         if (!task) return res.status(404).json({ error: '任务不存在' });
-        if (task.acceptor_id !== user.id) return res.status(400).json({ error: '只有接取者才能提交验证码' });
-        if (task.status !== 'accepted') return res.status(400).json({ error: '任务当前状态不可完成' });
+
+        // 校验该用户是否接取该玩家任务（多人接取模型）
+        const claim = await db.get(
+            'SELECT * FROM player_task_claims WHERE task_id = ? AND user_id = ?',
+            [taskId, user.id]
+        );
+        if (!claim) return res.status(400).json({ error: '请先接取该任务' });
+        if (claim.status === 'completed') return res.status(400).json({ error: '您已完成该任务' });
+        if (task.status === 'cancelled') return res.status(400).json({ error: '任务已取消' });
         if (String(code).trim().toUpperCase() !== task.code.toUpperCase()) {
             return res.status(400).json({ error: '验证码错误' });
         }
 
         await db.transaction(async () => {
             await db.run(
-                "UPDATE player_tasks SET status = 'completed', updated_at = ? WHERE id = ?",
-                [getLocalTimestamp(), taskId]
+                'UPDATE player_task_claims SET status = ?, code = ?, completed_at = ? WHERE id = ?',
+                ['completed', String(code).trim().toUpperCase(), getLocalTimestamp(), claim.id]
             );
             await db.run(
                 'UPDATE users SET contribution = contribution + ?, updated_at = ? WHERE id = ?',
@@ -282,8 +289,8 @@ router.post('/task-complete', botTokenAuth, async (req, res) => {
 
         try {
             await createNotification({
-                userId: task.author_id, type: 'player_task', title: '任务已完成',
-                content: `您的玩家任务「${task.title}」已完成，${task.reward} 贡献点已发放给接取者`
+                userId: task.author_id, type: 'player_task', title: '任务有人完成',
+                content: `您的玩家任务「${task.title}」有成员完成，${task.reward} 贡献点已发放`
             });
         } catch (ne) { /* 忽略 */ }
 

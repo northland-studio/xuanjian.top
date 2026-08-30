@@ -1335,7 +1335,7 @@ function TaskManager({ showToast }) {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ title: '', description: '', image: '', projection: '', reward: '' });
+  const [form, setForm] = useState({ title: '', description: '', image: '', projection: '', reward: '', maxPeople: -1 });
   const [createdCode, setCreatedCode] = useState('');
   const [expanded, setExpanded] = useState(null);
   const [claims, setClaims] = useState([]);
@@ -1401,7 +1401,7 @@ function TaskManager({ showToast }) {
       const d = await api.post('/api/tasks', { ...form, reward: parseInt(form.reward) });
       showToast('任务创建成功', 'success');
       setCreatedCode(d.code);
-      setForm({ title: '', description: '', image: '', projection: '', reward: '' });
+      setForm({ title: '', description: '', image: '', projection: '', reward: '', maxPeople: -1 });
       setShowForm(false);
       fetchTasks();
     } catch (e) {
@@ -1470,6 +1470,10 @@ function TaskManager({ showToast }) {
               {form.projection && <span className="text-secondary" style={{ fontSize: 12 }}>已上传投影文件</span>}
             </div>
             <input className="form-input" type="number" placeholder="贡献点奖励 *" value={form.reward} onChange={e => setForm({ ...form, reward: e.target.value })} />
+            <div className="flex" style={{ gap: 12, alignItems: 'center' }}>
+              <input className="form-input" type="number" placeholder="可接取人数（-1 无限 / 1及以上限量）" value={form.maxPeople} onChange={e => setForm({ ...form, maxPeople: e.target.value })} />
+              <span className="text-secondary" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>{form.maxPeople === -1 ? '无限人数' : `限量 ${form.maxPeople} 人`}</span>
+            </div>
           </div>
           <div className="flex" style={{ gap: 10, marginTop: 12, justifyContent: 'flex-end' }}>
             <button className="btn btn-secondary" onClick={() => setShowForm(false)}>取消</button>
@@ -1491,7 +1495,7 @@ function TaskManager({ showToast }) {
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 600 }}>{t.title} {!t.is_active && <span className="badge badge-gray" style={{ fontSize: 10 }}>已下线</span>}</div>
                   <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
-                    奖励 {fmtPoints(t.reward)} · 领取 {t.claim_count} · 完成 {t.completed_count} · 验证码 <code style={{ background: 'var(--input-bg)', padding: '1px 5px', borderRadius: 4, fontSize: 11 }}>{t.code}</code>
+                    奖励 {fmtPoints(t.reward)} · 领取 {t.claim_count}/{t.max_people === -1 ? '∞' : t.max_people} · 完成 {t.completed_count} · 验证码 <code style={{ background: 'var(--input-bg)', padding: '1px 5px', borderRadius: 4, fontSize: 11 }}>{t.code}</code>
                   </div>
                 </div>
                 <button className="btn btn-secondary btn-sm" onClick={() => loadClaims(t.id)}>{expanded === t.id ? '收起' : '领取记录'}</button>

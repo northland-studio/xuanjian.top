@@ -35,6 +35,7 @@ export default function PlayerTasks() {
   const [title, setTitle] = useState('');
   const [desc, setDesc] = useState('');
   const [reward, setReward] = useState('');
+  const [maxPeople, setMaxPeople] = useState(1);
   const [images, setImages] = useState([]);
   const [projection, setProjection] = useState('');
   const [projectionName, setProjectionName] = useState('');
@@ -68,9 +69,9 @@ export default function PlayerTasks() {
     if (!rw || rw <= 0) { showToast('请输入正确的悬赏贡献点', 'error'); return; }
     setPublishing(true);
     try {
-      const data = await api.post('/api/player-tasks', { title: title.trim(), description: desc.trim(), images, projection, reward: rw });
+      const data = await api.post('/api/player-tasks', { title: title.trim(), description: desc.trim(), images, projection, reward: rw, maxPeople: parseInt(maxPeople) || 1 });
       showToast(`${data.message}，完成验证码：${data.code}`, 'success');
-      setTitle(''); setDesc(''); setReward(''); setImages([]); setProjection(''); setProjectionName('');
+      setTitle(''); setDesc(''); setReward(''); setMaxPeople(1); setImages([]); setProjection(''); setProjectionName('');
       setShowForm(false);
       loadAll();
       setView('mine');
@@ -159,11 +160,11 @@ export default function PlayerTasks() {
   if (loading) return <div className="loading"><div className="spinner" />加载中...</div>;
 
   const taskActions = (t) => {
-    if (t.status === 'completed') return <span className="badge badge-success">已完成</span>;
     if (t.status === 'cancelled') return <span className="badge badge-gray">已取消</span>;
     if (t.author_id === user?.id) return <span className="badge badge-primary">我的发布</span>;
-    if (t.acceptor_id === user?.id) return <button className="btn btn-primary btn-sm" onClick={() => setCompleteTask(t)}>提交验证码</button>;
-    if (t.acceptor_id) return <span className="badge badge-gray">已接取</span>;
+    if (t.my_status === 'completed') return <span className="badge badge-success">已完成</span>;
+    if (t.my_status === 'pending') return <button className="btn btn-primary btn-sm" onClick={() => setCompleteTask(t)}>提交验证码</button>;
+    if (t.max_people !== -1 && (t.claim_count || 0) >= t.max_people) return <span className="badge badge-gray">名额已满</span>;
     return <button className="btn btn-secondary btn-sm" onClick={() => accept(t.id)}>接取任务</button>;
   };
 
@@ -196,6 +197,13 @@ export default function PlayerTasks() {
             <div className="form-group">
               <label className="form-label">悬赏贡献点（从你的账户扣除，完成后转账给接取者）</label>
               <input className="form-input" type="number" min={1} value={reward} onChange={e => setReward(e.target.value)} placeholder="例如 10" />
+            </div>
+            <div className="form-group">
+              <label className="form-label">可接取人数（-1 无限 / 1及以上限量）</label>
+              <input className="form-input" type="number" value={maxPeople} onChange={e => setMaxPeople(e.target.value)} placeholder="例如：-1 或 3" />
+              <div className="text-secondary" style={{ fontSize: 12, marginTop: 4 }}>
+                {maxPeople === -1 ? '无限人可接取' : `最多 ${maxPeople} 人接取`}
+              </div>
             </div>
             <div className="form-group">
               <label className="form-label">任务描述图片（可选，最多3张）</label>
@@ -263,7 +271,9 @@ export default function PlayerTasks() {
                   <p className="text-secondary" style={{ fontSize: 13, marginBottom: 10, flex: 1, minHeight: 40, whiteSpace: 'pre-wrap' }}>{t.description || '暂无说明'}</p>
                   <div className="flex" style={{ alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
                     <span className="badge badge-warning" style={{ fontSize: 13 }}>悬赏 {fmtPoints(t.reward)} 贡献点</span>
-                    <span className="badge" style={{ fontSize: 12, background: 'var(--input-bg)', color: 'var(--text-secondary)' }}>{t.status_text}</span>
+                    <span className="badge" style={{ fontSize: 12, background: 'var(--input-bg)', color: 'var(--text-secondary)' }}>
+                      {t.status_text} · 参与 {(t.claim_count || 0)}/{t.max_people === -1 ? '∞' : t.max_people}
+                    </span>
                   </div>
                   <div className="text-secondary" style={{ fontSize: 12, marginBottom: 10 }}>
                     发布者 {t.author_nickname || t.author_username} · {formatDate(t.created_at, false)}
@@ -298,8 +308,7 @@ export default function PlayerTasks() {
                     <div style={{ flex: 1, minWidth: 200 }}>
                       <div style={{ fontWeight: 600 }}>{t.title}</div>
                       <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
-                        任务ID：{t.id} · {t.status_text} · 悬赏 {fmtPoints(t.reward)} 贡献点
-                        {t.acceptor_nickname ? ` · 接取者 ${t.acceptor_nickname}` : ''}
+                        任务ID：{t.id} · {t.status_text} · 悬赏 {fmtPoints(t.reward)} 贡献点 · 参与 {(t.claim_count || 0)}/{t.max_people === -1 ? '∞' : t.max_people}
                         {t.status === 'accepted' && (
                           <span style={{ color: 'var(--primary)' }}> · 完成验证码：<code style={{ background: 'var(--input-bg)', padding: '1px 5px', borderRadius: 5 }}>{t.code}</code></span>
                         )}
@@ -307,7 +316,7 @@ export default function PlayerTasks() {
                     </div>
                     <div className="flex" style={{ gap: 8, alignItems: 'center' }}>
                       <span className={`badge ${t.status === 'completed' ? 'badge-success' : t.status === 'cancelled' ? 'badge-gray' : 'badge-warning'}`}>{t.status_text}</span>
-                      {t.status === 'open' && (
+                      {(t.status === 'open' || t.status === 'accepted') && (
                         <button className="btn btn-secondary btn-sm" onClick={() => cancel(t.id)}>取消</button>
                       )}
                       {t.status === 'accepted' && (
@@ -338,8 +347,10 @@ export default function PlayerTasks() {
                       </div>
                     </div>
                     <div className="flex" style={{ gap: 8, alignItems: 'center' }}>
-                      <span className={`badge ${t.status === 'completed' ? 'badge-success' : 'badge-warning'}`}>{t.status_text}</span>
-                      {t.status === 'accepted' && (
+                      <span className={`badge ${t.my_status === 'completed' ? 'badge-success' : 'badge-warning'}`}>
+                        {t.my_status === 'completed' ? '已完成' : '进行中'}
+                      </span>
+                      {t.my_status === 'pending' && (
                         <button className="btn btn-primary btn-sm" onClick={() => setCompleteTask(t)}>提交验证码</button>
                       )}
                     </div>

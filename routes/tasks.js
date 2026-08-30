@@ -118,6 +118,17 @@ router.post('/:id/claim', authMiddleware, async (req, res) => {
             return res.status(400).json({ error: existing.status === 'completed' ? '您已完成该任务' : '您已接取该任务' });
         }
 
+        // 人数限制：max_people >= 1 时，已接取人数达上限则拒绝
+        if (task.max_people >= 1) {
+            const cnt = await db.get(
+                'SELECT COUNT(*) AS c FROM task_claims WHERE task_id = ?',
+                [id]
+            );
+            if ((cnt?.c || 0) >= task.max_people) {
+                return res.status(400).json({ error: `该任务人数已满（${task.max_people} 人）` });
+            }
+        }
+
         await db.run(
             'INSERT INTO task_claims (task_id, user_id, status) VALUES (?, ?, ?)',
             [id, req.userId, 'pending']
@@ -204,7 +215,7 @@ router.post('/:id/complete', authMiddleware, async (req, res) => {
 // 创建任务（生成完成验证码，仅 1/2 级可见）
 router.post('/', authMiddleware, adminMiddleware, async (req, res) => {
     try {
-        const { title, description, image, projection, reward } = req.body;
+        const { title, description, image, projection, reward, maxPeople } = req.body;
 
         if (!title || !title.trim()) {
             return res.status(400).json({ error: '任务标题不能为空' });
@@ -213,14 +224,17 @@ router.post('/', authMiddleware, adminMiddleware, async (req, res) => {
         if (!rw || rw <= 0) {
             return res.status(400).json({ error: '任务奖励必须大于0' });
         }
+        // maxPeople：-1 表示无限人数，>=1 表示限量（0 或非法视为无限 -1）
+        const mp = parseInt(maxPeople);
+        const maxPeopleVal = Number.isNaN(mp) || mp <= 0 ? -1 : mp;
 
         const code = generateTaskCode();
         const result = await db.run(
-            'INSERT INTO tasks (title, description, image, projection, reward, code, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)',
-            [title.trim(), description?.trim() || '', image || '', projection || '', rw, code, req.userId]
+            'INSERT INTO tasks (title, description, image, projection, reward, code, created_by, max_people) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            [title.trim(), description?.trim() || '', image || '', projection || '', rw, code, req.userId, maxPeopleVal]
         );
 
-        res.status(201).json({ message: '任务创建成功', taskId: result.id, code });
+        res.status(201).json({ message: '任务创建成功', taskId: result.id, code, maxPeople: maxPeopleVal });
     } catch (error) {
         logger.error('创建任务错误:', error);
         res.status(500).json({ error: '创建失败' });
@@ -245,15 +259,18 @@ router.get('/admin/list', authMiddleware, adminMiddleware, async (req, res) => {
     }
 });
 
-// 管理端：编辑任务（标题/描述/奖励/上下线）
+// 管理端：编辑任务（标题/描述/奖励/上下线/人数限制）
 router.put('/:id', authMiddleware, adminMiddleware, async (req, res) => {
     try {
         const { id } = req.params;
-        const { title, description, image, projection, reward, isActive } = req.body;
+        const { title, description, image, projection, reward, isActive, maxPeople } = req.body;
+
+        const mp = parseInt(maxPeople);
+        const maxPeopleVal = Number.isNaN(mp) ? -1 : mp;
 
         await db.run(
-            'UPDATE tasks SET title = ?, description = ?, image = ?, projection = ?, reward = ?, is_active = ? WHERE id = ?',
-            [title?.trim() || '', description?.trim() || '', image || '', projection || '', parseInt(reward) || 0, isActive ? 1 : 0, id]
+            'UPDATE tasks SET title = ?, description = ?, image = ?, projection = ?, reward = ?, is_active = ?, max_people = ? WHERE id = ?',
+            [title?.trim() || '', description?.trim() || '', image || '', projection || '', parseInt(reward) || 0, isActive ? 1 : 0, maxPeopleVal, id]
         );
         res.json({ message: '任务更新成功' });
     } catch (error) {

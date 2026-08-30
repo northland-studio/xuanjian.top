@@ -32,20 +32,30 @@ router.get('/', authMiddleware, async (req, res) => {
         const tasks = await db.all(
             `SELECT pt.*,
                     au.nickname AS author_nickname, au.username AS author_username,
-                    cu.nickname AS acceptor_nickname
+                    (SELECT COUNT(*) FROM player_task_claims pc WHERE pc.task_id = pt.id) AS claim_count,
+                    (SELECT COUNT(*) FROM player_task_claims pc WHERE pc.task_id = pt.id AND pc.status = 'completed') AS completed_count
              FROM player_tasks pt
              JOIN users au ON pt.author_id = au.id
-             LEFT JOIN users cu ON pt.acceptor_id = cu.id
              WHERE pt.status IN ('open', 'accepted')
              ORDER BY pt.id DESC`
         );
         const isAdmin = req.userLevel >= 1;
+
+        // 当前用户接取状态
+        const myClaims = await db.all(
+            'SELECT task_id, status FROM player_task_claims WHERE user_id = ?',
+            [req.userId]
+        );
+        const myMap = {};
+        myClaims.forEach(c => { myMap[c.task_id] = c.status; });
+
         const result = tasks.map(t => {
             const { code, ...rest } = t;
             return {
                 ...rest,
                 code: (isAdmin || t.author_id === req.userId) ? code : undefined,
-                status_text: STATUS_TEXT[t.status] || t.status
+                status_text: STATUS_TEXT[t.status] || t.status,
+                my_status: myMap[t.id] || null
             };
         });
         res.json({ tasks: result });
@@ -65,11 +75,14 @@ router.get('/mine', authMiddleware, async (req, res) => {
              WHERE pt.author_id = ? ORDER BY pt.id DESC`,
             [req.userId]
         );
+        // 我接取的：从 claims 查
         const accepted = await db.all(
-            `SELECT pt.*, au.nickname AS author_nickname, au.username AS author_username
-             FROM player_tasks pt
+            `SELECT pt.*, au.nickname AS author_nickname, au.username AS author_username,
+                    pc.status AS my_status, pc.created_at AS my_created_at, pc.completed_at AS my_completed_at
+             FROM player_task_claims pc
+             JOIN player_tasks pt ON pt.id = pc.task_id
              JOIN users au ON pt.author_id = au.id
-             WHERE pt.acceptor_id = ? ORDER BY pt.id DESC`,
+             WHERE pc.user_id = ? ORDER BY pc.id DESC`,
             [req.userId]
         );
         published.forEach(t => { t.status_text = STATUS_TEXT[t.status] || t.status; });
@@ -84,7 +97,7 @@ router.get('/mine', authMiddleware, async (req, res) => {
 // 发布玩家任务：校验贡献点足够 → 生成验证码 → 扣除贡献点 → 创建任务
 router.post('/', authMiddleware, async (req, res) => {
     try {
-        const { title, description, images, projection, reward } = req.body;
+        const { title, description, images, projection, reward, maxPeople } = req.body;
 
         if (!title || !String(title).trim()) {
             return res.status(400).json({ error: '任务标题不能为空' });
@@ -93,6 +106,9 @@ router.post('/', authMiddleware, async (req, res) => {
         if (!rw || rw <= 0) {
             return res.status(400).json({ error: '悬赏贡献点必须大于0' });
         }
+        // maxPeople：-1 无限人数，>=1 限量，默认 1
+        const mp = parseInt(maxPeople);
+        const maxPeopleVal = Number.isNaN(mp) || mp <= 0 ? (mp === -1 ? -1 : 1) : mp;
 
         // 校验并扣除贡献点（原子操作）
         const deduct = await db.run(
@@ -109,8 +125,8 @@ router.post('/', authMiddleware, async (req, res) => {
         let taskId;
         await db.transaction(async () => {
             const result = await db.run(
-                'INSERT INTO player_tasks (author_id, title, description, images, projection, reward, code, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                [req.userId, String(title).trim(), String(description || '').trim(), imagesStr, projection || '', rw, code, 'open', getLocalTimestamp(), getLocalTimestamp()]
+                'INSERT INTO player_tasks (author_id, title, description, images, projection, reward, code, status, max_people, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                [req.userId, String(title).trim(), String(description || '').trim(), imagesStr, projection || '', rw, code, 'open', maxPeopleVal, getLocalTimestamp(), getLocalTimestamp()]
             );
             taskId = result.id;
         });
@@ -124,7 +140,7 @@ router.post('/', authMiddleware, async (req, res) => {
     }
 });
 
-// 接取任务（作者不可接取自己的任务，一个任务仅一人接取）
+// 接取任务（作者不可接取自己的任务；多人可接取，受 max_people 限制）
 router.post('/:id/accept', authMiddleware, async (req, res) => {
     try {
         const { id } = req.params;
@@ -133,33 +149,44 @@ router.post('/:id/accept', authMiddleware, async (req, res) => {
         if (task.status !== 'open') return res.status(400).json({ error: '该任务已不可接取' });
         if (task.author_id === req.userId) return res.status(400).json({ error: '不能接取自己发布的任务' });
 
-        const updated = await db.run(
-            "UPDATE player_tasks SET status = 'accepted', acceptor_id = ?, updated_at = ? WHERE id = ? AND status = 'open'",
-            [req.userId, getLocalTimestamp(), id]
+        // 已接取过则拒绝
+        const existing = await db.get(
+            'SELECT id FROM player_task_claims WHERE task_id = ? AND user_id = ?',
+            [id, req.userId]
         );
-        if (!updated.changes) return res.status(400).json({ error: '任务已被他人接取' });
+        if (existing) return res.status(400).json({ error: '您已接取该任务' });
+
+        // 人数限制：max_people >= 1 时已达上限则拒绝
+        if (task.max_people >= 1) {
+            const cnt = await db.get(
+                'SELECT COUNT(*) AS c FROM player_task_claims WHERE task_id = ?',
+                [id]
+            );
+            if ((cnt?.c || 0) >= task.max_people) {
+                return res.status(400).json({ error: `该任务人数已满（${task.max_people} 人）` });
+            }
+        }
+
+        // 插入接取记录
+        const insert = await db.run(
+            'INSERT INTO player_task_claims (task_id, user_id, status) VALUES (?, ?, ?)',
+            [id, req.userId, 'pending']
+        );
+        if (!insert.changes) return res.status(400).json({ error: '接取失败，请重试' });
+        // 任务从未接取变为已被接取，状态更新为 accepted（仍有空位则保持可接取）
+        await db.run(
+            "UPDATE player_tasks SET status = 'accepted', updated_at = ? WHERE id = ?",
+            [getLocalTimestamp(), id]
+        );
 
         try {
             await createNotification({
                 userId: task.author_id,
                 type: 'player_task',
                 title: '任务被接取',
-                content: `您的玩家任务「${task.title}」已被接取，请线下核对完成情况后提供验证码`
+                content: `您的玩家任务「${task.title}」有新成员接取，请线下核对完成情况后提供验证码`
             });
-            const author = await db.get('SELECT email, nickname, username FROM users WHERE id = ?', [task.author_id]);
-            if (author && author.email) {
-                await sendGenericNotification(author.email, {
-                    title: '玩家任务被接取',
-                    subject: '玄剑公会 - 玩家任务被接取',
-                    greeting: `您好，${author.nickname || author.username}！`,
-                    rows: [['任务', task.title], ['悬赏', `${task.reward} 贡献点`]],
-                    note: '有人接取了您发布的玩家任务，请线下核对完成情况并提供验证码。',
-                    actionText: '查看任务',
-                    actionUrl: `${process.env.SITE_URL || 'https://xuanjian.top'}/player-tasks`,
-                    accentColor: '#f59e0b'
-                });
-            }
-        } catch (e) { /* 通知失败不影响主流程 */ }
+        } catch (e) { /* 忽略 */ }
 
         res.json({ message: '任务接取成功' });
     } catch (error) {
@@ -179,16 +206,21 @@ router.post('/:id/complete', authMiddleware, async (req, res) => {
 
         const task = await db.get('SELECT * FROM player_tasks WHERE id = ?', [id]);
         if (!task) return res.status(404).json({ error: '任务不存在' });
-        if (task.acceptor_id !== req.userId) return res.status(400).json({ error: '只有接取者才能提交验证码' });
-        if (task.status !== 'accepted') return res.status(400).json({ error: '任务当前状态不可完成' });
+
+        const claim = await db.get(
+            'SELECT * FROM player_task_claims WHERE task_id = ? AND user_id = ?',
+            [id, req.userId]
+        );
+        if (!claim) return res.status(400).json({ error: '只有接取者才能提交验证码' });
+        if (claim.status === 'completed') return res.status(400).json({ error: '您已完成该任务' });
         if (String(code).trim().toUpperCase() !== task.code.toUpperCase()) {
             return res.status(400).json({ error: '验证码错误' });
         }
 
         await db.transaction(async () => {
             await db.run(
-                "UPDATE player_tasks SET status = 'completed', updated_at = ? WHERE id = ?",
-                [getLocalTimestamp(), id]
+                'UPDATE player_task_claims SET status = ?, code = ?, completed_at = ? WHERE id = ?',
+                ['completed', String(code).trim().toUpperCase(), getLocalTimestamp(), claim.id]
             );
             await db.run(
                 'UPDATE users SET contribution = contribution + ?, updated_at = ? WHERE id = ?',
@@ -202,22 +234,9 @@ router.post('/:id/complete', authMiddleware, async (req, res) => {
             await createNotification({
                 userId: task.author_id,
                 type: 'player_task',
-                title: '任务已完成',
-                content: `您的玩家任务「${task.title}」已完成，${task.reward} 贡献点已发放给接取者`
+                title: '任务有人完成',
+                content: `您的玩家任务「${task.title}」有成员完成，${task.reward} 贡献点已发放`
             });
-            const author = await db.get('SELECT email, nickname, username FROM users WHERE id = ?', [task.author_id]);
-            if (author && author.email) {
-                await sendGenericNotification(author.email, {
-                    title: '玩家任务已完成',
-                    subject: '玄剑公会 - 玩家任务已完成',
-                    greeting: `您好，${author.nickname || author.username}！`,
-                    rows: [['任务', task.title], ['发放', `${task.reward} 贡献点`]],
-                    note: '您发布的玩家任务已由接取者完成，悬赏贡献点已发放。',
-                    actionText: '查看任务',
-                    actionUrl: `${process.env.SITE_URL || 'https://xuanjian.top'}/player-tasks`,
-                    accentColor: '#10b981'
-                });
-            }
         } catch (e) { /* 忽略 */ }
 
         res.json({ message: '任务完成，贡献点已到账', reward: task.reward });
@@ -227,14 +246,14 @@ router.post('/:id/complete', authMiddleware, async (req, res) => {
     }
 });
 
-// 取消任务（发布者可取消待接取任务，退回贡献点）
+// 取消任务（发布者可取消待接取或进行中任务，退回贡献点）
 router.post('/:id/cancel', authMiddleware, async (req, res) => {
     try {
         const { id } = req.params;
         const task = await db.get('SELECT * FROM player_tasks WHERE id = ?', [id]);
         if (!task) return res.status(404).json({ error: '任务不存在' });
         if (task.author_id !== req.userId) return res.status(403).json({ error: '只有发布者可以取消任务' });
-        if (task.status !== 'open') return res.status(400).json({ error: '仅待接取的任务可取消' });
+        if (task.status !== 'open' && task.status !== 'accepted') return res.status(400).json({ error: '该任务不可取消' });
 
         await db.transaction(async () => {
             await db.run(
