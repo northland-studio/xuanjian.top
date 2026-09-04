@@ -12,7 +12,8 @@ const LOG_TYPE_META = {
   transfer_out: { label: '转出', color: 'var(--danger)' },
   purchase: { label: '商城消费', color: 'var(--danger)' },
   reward: { label: '签到奖励', color: 'var(--success)' },
-  admin: { label: '管理员调整', color: 'var(--warning)' }
+  admin: { label: '管理员调整', color: 'var(--warning)' },
+  exchange: { label: '外站兑换', color: 'var(--danger)' }
 };
 
 export default function Trade() {

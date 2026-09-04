@@ -61,11 +61,13 @@ router.get('/overview', async (req, res) => {
         const flows = await db.get(
             `SELECT COALESCE(SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END), 0) AS total_gain,
                     COALESCE(-SUM(CASE WHEN amount < 0 AND type = 'purchase' THEN amount ELSE 0 END), 0) AS total_purchase,
+                    COALESCE(-SUM(CASE WHEN amount < 0 AND type = 'exchange' THEN amount ELSE 0 END), 0) AS total_exchange,
                     COALESCE(-SUM(CASE WHEN amount < 0 THEN amount ELSE 0 END), 0) AS total_outflow
              FROM contribution_logs`
         );
         const totalGain = flows?.total_gain || 0;
         const totalPurchase = flows?.total_purchase || 0;
+        const totalExchange = flows?.total_exchange || 0;
         const totalOutflow = flows?.total_outflow || 0;
         const consumptionRate = totalGain > 0 ? totalOutflow / totalGain : 0;
 
@@ -222,6 +224,7 @@ router.get('/overview', async (req, res) => {
                 totalSupply: endSupply,
                 totalGain,
                 totalPurchase,
+                totalExchange,
                 totalOutflow,
                 startSupply,
                 activeUsers

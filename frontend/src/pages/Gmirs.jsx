@@ -9,9 +9,9 @@ const TYPE_LABELS = {
   claim: '贡献点申报', task: '官方任务', player_task: '玩家任务',
   transfer_in: '贡献点转入', transfer_out: '贡献点转出',
   purchase: '贡献点消费', title: '称号购买', reward: '签到奖励',
-  admin: '管理调整', discipline: '处分扣点', post: '发帖奖励'
+  admin: '管理调整', discipline: '处分扣点', post: '发帖奖励', exchange: '外站兑换'
 };
-const GROUP_ORDER = ['task', 'player_task', 'claim', 'transfer_in', 'transfer_out', 'purchase', 'title', 'reward', 'discipline', 'post', 'admin'];
+const GROUP_ORDER = ['task', 'player_task', 'claim', 'transfer_in', 'transfer_out', 'purchase', 'exchange', 'title', 'reward', 'discipline', 'post', 'admin'];
 
 export default function Gmirs() {
   const [keyword, setKeyword] = useState('');

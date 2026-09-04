@@ -18,6 +18,7 @@ const TABS = [
   { key: 'discipline', label: '处分管理' },
   { key: 'generations', label: '代系管理' },
   { key: 'verify', label: '核销商品' },
+  { key: 'paygate', label: '支付对接/兑换' },
   { key: 'mod', label: '模组管理' }
 ];
 
@@ -71,6 +72,7 @@ export default function Admin() {
       {tab === 'discipline' && <DisciplineManager showToast={showToast} />}
       {tab === 'generations' && <GenerationManager showToast={showToast} />}
       {tab === 'verify' && <VerifyManager showToast={showToast} />}
+      {tab === 'paygate' && <PaygateManager showToast={showToast} />}
       {tab === 'mod' && <ModServerManager showToast={showToast} />}
     </div>
   );
@@ -940,7 +942,7 @@ function Dashboard({ showToast }) {
   const maxFlow = Math.max(...data.contributionFlow.map(d => Math.abs(d.amount)), 1);
   const maxUsers = Math.max(...data.userGrowth.map(d => d.count), 1);
   const maxViews = Math.max(...data.viewsTrend.map(d => d.pv), 1);
-  const TYPE_NAMES = { claim: '申报', task: '任务', transfer_in: '转入', transfer_out: '转出', purchase: '消费', reward: '签到', admin: '管理调整' };
+  const TYPE_NAMES = { claim: '申报', task: '任务', transfer_in: '转入', transfer_out: '转出', purchase: '消费', reward: '签到', admin: '管理调整', exchange: '外站兑换' };
 
   // 补全近7天浏览量（无访问的天补 0）
   const viewsByDate = {};
@@ -1046,7 +1048,7 @@ function Dashboard({ showToast }) {
 }
 
 /* ============ 贡献点日志 ============ */
-const LOG_TYPE_NAMES = { claim: '申报', task: '任务', transfer_in: '转入', transfer_out: '转出', purchase: '商城消费', reward: '签到奖励', admin: '管理调整' };
+const LOG_TYPE_NAMES = { claim: '申报', task: '任务', transfer_in: '转入', transfer_out: '转出', purchase: '商城消费', reward: '签到奖励', admin: '管理调整', exchange: '外站兑换' };
 
 function ContributionLogs({ showToast }) {
   const [logs, setLogs] = useState([]);
@@ -1859,6 +1861,150 @@ function GenerationManager({ showToast }) {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// ============ 支付对接 / 外站兑换 ============
+function PaygateManager({ showToast }) {
+  const [view, setView] = useState('sites');
+  const [sites, setSites] = useState([]);
+  const [orders, setOrders] = useState([]);
+  const [logs, setLogs] = useState([]);
+  const [filter, setFilter] = useState('');
+  const [form, setForm] = useState({ name: '', site_url: '', callback_url: '', enabled: true });
+  const [showForm, setShowForm] = useState(false);
+  const [createdCred, setCreatedCred] = useState(null);
+  const [saving, setSaving] = useState(false);
+
+  const loadSites = () => api.get('/api/paygate/sites').then(d => setSites(d.sites || [])).catch(() => {});
+  const loadOrders = () => api.get(`/api/paygate/admin/orders${filter ? `?status=${filter}` : ''}`).then(d => setOrders(d.orders || [])).catch(() => {});
+  const loadLogs = () => api.get('/api/paygate/admin/logs').then(d => setLogs(d.logs || [])).catch(() => {});
+
+  useEffect(() => {
+    if (view === 'sites') loadSites(); else if (view === 'orders') loadOrders(); else loadLogs();
+  }, [view, filter]);
+
+  const createSite = async () => {
+    if (!form.name.trim()) { showToast('请填写站点名称', 'error'); return; }
+    setSaving(true);
+    try {
+      const d = await api.post('/api/paygate/sites', { ...form, enabled: form.enabled });
+      showToast('站点创建成功', 'success');
+      setCreatedCred({ ...d, name: form.name });
+      setForm({ name: '', site_url: '', callback_url: '', enabled: true });
+      setShowForm(false);
+      loadSites();
+    } catch (e) { showToast(e.message || '创建失败', 'error'); } finally { setSaving(false); }
+  };
+  const toggleSite = async (s) => {
+    try {
+      await api.put(`/api/paygate/sites/${s.id}`, { name: s.name, site_url: s.site_url, callback_url: s.callback_url, enabled: !s.enabled });
+      showToast(s.enabled ? '已停用' : '已启用', 'success'); loadSites();
+    } catch (e) { showToast(e.message, 'error'); }
+  };
+
+  const stColor = { pending: 'badge-warning', success: 'badge-success', fail: 'badge-danger', expired: 'badge-gray' };
+
+  return (
+    <div>
+      <div className="flex" style={{ gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
+        <button className={`btn ${view === 'sites' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setView('sites')}>外站管理</button>
+        <button className={`btn ${view === 'orders' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setView('orders')}>兑换订单</button>
+        <button className={`btn ${view === 'logs' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setView('logs')}>回调/审计日志</button>
+        <span style={{ flex: 1 }} />
+        {view === 'orders' && (
+          <select className="form-select" style={{ width: 160 }} value={filter} onChange={e => setFilter(e.target.value)}>
+            <option value="">全部状态</option><option value="pending">待处理</option><option value="success">成功</option>
+            <option value="fail">失败</option><option value="expired">过期</option>
+          </select>
+        )}
+        {view === 'sites' && <button className="btn btn-primary" onClick={() => setShowForm(!showForm)}>{showForm ? '收起' : '+ 新增外站'}</button>}
+      </div>
+
+      {createdCred && (
+        <div className="card" style={{ padding: 16, marginBottom: 16, borderLeft: '4px solid #f59e0b' }}>
+          <div style={{ fontWeight: 700, marginBottom: 8 }}>外站凭证（仅此一次显示）</div>
+          <div style={{ fontSize: 13 }}>站点：{createdCred.name}</div>
+          <div style={{ fontSize: 13 }}>API Key：<code>{createdCred.api_key}</code></div>
+          <div style={{ fontSize: 13 }}>HMAC Secret：<code>{createdCred.hmac_secret}</code></div>
+          <button className="link-btn" style={{ marginTop: 8 }} onClick={() => setCreatedCred(null)}>收起来</button>
+        </div>
+      )}
+
+      {view === 'sites' && (
+        <>
+          {showForm && (
+            <div className="card" style={{ padding: 20, marginBottom: 16 }}>
+              <h4 style={{ marginBottom: 12 }}>新增对接外站</h4>
+              <div style={{ display: 'grid', gap: 10 }}>
+                <input className="form-input" placeholder="站点名称 *（例：某某社区积分站）" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
+                <input className="form-input" placeholder="站点地址（可选）" value={form.site_url} onChange={e => setForm({ ...form, site_url: e.target.value })} />
+                <input className="form-input" placeholder="支付结果回调 URL（外站接收通知地址）" value={form.callback_url} onChange={e => setForm({ ...form, callback_url: e.target.value })} />
+                <label className="flex" style={{ gap: 8, alignItems: 'center' }}>
+                  <input type="checkbox" checked={form.enabled} onChange={e => setForm({ ...form, enabled: e.target.checked })} style={{ accentColor: 'var(--primary)', width: 16, height: 16 }} /> 启用该外站对接
+                </label>
+              </div>
+              <div className="flex" style={{ gap: 10, marginTop: 12, justifyContent: 'flex-end' }}>
+                <button className="btn btn-secondary" onClick={() => setShowForm(false)}>取消</button>
+                <button className="btn btn-primary" disabled={saving} onClick={createSite}>{saving ? '创建中...' : '创建'}</button>
+              </div>
+            </div>
+          )}
+          {sites.length === 0 ? <div className="empty-state"><p>暂无对接外站</p></div> : (
+            <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+              {sites.map(s => (
+                <div key={s.id} className="flex" style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <div style={{ flex: 1, minWidth: 200 }}>
+                    <div style={{ fontWeight: 600 }}>{s.name} {!s.enabled && <span className="badge badge-gray" style={{ fontSize: 10 }}>已停用</span>}</div>
+                    <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>{s.site_url || '未填站点地址'} · 回调：{s.callback_url || '未填'}</div>
+                    <div className="text-secondary" style={{ fontSize: 12 }}>API Key：<code>{s.api_key}</code></div>
+                  </div>
+                  <span className={`badge ${s.enabled ? 'badge-success' : 'badge-gray'}`}>{s.enabled ? '启用中' : '已停用'}</span>
+                  <button className="btn btn-secondary btn-sm" onClick={() => toggleSite(s)}>{s.enabled ? '停用' : '启用'}</button>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
+      {view === 'orders' && (
+        orders.length === 0 ? <div className="empty-state"><p>暂无兑换订单</p></div> : (
+          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+            {orders.map(o => (
+              <div key={o.id} style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)' }}>
+                <div className="flex" style={{ gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 600 }}>{o.site_name || '外站#' + o.site_id} · 单号 {o.order_no}</div>
+                    <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
+                      方向：{o.direction === 'out' ? '贡献点支出(兑换外站积分)' : '外部入账'} · 金额：{o.amount} · 用户：{o.username || o.user_id || '—'}
+                    </div>
+                    <div className="text-secondary" style={{ fontSize: 12 }}>站方单号：{o.site_order_no || '—'} · 创建 {o.created_at}{o.handled_at ? ` · 处理 ${o.handled_at}` : ''}</div>
+                  </div>
+                  <div className="text-right"><span className={`badge ${stColor[o.status] || 'badge-gray'}`}>{o.status}</span>
+                    <div className="text-secondary" style={{ fontSize: 11, marginTop: 2 }}>回调 {o.notify_count} 次{o.notified ? ' ✓' : ''}</div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )
+      )}
+
+      {view === 'logs' && (
+        logs.length === 0 ? <div className="empty-state"><p>暂无兑换审计日志</p></div> : (
+          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+            {logs.map(l => (
+              <div key={l.id} style={{ padding: '10px 16px', borderBottom: '1px solid var(--border)' }}>
+                <div style={{ fontSize: 13 }}><code>{l.order_no || '—'}</code> · <b>{l.action}</b></div>
+                <div className="text-secondary" style={{ fontSize: 12 }}>{l.created_at}</div>
+                {l.detail && <div className="text-secondary" style={{ fontSize: 12, wordBreak: 'break-all' }}>{l.detail}</div>}
+              </div>
+            ))}
+          </div>
+        )
+      )}
     </div>
   );
 }
