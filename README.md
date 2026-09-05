@@ -224,6 +224,73 @@ QINIU_UPLOAD_URL=https://up-as0.qiniup.com
 
 ---
 
+## OAuth 第三方应用对接
+
+玄剑官网本身可作为 **OAuth 2.0 授权服务器（Provider）**，让第三方应用（如 Nork 答题平台、北牖 northbooker、北域相关产品）复用玄剑公会账号登录，并按玄剑等级继承权限。
+
+### 1. 授权码模式（Authorization Code Flow）
+
+标准流程：
+
+```
+第三方前端 ──跳转──▶ 玄剑 /api/oauth/authorize（授权页，未登录先引去玄剑登录）
+                    用户点「允许授权」
+   ◀──302 code+state── 第三方 /callback（code 一次性、5 分钟有效）
+第三方后端 ──POST──▶ 玄剑 /api/oauth/token（code 换 access_token，7 天有效）
+第三方后端 ──GET──▶ 玄剑 /api/oauth/verify（校验 token，取用户含 level）
+```
+
+### 2. Provider 端点
+
+| 端点 | 方法 | 说明 |
+|:---|:---|:---|
+| `/api/oauth/authorize` | GET | 授权页；query：`client_id`,`redirect_uri`,`response_type=code`,`state`；未登录会自动跳到玄剑 `/login` |
+| `/api/oauth/authorize` | POST | 用户点“允许”后签发一次性 `code`（请求头 `Authorization: Bearer <玄剑登录token>`） |
+| `/api/oauth/token` | POST | `code` 换 `access_token`；body：`grant_type=authorization_code`,`code`,`client_id`,`client_secret`,`redirect_uri` |
+| `/api/oauth/verify` | GET | 校验 token 并返回用户；请求头 `Authorization: Bearer <access_token>` |
+| `/api/oauth/userinfo` | GET | 用户详情（含称号、签到）；请求头同上 |
+
+`verify` 返回（`user` 字段）：
+```jsonc
+{
+  "id": 123,            // 玄剑用户 id（建议用作第三方 provider_uid）
+  "username": "…",
+  "avatar": "…",
+  "level": 1,           // 0 成员 / 1 管理员 / 2 超级管理员 —— 用于第三方做权限继承
+  "title": "…",
+  "contribution": 0
+}
+```
+
+### 3. 第三方接入要点
+
+1. **申请一套 client 参数**：`client_id`（第三方唯一名，如 `nork`/`northbooker`）、`client_secret`（客户端机密，仅第三方后端持有）。
+2. **redirect_uri 必须指向第三方后端的回调地址**（如 `https://nork.xuanjian.top/api/auth/oauth/xuanjian/callback`），且 authorize 与 token 两处要保持完全一致。
+3. **state 防 CSRF**：发起 authorize 前随机生成 state，回调时比对；用后即弃、有过期时间。
+4. **code 换 token 在服务端做**（切勿暴露 `client_secret` 给前端）。
+5. **登录态与管理员继承**：`verify` 返回的 `level>=1` 即代表玄剑管理员/超管；第三方可用其把对应账号提升为本平台管理员（示例见下）。
+
+### 4. 对接示例（Nork 答题平台）
+
+Nork 已按本协议实现玄剑登录（其源码见北域项目 `Nork`）：
+
+- 前端「使用玄剑账号登录」按钮 → `GET /nork /api/auth/oauth/xuanjian/start`
+- 后端 `start`：生成 `state` 并 302 到玄剑 `authorize`
+- 玄剑回调到 `callback`：`code` 换 `access_token` → `verify` 取 `{id,username,avatar,level}` → 创建/更新 Nork 会员（`provider_uid = id`, 落 `level`）→ 发 Nork 自身 JWT
+- Nork 以 `oauth_users.level>=1` 作为管理员，实现 **玄剑管理员继承 Nork 管理权限**
+
+Nork 相关 `.env` 参考：
+```
+XUANJIAN_PROVIDER_URL=https://www.xuanjian.top
+XUANJIAN_CLIENT_ID=nork
+XUANJIAN_CLIENT_SECRET=…
+XUANJIAN_REDIRECT_URI=https://nork.xuanjian.top/api/auth/oauth/xuanjian/callback
+```
+
+> 说明：`code` 通过 `authCodes`（进程内存）保存，**重启会失效**；生产如需跨进程/高可用可改为数据库存储（可选用）。
+
+---
+
 ## 更新日志
 
 ### v2.4.0（2026-08-29）
