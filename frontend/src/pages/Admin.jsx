@@ -19,6 +19,8 @@ const TABS = [
   { key: 'generations', label: '代系管理' },
   { key: 'verify', label: '核销商品' },
   { key: 'paygate', label: '支付对接/兑换' },
+  { key: 'paylink', label: '缴费单/链接' },
+  { key: 'bubbles', label: '聊天气泡' },
   { key: 'mod', label: '模组管理' }
 ];
 
@@ -73,6 +75,8 @@ export default function Admin() {
       {tab === 'generations' && <GenerationManager showToast={showToast} />}
       {tab === 'verify' && <VerifyManager showToast={showToast} />}
       {tab === 'paygate' && <PaygateManager showToast={showToast} />}
+      {tab === 'paylink' && <PayLinkManager showToast={showToast} />}
+      {tab === 'bubbles' && <BubbleManager showToast={showToast} />}
       {tab === 'mod' && <ModServerManager showToast={showToast} />}
     </div>
   );
@@ -2005,6 +2009,248 @@ function PaygateManager({ showToast }) {
           </div>
         )
       )}
+    </div>
+  );
+}
+
+// ============ 缴费单 / 缴费链接管理 ============
+function PayLinkManager({ showToast }) {
+  const [userQuery, setUserQuery] = useState('');
+  const [amount, setAmount] = useState(10);
+  const [direction, setDirection] = useState('out');
+  const [subject, setSubject] = useState('缴费单');
+  const [busy, setBusy] = useState(false);
+  const [link, setLink] = useState('');
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const load = () => {
+    setLoading(true);
+    api.get('/api/pay-confirm/admin/orders')
+      .then(d => setOrders(d.orders || []))
+      .catch(e => showToast && showToast(e.message, 'error'))
+      .finally(() => setLoading(false));
+  };
+  useEffect(() => { load(); }, []);
+
+  const gen = async () => {
+    if (!userQuery.trim()) return showToast && showToast('请输入用户名或昵称', 'error');
+    setBusy(true);
+    try {
+      const d = await api.post('/api/pay-confirm/admin/link', {
+        username: userQuery.trim(),
+        amount: Number(amount),
+        direction,
+        subject,
+      });
+      setLink(d.link);
+      showToast && showToast('缴费链接已生成', 'success');
+      load();
+    } catch (e) {
+      showToast && showToast(e.message || '生成失败', 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const copy = (text) => {
+    navigator.clipboard.writeText(text)
+      .then(() => showToast && showToast('链接已复制', 'success'))
+      .catch(() => prompt('复制链接：', text));
+  };
+
+  const dirText = (d) => (d === 'out' ? '扣贡献点' : '加贡献点');
+  const statusText = (s) => ({ pending: '待支付', awaiting_confirm: '待确认', success: '已完成', fail: '已失败' }[s] || s);
+
+  return (
+    <div>
+      <div className="card" style={{ marginBottom: 16 }}>
+        <h3 style={{ marginTop: 0 }}>生成缴费链接</h3>
+        <p className="text-secondary" style={{ fontSize: 13 }}>
+          生成后把链接发给用户，用户打开页面点「确认支付」才会真正变动贡献点。
+        </p>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+          <div>
+            <div className="text-secondary" style={{ fontSize: 12, marginBottom: 4 }}>用户名 / 昵称</div>
+            <input className="input" style={{ width: 180 }} value={userQuery} onChange={e => setUserQuery(e.target.value)} placeholder="如 morzane" />
+          </div>
+          <div>
+            <div className="text-secondary" style={{ fontSize: 12, marginBottom: 4 }}>金额（贡献点）</div>
+            <input className="input" style={{ width: 120 }} type="number" min="1" value={amount} onChange={e => setAmount(e.target.value)} />
+          </div>
+          <div>
+            <div className="text-secondary" style={{ fontSize: 12, marginBottom: 4 }}>方向</div>
+            <select className="input" style={{ width: 140 }} value={direction} onChange={e => setDirection(e.target.value)}>
+              <option value="out">扣除贡献点</option>
+              <option value="in">增加贡献点</option>
+            </select>
+          </div>
+          <div>
+            <div className="text-secondary" style={{ fontSize: 12, marginBottom: 4 }}>项目说明</div>
+            <input className="input" style={{ width: 180 }} value={subject} onChange={e => setSubject(e.target.value)} placeholder="如 服务器续费" />
+          </div>
+          <button className="btn btn-primary" disabled={busy} onClick={gen}>{busy ? '生成中…' : '生成缴费链接'}</button>
+        </div>
+
+        {link && (
+          <div style={{ marginTop: 14, padding: 12, background: 'var(--bg-secondary, #f6f9ff)', borderRadius: 10 }}>
+            <div className="text-secondary" style={{ fontSize: 12, marginBottom: 6 }}>缴费链接（可发给用户）</div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+              <code style={{ fontSize: 12, wordBreak: 'break-all', flex: 1 }}>{link}</code>
+              <button className="btn btn-secondary" onClick={() => copy(link)}>复制</button>
+              <a className="btn btn-secondary" href={link} target="_blank" rel="noreferrer">打开</a>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="card">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+          <h3 style={{ margin: 0 }}>缴费单列表</h3>
+          <button className="btn btn-secondary" onClick={load}>刷新</button>
+        </div>
+        {loading ? <p className="text-secondary">加载中…</p> : orders.length === 0 ? (
+          <p className="text-secondary">暂无缴费单</p>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table className="table" style={{ width: '100%', fontSize: 13 }}>
+              <thead>
+                <tr>
+                  <th>订单号</th><th>用户</th><th>金额</th><th>方向</th><th>项目</th><th>状态</th><th>创建时间</th><th>操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                {orders.map(o => (
+                  <tr key={o.id}>
+                    <td><code style={{ fontSize: 11 }}>{o.order_no}</code></td>
+                    <td>{o.nickname || o.username || o.user_id}</td>
+                    <td>{o.amount}</td>
+                    <td>{dirText(o.direction)}</td>
+                    <td>{o.subject || '-'}</td>
+                    <td>{statusText(o.status)}</td>
+                    <td className="text-secondary" style={{ fontSize: 12 }}>{o.created_at}</td>
+                    <td>
+                      {o.link ? (
+                        <button className="btn btn-secondary" style={{ padding: '2px 8px', fontSize: 12 }} onClick={() => copy(o.link)}>复制链接</button>
+                      ) : <span className="text-secondary">-</span>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ============ 聊天气泡管理 ============
+function BubbleManager({ showToast }) {
+  const [list, setList] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [edit, setEdit] = useState(null);
+  const blank = { name: '', bg_color: '#e8f0fe', text_color: '#1a3d7c', border_color: '', price: 0, is_active: true, sort_order: 0 };
+
+  const load = () => {
+    setLoading(true);
+    api.get('/api/chat/admin/bubbles')
+      .then(d => setList(d.bubbles || []))
+      .catch(e => showToast && showToast(e.message, 'error'))
+      .finally(() => setLoading(false));
+  };
+  useEffect(() => { load(); }, []);
+
+  const save = async () => {
+    try {
+      if (edit.id) await api.put(`/api/chat/admin/bubbles/${edit.id}`, edit);
+      else await api.post('/api/chat/admin/bubbles', edit);
+      showToast && showToast('已保存', 'success');
+      setEdit(null); load();
+    } catch (e) { showToast && showToast(e.message || '保存失败', 'error'); }
+  };
+
+  const del = async (id) => {
+    if (!confirm('确认删除该气泡？')) return;
+    try { await api.delete(`/api/chat/admin/bubbles/${id}`); showToast && showToast('已删除', 'success'); load(); }
+    catch (e) { showToast && showToast(e.message || '删除失败', 'error'); }
+  };
+
+  return (
+    <div>
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h3 style={{ margin: 0 }}>聊天气泡</h3>
+          <button className="btn btn-primary" onClick={() => setEdit({ ...blank })}>新增气泡</button>
+        </div>
+        <p className="text-secondary" style={{ fontSize: 13, marginBottom: 0 }}>用户用贡献点购买后在聊天中显示对应颜色气泡。</p>
+      </div>
+
+      {edit && (
+        <div className="card" style={{ marginBottom: 16 }}>
+          <h4 style={{ marginTop: 0 }}>{edit.id ? `编辑气泡 #${edit.id}` : '新增气泡'}</h4>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+            <div>
+              <div className="text-secondary" style={{ fontSize: 12, marginBottom: 4 }}>名称</div>
+              <input className="input" style={{ width: 140 }} value={edit.name} onChange={e => setEdit({ ...edit, name: e.target.value })} />
+            </div>
+            <div>
+              <div className="text-secondary" style={{ fontSize: 12, marginBottom: 4 }}>背景色</div>
+              <input type="color" value={edit.bg_color} onChange={e => setEdit({ ...edit, bg_color: e.target.value })} />
+            </div>
+            <div>
+              <div className="text-secondary" style={{ fontSize: 12, marginBottom: 4 }}>文字色</div>
+              <input type="color" value={edit.text_color} onChange={e => setEdit({ ...edit, text_color: e.target.value })} />
+            </div>
+            <div>
+              <div className="text-secondary" style={{ fontSize: 12, marginBottom: 4 }}>边框色</div>
+              <input type="color" value={edit.border_color || '#ffffff'} onChange={e => setEdit({ ...edit, border_color: e.target.value })} />
+            </div>
+            <div>
+              <div className="text-secondary" style={{ fontSize: 12, marginBottom: 4 }}>价格（贡献点）</div>
+              <input className="input" style={{ width: 110 }} type="number" min="0" value={edit.price} onChange={e => setEdit({ ...edit, price: e.target.value })} />
+            </div>
+            <div>
+              <div className="text-secondary" style={{ fontSize: 12, marginBottom: 4 }}>排序</div>
+              <input className="input" style={{ width: 80 }} type="number" value={edit.sort_order} onChange={e => setEdit({ ...edit, sort_order: e.target.value })} />
+            </div>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
+              <input type="checkbox" checked={!!edit.is_active} onChange={e => setEdit({ ...edit, is_active: e.target.checked })} /> 上架
+            </label>
+          </div>
+          <div style={{ marginTop: 12, display: 'flex', gap: 8, alignItems: 'center' }}>
+            <div style={{ padding: '6px 12px', borderRadius: 12, background: edit.bg_color, color: edit.text_color, border: edit.border_color ? `1px solid ${edit.border_color}` : 'none' }}>
+              预览：{edit.name || '气泡'}
+            </div>
+            <button className="btn btn-primary" onClick={save}>保存</button>
+            <button className="btn btn-secondary" onClick={() => setEdit(null)}>取消</button>
+          </div>
+        </div>
+      )}
+
+      <div className="card">
+        {loading ? <p className="text-secondary">加载中…</p> : (
+          <table className="table" style={{ width: '100%', fontSize: 13 }}>
+            <thead><tr><th>ID</th><th>预览</th><th>名称</th><th>价格</th><th>排序</th><th>状态</th><th>操作</th></tr></thead>
+            <tbody>
+              {list.map(b => (
+                <tr key={b.id}>
+                  <td>{b.id}</td>
+                  <td><span style={{ padding: '3px 10px', borderRadius: 12, background: b.bg_color, color: b.text_color, border: b.border_color ? `1px solid ${b.border_color}` : 'none' }}>{b.name}</span></td>
+                  <td>{b.name}</td>
+                  <td>{b.price}</td>
+                  <td>{b.sort_order}</td>
+                  <td>{b.is_active ? '上架' : '下架'}</td>
+                  <td style={{ display: 'flex', gap: 6 }}>
+                    <button className="btn btn-secondary" style={{ padding: '2px 8px', fontSize: 12 }} onClick={() => setEdit({ ...b })}>编辑</button>
+                    <button className="btn btn-secondary" style={{ padding: '2px 8px', fontSize: 12 }} onClick={() => del(b.id)}>删除</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
     </div>
   );
 }

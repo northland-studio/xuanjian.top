@@ -29,6 +29,7 @@ import Projections from './pages/Projections';
 import Freeze from './pages/Freeze';
 import Gdars from './pages/Gdars';
 import Gmirs from './pages/Gmirs';
+import PayConfirm from './pages/PayConfirm';
 
 // 主站路由：统一包裹在 Layout（含主站导航/页脚）内
 function MainSite() {
@@ -80,6 +81,8 @@ export default function App() {
         <Route path="/freeze" element={<Freeze />} />
         <Route path="/gdars" element={<Gdars />} />
         <Route path="/gmirs" element={<Gmirs />} />
+        {/* 支付确认页：独立布局，链接可直接分享 */}
+        <Route path="/pay/confirm/:token" element={<PayConfirm />} />
 
         {/* 其余主站路由统一走带导航的布局 */}
         <Route path="/*" element={<MainSite />} />

@@ -1,7 +1,10 @@
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 
-const DB_PATH = path.join(__dirname, 'data/guild.db');
+// 支持通过环境变量 DB_FILE 覆盖（便于本地开发/测试；生产不设置则用默认）
+const DB_PATH = process.env.DB_FILE
+    ? path.resolve(__dirname, process.env.DB_FILE)
+    : path.join(__dirname, 'data/guild.db');
 
 function getLocalTimestamp() {
     const now = new Date();

@@ -5,6 +5,7 @@ import { useTheme } from '../context/ThemeContext';
 import { api } from '../api';
 import { AdminIcon } from './Icons';
 import SkinWidget from './SkinWidget';
+import ChatBox from './ChatBox';
 
 export default function Layout({ children }) {
   const { user, logout } = useAuth();
@@ -208,6 +209,9 @@ export default function Layout({ children }) {
 
       {/* 右下角常驻皮肤模型（可收起） */}
       <SkinWidget />
+
+      {/* 左下角公屏聊天窗（可收起） */}
+      <ChatBox />
 
       <footer className="footer">
         <div className="footer-content">
