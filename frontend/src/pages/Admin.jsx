@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api, uploadImage, uploadProjection } from '../api';
+import { api, uploadImage, uploadProjection, getToken } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/UI';
 import { formatDate } from '../utils';
@@ -21,6 +21,7 @@ const TABS = [
   { key: 'paygate', label: '支付对接/兑换' },
   { key: 'paylink', label: '缴费单/链接' },
   { key: 'bubbles', label: '聊天气泡' },
+  { key: 'stickers', label: '公共表情包' },
   { key: 'mod', label: '模组管理' }
 ];
 
@@ -77,6 +78,7 @@ export default function Admin() {
       {tab === 'paygate' && <PaygateManager showToast={showToast} />}
       {tab === 'paylink' && <PayLinkManager showToast={showToast} />}
       {tab === 'bubbles' && <BubbleManager showToast={showToast} />}
+      {tab === 'stickers' && <StickerManager showToast={showToast} />}
       {tab === 'mod' && <ModServerManager showToast={showToast} />}
     </div>
   );
@@ -2019,6 +2021,9 @@ function PayLinkManager({ showToast }) {
   const [amount, setAmount] = useState(10);
   const [direction, setDirection] = useState('out');
   const [subject, setSubject] = useState('缴费单');
+  const [siteId, setSiteId] = useState('self');
+  const [sites, setSites] = useState([]);
+  const [isPublic, setIsPublic] = useState(false);
   const [busy, setBusy] = useState(false);
   const [link, setLink] = useState('');
   const [orders, setOrders] = useState([]);
@@ -2033,8 +2038,14 @@ function PayLinkManager({ showToast }) {
   };
   useEffect(() => { load(); }, []);
 
+  useEffect(() => {
+    api.get('/api/pay-confirm/admin/sites')
+      .then(d => setSites(d.sites || []))
+      .catch(() => {});
+  }, []);
+
   const gen = async () => {
-    if (!userQuery.trim()) return showToast && showToast('请输入用户名或昵称', 'error');
+    if (!isPublic && !userQuery.trim()) return showToast && showToast('请输入用户名或昵称，或勾选公共缴费单', 'error');
     setBusy(true);
     try {
       const d = await api.post('/api/pay-confirm/admin/link', {
@@ -2042,6 +2053,8 @@ function PayLinkManager({ showToast }) {
         amount: Number(amount),
         direction,
         subject,
+        site_id: siteId,
+        is_public: isPublic,
       });
       setLink(d.link);
       showToast && showToast('缴费链接已生成', 'success');
@@ -2068,27 +2081,41 @@ function PayLinkManager({ showToast }) {
         <h3 style={{ marginTop: 0 }}>生成缴费链接</h3>
         <p className="text-secondary" style={{ fontSize: 13 }}>
           生成后把链接发给用户，用户打开页面点「确认支付」才会真正变动贡献点。
+          公共缴费单不绑定具体用户，任何登录用户打开链接即可为自己缴费。
         </p>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
           <div>
+            <div className="text-secondary" style={{ fontSize: 12, marginBottom: 4 }}>扣款主体</div>
+            <select className="input" style={{ width: 160 }} value={siteId} onChange={e => setSiteId(e.target.value)}>
+              <option value="self">本站（官网自营）</option>
+              {sites.filter(s => s.name !== '官网自营').map(s => (
+                <option key={s.id} value={s.id}>{s.name}{s.enabled ? '' : '（已停用）'}</option>
+              ))}
+            </select>
+          </div>
+          <div>
             <div className="text-secondary" style={{ fontSize: 12, marginBottom: 4 }}>用户名 / 昵称</div>
-            <input className="input" style={{ width: 180 }} value={userQuery} onChange={e => setUserQuery(e.target.value)} placeholder="如 morzane" />
+            <input className="input" style={{ width: 160 }} value={userQuery} onChange={e => setUserQuery(e.target.value)}
+              disabled={isPublic} placeholder={isPublic ? '（公共单，无需指定）' : '如 morzane'} />
           </div>
           <div>
             <div className="text-secondary" style={{ fontSize: 12, marginBottom: 4 }}>金额（贡献点）</div>
-            <input className="input" style={{ width: 120 }} type="number" min="1" value={amount} onChange={e => setAmount(e.target.value)} />
+            <input className="input" style={{ width: 110 }} type="number" min="1" value={amount} onChange={e => setAmount(e.target.value)} />
           </div>
           <div>
             <div className="text-secondary" style={{ fontSize: 12, marginBottom: 4 }}>方向</div>
-            <select className="input" style={{ width: 140 }} value={direction} onChange={e => setDirection(e.target.value)}>
+            <select className="input" style={{ width: 130 }} value={direction} onChange={e => setDirection(e.target.value)}>
               <option value="out">扣除贡献点</option>
               <option value="in">增加贡献点</option>
             </select>
           </div>
           <div>
             <div className="text-secondary" style={{ fontSize: 12, marginBottom: 4 }}>项目说明</div>
-            <input className="input" style={{ width: 180 }} value={subject} onChange={e => setSubject(e.target.value)} placeholder="如 服务器续费" />
+            <input className="input" style={{ width: 160 }} value={subject} onChange={e => setSubject(e.target.value)} placeholder="如 服务器续费" />
           </div>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, paddingBottom: 8, cursor: 'pointer' }}>
+            <input type="checkbox" checked={isPublic} onChange={e => setIsPublic(e.target.checked)} /> 公共缴费单
+          </label>
           <button className="btn btn-primary" disabled={busy} onClick={gen}>{busy ? '生成中…' : '生成缴费链接'}</button>
         </div>
 
@@ -2116,17 +2143,18 @@ function PayLinkManager({ showToast }) {
             <table className="table" style={{ width: '100%', fontSize: 13 }}>
               <thead>
                 <tr>
-                  <th>订单号</th><th>用户</th><th>金额</th><th>方向</th><th>项目</th><th>状态</th><th>创建时间</th><th>操作</th>
+                  <th>订单号</th><th>用户</th><th>金额</th><th>方向</th><th>项目</th><th>主体</th><th>状态</th><th>创建时间</th><th>操作</th>
                 </tr>
               </thead>
               <tbody>
                 {orders.map(o => (
                   <tr key={o.id}>
                     <td><code style={{ fontSize: 11 }}>{o.order_no}</code></td>
-                    <td>{o.nickname || o.username || o.user_id}</td>
+                    <td>{o.is_public ? <span className="text-secondary">公共单</span> : (o.nickname || o.username || o.user_id)}</td>
                     <td>{o.amount}</td>
                     <td>{dirText(o.direction)}</td>
                     <td>{o.subject || '-'}</td>
+                    <td>{o.site_name || '-'}</td>
                     <td>{statusText(o.status)}</td>
                     <td className="text-secondary" style={{ fontSize: 12 }}>{o.created_at}</td>
                     <td>
@@ -2249,6 +2277,95 @@ function BubbleManager({ showToast }) {
               ))}
             </tbody>
           </table>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ============ 公共表情包管理 ============ */
+function StickerManager({ showToast }) {
+  const [list, setList] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [name, setName] = useState('');
+  const [busy, setBusy] = useState(false);
+  const fileRef = useRef(null);
+
+  const load = () => {
+    setLoading(true);
+    api.get('/api/chat/admin/stickers')
+      .then(d => setList(d.stickers || []))
+      .catch(e => showToast && showToast(e.message, 'error'))
+      .finally(() => setLoading(false));
+  };
+  useEffect(() => { load(); }, []);
+
+  const upload = async (file) => {
+    if (!file) return;
+    if (!file.type.startsWith('image/')) return showToast && showToast('只能上传图片', 'error');
+    if (file.size > 2 * 1024 * 1024) return showToast && showToast('图片不能超过 2MB', 'error');
+    setBusy(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('name', name);
+      const token = getToken();
+      const res = await fetch('/api/chat/admin/stickers', {
+        method: 'POST',
+        headers: token ? { Authorization: 'Bearer ' + token } : {},
+        body: fd,
+      });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error || '上传失败');
+      showToast && showToast('已上传', 'success');
+      setName('');
+      if (fileRef.current) fileRef.current.value = '';
+      load();
+    } catch (e) {
+      showToast && showToast(e.message || '上传失败', 'error');
+    } finally { setBusy(false); }
+  };
+
+  const del = async (id) => {
+    if (!confirm('确认删除该表情包？')) return;
+    try { await api.delete(`/api/chat/admin/stickers/${id}`); showToast && showToast('已删除', 'success'); load(); }
+    catch (e) { showToast && showToast(e.message || '删除失败', 'error'); }
+  };
+
+  return (
+    <div>
+      <div className="card" style={{ marginBottom: 16 }}>
+        <h3 style={{ marginTop: 0 }}>公共表情包</h3>
+        <p className="text-secondary" style={{ fontSize: 13 }}>
+          全站公共表情包，所有用户聊天时均可使用。上传的图片会自动压缩（最长边 240px，保留透明通道）。
+        </p>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+          <div>
+            <div className="text-secondary" style={{ fontSize: 12, marginBottom: 4 }}>名称（可选）</div>
+            <input className="input" style={{ width: 160 }} value={name} onChange={e => setName(e.target.value)} placeholder="如：点赞" />
+          </div>
+          <div>
+            <div className="text-secondary" style={{ fontSize: 12, marginBottom: 4 }}>图片（≤2MB）</div>
+            <input ref={fileRef} type="file" accept="image/*" disabled={busy}
+              onChange={e => upload(e.target.files && e.target.files[0])} />
+          </div>
+          {busy && <span className="text-secondary" style={{ fontSize: 13 }}>上传中…</span>}
+        </div>
+      </div>
+
+      <div className="card">
+        {loading ? <p className="text-secondary">加载中…</p> : list.length === 0 ? (
+          <p className="text-secondary">暂无公共表情包。</p>
+        ) : (
+          <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+            {list.map(s => (
+              <div key={s.id} style={{ width: 96, textAlign: 'center' }}>
+                <img src={s.url} alt={s.name || ''} style={{ width: 88, height: 88, objectFit: 'contain', background: 'rgba(0,0,0,.15)', borderRadius: 8 }} />
+                <div className="text-secondary" style={{ fontSize: 12, margin: '4px 0' }}>{s.name || `#${s.id}`}</div>
+                <button className="btn btn-secondary" style={{ padding: '2px 8px', fontSize: 12 }} onClick={() => del(s.id)}>删除</button>
+              </div>
+            ))}
+          </div>
         )}
       </div>
     </div>

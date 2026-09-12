@@ -69,28 +69,48 @@ export default function Shop() {
   const [items, setItems] = useState([]);
   const [permissions, setPermissions] = useState([]);
   const [myPermissions, setMyPermissions] = useState([]);
+  const [bubbles, setBubbles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [buying, setBuying] = useState(false);
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
-      const [t, i, p, mp] = await Promise.all([
+      const [t, i, p, mp, bb] = await Promise.all([
         api.get('/api/titles').then(d => d.titles || []).catch(() => []),
         api.get('/api/shop/items?type=other').then(d => d.items || []).catch(() => []),
         api.get('/api/shop/items?type=permission').then(d => d.items || []).catch(() => []),
-        api.get('/api/shop/my-permissions').then(d => d.items || []).catch(() => [])
+        api.get('/api/shop/my-permissions').then(d => d.items || []).catch(() => []),
+        api.get('/api/chat/bubbles').then(d => d.bubbles || []).catch(() => [])
       ]);
       setTitles(t);
       setItems(i);
       setPermissions(p);
       setMyPermissions(mp);
+      setBubbles(bb);
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
+
+  // 购买气泡（贡献点）
+  const buyBubble = async (b) => {
+    if (!requireLogin(navigate, '请先登录后再购买')) return;
+    if (!confirm(`确定用 ${fmtPoints(b.price)} 贡献点购买气泡「${b.name}」？`)) return;
+    setBuying(true);
+    try {
+      await api.post(`/api/chat/bubbles/${b.id}/buy`, {});
+      showToast('气泡购买成功！可在聊天窗使用', 'success');
+      if (updateUser && user) updateUser({ ...user, contribution: Math.max(0, (user.contribution || 0) - b.price) });
+      fetchAll();
+    } catch (e) {
+      showToast(e.message || '购买失败', 'error');
+    } finally {
+      setBuying(false);
+    }
+  };
 
   const buy = async (type, id, name, price, durationDays, qty = 1) => {
     if (!requireLogin(navigate, '请先登录后再购买')) return;
@@ -148,6 +168,7 @@ export default function Shop() {
         <button className={`btn ${tab === 'titles' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setTab('titles')}>称号</button>
         <button className={`btn ${tab === 'items' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setTab('items')}>物品</button>
         <button className={`btn ${tab === 'permissions' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setTab('permissions')}>使用权限</button>
+        <button className={`btn ${tab === 'bubbles' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setTab('bubbles')}>气泡</button>
       </div>
 
       {loading ? (
@@ -179,7 +200,7 @@ export default function Shop() {
           {items.map(item => renderItemCard(item, 'other'))}
           {items.length === 0 && <div className="empty-state" style={{ gridColumn: '1/-1' }}>暂无物品</div>}
         </div>
-      ) : (
+      ) : tab === 'permissions' ? (
         <div className="flex-col" style={{ gap: 24 }}>
           {/* 可兑换的权限 */}
           <div>
@@ -225,7 +246,42 @@ export default function Shop() {
             </div>
           )}
         </div>
-      )}
+      ) : tab === 'bubbles' ? (
+            <div>
+              <p className="text-secondary" style={{ fontSize: 13, marginBottom: 12 }}>
+                购买后可在聊天窗选用对应颜色的气泡（公屏与私聊均生效）。
+              </p>
+              {bubbles.length === 0 ? (
+                <div className="empty-state"><p>暂无可购买的气泡</p></div>
+              ) : (
+                <div className="grid grid-3">
+                  {bubbles.map(b => (
+                    <div key={b.id} className="card card-hover" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      <div style={{ display: 'flex', justifyContent: 'center' }}>
+                        <span style={{
+                          padding: '8px 16px', borderRadius: 14, fontSize: 14,
+                          background: b.bgColor, color: b.textColor,
+                          border: b.borderColor ? `1px solid ${b.borderColor}` : 'none',
+                        }}>{b.name}</span>
+                      </div>
+                      <div className="text-center" style={{ fontWeight: 700, fontSize: 15 }}>{b.name}</div>
+                      <div className="text-center text-secondary" style={{ fontSize: 13 }}>
+                        {b.price > 0 ? <>{fmtPoints(b.price)} 贡献点</> : '免费'}
+                      </div>
+                      <button
+                        className={`btn ${b.owned ? 'btn-secondary' : 'btn-primary'} btn-block`}
+                        style={{ marginTop: 'auto' }}
+                        disabled={b.owned || buying}
+                        onClick={() => buyBubble(b)}
+                      >
+                        {b.owned ? '已拥有' : (b.price > 0 ? `购买（${fmtPoints(b.price)}）` : '免费领取')}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+      ) : null}
     </div>
   );
 }

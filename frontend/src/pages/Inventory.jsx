@@ -10,6 +10,7 @@ export default function Inventory() {
   const [tab, setTab] = useState('items');
   const [items, setItems] = useState([]);
   const [titles, setTitles] = useState([]);
+  const [bubbles, setBubbles] = useState([]);
   const [equippedTitle, setEquippedTitle] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -17,10 +18,12 @@ export default function Inventory() {
     if (!requireLogin(navigate)) return;
     Promise.all([
       api.get('/api/shop/my-items').then(d => d.items || []).catch(() => []),
-      api.get('/api/titles/my').then(d => { setEquippedTitle(d.equippedTitle); return d.titles || []; }).catch(() => [])
-    ]).then(([i, t]) => {
+      api.get('/api/titles/my').then(d => { setEquippedTitle(d.equippedTitle); return d.titles || []; }).catch(() => []),
+      api.get('/api/chat/bubbles/mine').then(d => d.bubbles || []).catch(() => [])
+    ]).then(([i, t, b]) => {
       setItems(i);
       setTitles(t);
+      setBubbles(b);
       setLoading(false);
     });
   }, [navigate]);
@@ -49,6 +52,7 @@ export default function Inventory() {
       <div className="flex" style={{ gap: 10, marginBottom: 20 }}>
         <button className={`btn ${tab === 'items' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setTab('items')}>我的商品</button>
         <button className={`btn ${tab === 'titles' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setTab('titles')}>我的称号</button>
+        <button className={`btn ${tab === 'bubbles' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setTab('bubbles')}>我的气泡</button>
       </div>
 
       {tab === 'items' ? (
@@ -106,29 +110,54 @@ export default function Inventory() {
             ))}
           </div>
         )
-      ) : titles.length === 0 ? (
-        <div className="empty-state">
-          <p>还没有获得任何称号</p>
-          <Link to="/shop" className="btn btn-primary mt-3">去商城购买称号</Link>
-        </div>
-      ) : (
-        <div className="grid grid-3">
-          {titles.map(t => (
-            <div key={t.id} className={`card text-center ${equippedTitle === t.id ? 'title-equipped' : ''}`} style={{ padding: 24, borderColor: equippedTitle === t.id ? 'var(--success)' : undefined }}>
-              <div className="flex-center" style={{ width: 56, height: 56, margin: '0 auto 12px', borderRadius: 14, background: t.color ? `${t.color}22` : 'var(--gradient)', color: t.color || '#fff', fontSize: 26, fontWeight: 800 }}>
-                {t.name.charAt(0)}
+      ) : tab === 'titles' ? (
+        titles.length === 0 ? (
+          <div className="empty-state">
+            <p>还没有获得任何称号</p>
+            <Link to="/shop" className="btn btn-primary mt-3">去商城购买称号</Link>
+          </div>
+        ) : (
+          <div className="grid grid-3">
+            {titles.map(t => (
+              <div key={t.id} className={`card text-center ${equippedTitle === t.id ? 'title-equipped' : ''}`} style={{ padding: 24, borderColor: equippedTitle === t.id ? 'var(--success)' : undefined }}>
+                <div className="flex-center" style={{ width: 56, height: 56, margin: '0 auto 12px', borderRadius: 14, background: t.color ? `${t.color}22` : 'var(--gradient)', color: t.color || '#fff', fontSize: 26, fontWeight: 800 }}>
+                  {t.name.charAt(0)}
+                </div>
+                <h3 style={{ fontSize: 16, fontWeight: 700, color: t.color || 'var(--text)', marginBottom: 10 }}>{t.name}</h3>
+                {t.description && <p className="text-secondary" style={{ fontSize: 12, marginBottom: 14, minHeight: 34 }}>{t.description}</p>}
+                {equippedTitle === t.id ? (
+                  <span className="badge badge-success">装备中</span>
+                ) : (
+                  <button className="btn btn-secondary btn-sm" onClick={() => equipTitle(t.id)}>装备</button>
+                )}
               </div>
-              <h3 style={{ fontSize: 16, fontWeight: 700, color: t.color || 'var(--text)', marginBottom: 10 }}>{t.name}</h3>
-              {t.description && <p className="text-secondary" style={{ fontSize: 12, marginBottom: 14, minHeight: 34 }}>{t.description}</p>}
-              {equippedTitle === t.id ? (
-                <span className="badge badge-success">装备中</span>
-              ) : (
-                <button className="btn btn-secondary btn-sm" onClick={() => equipTitle(t.id)}>装备</button>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
+            ))}
+          </div>
+        )
+      ) : tab === 'bubbles' ? (
+        bubbles.length === 0 ? (
+          <div className="empty-state">
+            <p>还没有购买任何气泡</p>
+            <Link to="/shop" className="btn btn-primary mt-3">去商城购买气泡</Link>
+          </div>
+        ) : (
+          <div className="grid grid-3">
+            {bubbles.map(b => (
+              <div key={b.id} className="card text-center" style={{ padding: 24 }}>
+                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}>
+                  <span style={{
+                    padding: '8px 16px', borderRadius: 14, fontSize: 14,
+                    background: b.bgColor, color: b.textColor,
+                    border: b.borderColor ? `1px solid ${b.borderColor}` : 'none',
+                  }}>{b.name}</span>
+                </div>
+                <div style={{ fontWeight: 700, fontSize: 15 }}>{b.name}</div>
+                <p className="text-secondary" style={{ fontSize: 12, marginTop: 6 }}>可在聊天窗「气泡」栏选用</p>
+              </div>
+            ))}
+          </div>
+        )
+      ) : null}
     </div>
   );
 }

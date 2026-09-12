@@ -30,6 +30,7 @@ import Freeze from './pages/Freeze';
 import Gdars from './pages/Gdars';
 import Gmirs from './pages/Gmirs';
 import PayConfirm from './pages/PayConfirm';
+import ChatPage from './pages/ChatPage';
 
 // 主站路由：统一包裹在 Layout（含主站导航/页脚）内
 function MainSite() {
@@ -64,6 +65,8 @@ function MainSite() {
         <Route path="/trade" element={<Trade />} />
         <Route path="/economics" element={<Economics />} />
         <Route path="/mods" element={<Mods />} />
+        <Route path="/chat" element={<ChatPage />} />
+        <Route path="/chat/:userId" element={<ChatPage />} />
         <Route path="/projections" element={<Projections />} />
         <Route path="*" element={<Home />} />
       </Routes>

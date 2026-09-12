@@ -8,10 +8,18 @@
  *  - 管理端 /api/chat/admin/bubbles    气泡增删改（管理员）
  */
 const express = require('express');
+const multer = require('multer');
 const db = require('../database');
 const { authMiddleware, adminMiddleware } = require('../middleware/auth');
 const logger = require('../lib/logger');
 const chat = require('../lib/chat');
+const chatUpload = require('../lib/chat-upload');
+
+// 媒体上传：内存存储，限制 6MB（语音/图片都够）
+const uploadMem = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 6 * 1024 * 1024 },
+});
 
 const router = express.Router();
 
@@ -184,6 +192,140 @@ router.delete('/admin/messages/:id', authMiddleware, adminMiddleware, async (req
         res.json({ success: true });
     } catch (e) {
         res.status(500).json({ error: '删除失败' });
+    }
+});
+
+// ============ 媒体上传 ============
+
+// 上传聊天图片/语音（kind=voice 时走语音）
+router.post('/upload', authMiddleware, uploadMem.single('file'), async (req, res) => {
+    try {
+        if (!req.file) return res.status(400).json({ error: '未收到文件' });
+        const kind = req.query.kind === 'voice' ? 'voice' : 'image';
+        if (!chatUpload.ready()) return res.status(503).json({ error: '对象存储未配置' });
+
+        let url;
+        if (kind === 'voice') {
+            const mt = req.file.mimetype || '';
+            const ext = mt.includes('ogg') ? 'ogg' : mt.includes('mp4') ? 'm4a' : 'webm';
+            url = await chatUpload.uploadVoice(req.file.buffer, ext);
+        } else {
+            if (req.file.size > 5 * 1024 * 1024) return res.status(400).json({ error: '图片不能超过 5MB' });
+            url = await chatUpload.uploadImage(req.file.buffer);
+        }
+        res.json({ success: true, url });
+    } catch (e) {
+        logger.error('聊天媒体上传失败:', e.message);
+        res.status(500).json({ error: '上传失败' });
+    }
+});
+
+// ============ 表情包 ============
+
+// 我的表情包 + 全站公共表情包
+router.get('/stickers/mine', authMiddleware, async (req, res) => {
+    try {
+        const mine = await db.all(
+            'SELECT id, url, created_at FROM chat_stickers WHERE user_id=? ORDER BY id DESC LIMIT 100',
+            [req.userId]
+        );
+        const pub = await db.all(
+            'SELECT id, url, name FROM chat_stickers_public ORDER BY sort_order, id LIMIT 100'
+        );
+        res.json({ stickers: mine, publicStickers: pub });
+    } catch (e) {
+        logger.error('获取表情包失败:', e.message);
+        res.status(500).json({ error: '获取失败' });
+    }
+});
+
+// 上传表情包（压缩后存七牛）
+router.post('/stickers', authMiddleware, uploadMem.single('file'), async (req, res) => {
+    try {
+        if (!req.file) return res.status(400).json({ error: '未收到文件' });
+        if (!(req.file.mimetype || '').startsWith('image/')) return res.status(400).json({ error: '只能上传图片' });
+        if (req.file.size > 2 * 1024 * 1024) return res.status(400).json({ error: '表情包不能超过 2MB' });
+        if (!chatUpload.ready()) return res.status(503).json({ error: '对象存储未配置' });
+
+        const count = await db.get('SELECT COUNT(*) c FROM chat_stickers WHERE user_id=?', [req.userId]);
+        if ((count?.c || 0) >= 100) return res.status(400).json({ error: '表情包数量已达上限（100）' });
+
+        const url = await chatUpload.uploadSticker(req.file.buffer);
+        const r = await db.run('INSERT INTO chat_stickers (user_id, url) VALUES (?,?)', [req.userId, url]);
+        res.status(201).json({ success: true, id: r.id, url });
+    } catch (e) {
+        logger.error('上传表情包失败:', e.message);
+        res.status(500).json({ error: '上传失败' });
+    }
+});
+
+// 删除我的表情包
+router.delete('/stickers/:id', authMiddleware, async (req, res) => {
+    try {
+        const row = await db.get('SELECT id FROM chat_stickers WHERE id=? AND user_id=?', [req.params.id, req.userId]);
+        if (!row) return res.status(404).json({ error: '表情包不存在' });
+        await db.run('DELETE FROM chat_stickers WHERE id=?', [req.params.id]);
+        res.json({ success: true });
+    } catch (e) {
+        res.status(500).json({ error: '删除失败' });
+    }
+});
+
+// 全站公共表情包上传（管理员）
+router.post('/admin/stickers', authMiddleware, adminMiddleware, uploadMem.single('file'), async (req, res) => {
+    try {
+        if (!req.file) return res.status(400).json({ error: '未收到文件' });
+        if (!(req.file.mimetype || '').startsWith('image/')) return res.status(400).json({ error: '只能上传图片' });
+        if (!chatUpload.ready()) return res.status(503).json({ error: '对象存储未配置' });
+        const url = await chatUpload.uploadSticker(req.file.buffer);
+        const r = await db.run('INSERT INTO chat_stickers_public (url, name, sort_order) VALUES (?,?,?)',
+            [url, String(req.body.name || '').slice(0, 40), parseInt(req.body.sort_order) || 0]);
+        res.status(201).json({ success: true, id: r.id, url });
+    } catch (e) {
+        logger.error('上传公共表情包失败:', e.message);
+        res.status(500).json({ error: '上传失败' });
+    }
+});
+
+// 公共表情包管理列表 / 删除（管理员）
+router.get('/admin/stickers', authMiddleware, adminMiddleware, async (req, res) => {
+    try {
+        const list = await db.all('SELECT * FROM chat_stickers_public ORDER BY sort_order, id');
+        res.json({ stickers: list });
+    } catch (e) { res.status(500).json({ error: '获取失败' }); }
+});
+
+router.delete('/admin/stickers/:id', authMiddleware, adminMiddleware, async (req, res) => {
+    try {
+        await db.run('DELETE FROM chat_stickers_public WHERE id=?', [req.params.id]);
+        res.json({ success: true });
+    } catch (e) { res.status(500).json({ error: '删除失败' }); }
+});
+
+// ============ 私聊 ============
+
+// 我的会话列表
+router.get('/dm/conversations', authMiddleware, async (req, res) => {
+    try {
+        const list = await chat.dmConversations(req.userId);
+        res.json({ conversations: list });
+    } catch (e) {
+        logger.error('获取会话列表失败:', e.message);
+        res.status(500).json({ error: '获取失败' });
+    }
+});
+
+// 与某用户的私聊历史（走 REST，供独立私聊页使用）
+router.get('/dm/:id/messages', authMiddleware, async (req, res) => {
+    try {
+        const other = parseInt(req.params.id);
+        const limit = Math.min(parseInt(req.query.limit) || 50, 200);
+        const messages = await chat.dmHistory(req.userId, other, limit);
+        const u = await db.get('SELECT id, username, nickname, avatar FROM users WHERE id=?', [other]);
+        res.json({ messages, peer: u ? { id: u.id, username: u.username, nickname: u.nickname, avatar: u.avatar } : null });
+    } catch (e) {
+        logger.error('获取私聊历史失败:', e.message);
+        res.status(500).json({ error: '获取失败' });
     }
 });
 

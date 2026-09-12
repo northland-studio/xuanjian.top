@@ -161,6 +161,7 @@ export default function Profile() {
                   <button className={`btn btn-sm ${followStatus.following ? 'btn-secondary' : 'btn-primary'}`} onClick={toggleFollow} disabled={followBusy}>
                     {followStatus.following ? '已关注' : '关注'}
                   </button>
+                  <Link to={`/chat/${profile.user.id}`} className="btn btn-secondary btn-sm">私聊</Link>
                 </div>
               )}
             </div>

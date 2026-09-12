@@ -58,10 +58,26 @@ const superAdminMiddleware = async (req, res, next) => {
     next();
 };
 
+// 可选认证：有 token 则解析出 userId，无 token 也不报错（供公开页面按需登录用）
+const optionalAuthMiddleware = (req, res, next) => {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (token) {
+        try {
+            const decoded = jwt.verify(token, JWT_SECRET);
+            req.userId = decoded.userId;
+            req.userLevel = decoded.level;
+        } catch (error) {
+            // token 无效则当作未登录处理
+        }
+    }
+    next();
+};
+
 module.exports = {
     authMiddleware,
     adminMiddleware,
     superAdminMiddleware,
+    optionalAuthMiddleware,
     fetchLatestLevel,
     JWT_SECRET
 };

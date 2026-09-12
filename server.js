@@ -86,6 +86,7 @@ app.use(helmet({
             scriptSrcAttr: ["'unsafe-inline'"],
             styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
             imgSrc: ["'self'", "data:", "https:"],
+            mediaSrc: ["'self'", "data:", "blob:", "https:"],
             connectSrc: ["'self'", "https://xuanjian.top", "https://cdn.jsdelivr.net", "https://up-as0.qiniup.com", "https://cdn.xuanjian.top"],
             fontSrc: ["'self'", "https://cdn.jsdelivr.net"],
         }
@@ -204,5 +205,19 @@ const server = app.listen(PORT, () => {
 // WebSocket 实时通知
 const { initRealtime } = require('./lib/realtime');
 initRealtime(server);
+
+// 聊天过期内容清理（私聊图片3天过期），每小时执行一次
+try {
+    const chatLib = require('./lib/chat');
+    const runChatCleanup = () => {
+        chatLib.cleanupExpired()
+            .then(n => { if (n) logger.info(`聊天过期内容已清理 ${n} 条`); })
+            .catch(e => logger.error('聊天过期清理失败:', e.message));
+    };
+    setTimeout(runChatCleanup, 60 * 1000);
+    setInterval(runChatCleanup, 60 * 60 * 1000);
+} catch (e) {
+    logger.error('聊天清理任务注册失败:', e.message);
+}
 
 module.exports = app;

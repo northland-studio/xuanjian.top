@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { api } from '../api';
+import { useParams, useNavigate, Link } from 'react-router-dom';
+import { api, getToken } from '../api';
+import { CardIcon, CheckCircleIcon, AlertIcon } from '../components/ChatIcons';
 
 /**
  * 支付确认页（独立于主站布局，链接可直接分享）
@@ -62,7 +63,7 @@ export default function PayConfirm() {
     return (
       <div style={wrap}>
         <div style={card}>
-          <div style={{ fontSize: 44, textAlign: 'center' }}>⚠️</div>
+          <div style={{ textAlign: 'center' }}><AlertIcon size={44} /></div>
           <h3 style={{ textAlign: 'center', color: '#c0392b' }}>{error}</h3>
           <button className="btn" style={{ width: '100%', marginTop: 16 }} onClick={() => nav('/')}>返回首页</button>
         </div>
@@ -75,7 +76,7 @@ export default function PayConfirm() {
     return (
       <div style={wrap}>
         <div style={card}>
-          <div style={{ fontSize: 52, textAlign: 'center' }}>✅</div>
+          <div style={{ textAlign: 'center' }}><CheckCircleIcon size={52} /></div>
           <h2 style={{ textAlign: 'center', color: '#1e9e6a' }}>支付成功</h2>
           <p style={{ textAlign: 'center', color: '#5b6b8c' }}>
             {result.direction === 'out' ? '已扣除' : '已增加'} <b>{result.amount}</b> 贡献点
@@ -94,21 +95,24 @@ export default function PayConfirm() {
 
   const isDone = order && order.status === 'success';
   const isFail = order && order.status === 'fail';
+  const isPublic = order && order.isPublic;
+  const loggedIn = !!getToken();
 
   return (
     <div style={wrap}>
       <div style={card}>
-        <div style={{ fontSize: 40, textAlign: 'center' }}>💳</div>
+        <div style={{ textAlign: 'center' }}><CardIcon size={44} color="#1a73e8" /></div>
         <h2 style={{ textAlign: 'center', margin: '6px 0 2px', color: '#1a3d7c' }}>支付确认</h2>
         <p style={{ textAlign: 'center', color: '#8697b5', fontSize: 13, marginTop: 0 }}>
-          请核对订单信息后确认支付
+          {isPublic ? '公共缴费单' : '请核对订单信息后确认支付'}
         </p>
 
         <div style={panel}>
           <Row label="订单号" value={order.orderNo} mono />
           {order.subject && <Row label="项目" value={order.subject} />}
-          {order.siteName && <Row label="来源" value={order.siteName} />}
-          <Row label="类型" value={dirText(order.direction)} />
+          {order.siteName && <Row label="主体" value={order.siteName} />}
+          {isPublic && <Row label="类型" value="公共缴费单" />}
+          <Row label="方向" value={dirText(order.direction)} />
           <Row label="金额" value={<span style={{ color: order.direction === 'out' ? '#c0392b' : '#1e9e6a', fontWeight: 700 }}>{sym(order.direction)}{order.amount} 贡献点</span>} />
           {user && <Row label="账号" value={user.nickname || user.username} />}
           {user && <Row label="当前贡献点" value={String(Math.floor(user.contribution ?? 0))} />}
@@ -117,7 +121,16 @@ export default function PayConfirm() {
 
         {error && <p style={{ color: '#c0392b', textAlign: 'center', marginTop: 10 }}>{error}</p>}
 
-        {isDone ? (
+        {isPublic && !loggedIn && !isDone && !isFail ? (
+          <>
+            <p style={{ textAlign: 'center', color: '#a35a00', marginTop: 14, fontWeight: 600 }}>
+              这是公共缴费单，登录后将绑定到你的账户进行缴费
+            </p>
+            <Link to="/login" className="btn" style={{ width: '100%', marginTop: 16, display: 'block', textAlign: 'center' }}>
+              登录后支付
+            </Link>
+          </>
+        ) : isDone ? (
           <p style={{ textAlign: 'center', color: '#1e9e6a', marginTop: 14, fontWeight: 700 }}>该订单已完成支付</p>
         ) : isFail ? (
           <p style={{ textAlign: 'center', color: '#c0392b', marginTop: 14, fontWeight: 700 }}>该订单已失败，无法支付</p>
