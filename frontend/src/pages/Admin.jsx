@@ -948,7 +948,7 @@ function Dashboard({ showToast }) {
   const maxFlow = Math.max(...data.contributionFlow.map(d => Math.abs(d.amount)), 1);
   const maxUsers = Math.max(...data.userGrowth.map(d => d.count), 1);
   const maxViews = Math.max(...data.viewsTrend.map(d => d.pv), 1);
-  const TYPE_NAMES = { claim: '申报', task: '任务', transfer_in: '转入', transfer_out: '转出', purchase: '消费', reward: '签到', admin: '管理调整', exchange: '外站兑换' };
+  const TYPE_NAMES = { claim: '申报', task: '任务', transfer_in: '转入', transfer_out: '转出', purchase: '消费', reward: '签到', admin: '管理调整', exchange: '外站兑换', payment: '缴费单' };
 
   // 补全近7天浏览量（无访问的天补 0）
   const viewsByDate = {};
@@ -1054,7 +1054,7 @@ function Dashboard({ showToast }) {
 }
 
 /* ============ 贡献点日志 ============ */
-const LOG_TYPE_NAMES = { claim: '申报', task: '任务', transfer_in: '转入', transfer_out: '转出', purchase: '商城消费', reward: '签到奖励', admin: '管理调整', exchange: '外站兑换' };
+const LOG_TYPE_NAMES = { claim: '申报', task: '任务', transfer_in: '转入', transfer_out: '转出', purchase: '商城消费', reward: '签到奖励', admin: '管理调整', exchange: '外站兑换', payment: '缴费单' };
 
 function ContributionLogs({ showToast }) {
   const [logs, setLogs] = useState([]);

@@ -131,6 +131,33 @@ router.get('/online', authMiddleware, (req, res) => {
     res.json({ online: chat.onlineCount() });
 });
 
+// @提及用户搜索（公屏 @ 选择器用）
+router.get('/mentions', authMiddleware, async (req, res) => {
+    try {
+        const q = String(req.query.q || '').trim();
+        let rows;
+        if (q) {
+            const like = `%${q}%`;
+            rows = await db.all(
+                `SELECT id, username, nickname, avatar FROM users
+                 WHERE username LIKE ? OR nickname LIKE ?
+                 ORDER BY id DESC LIMIT 20`,
+                [like, like]
+            );
+        } else {
+            // 无关键词时返回最近活跃/最近注册的用户
+            rows = await db.all(
+                `SELECT id, username, nickname, avatar FROM users
+                 ORDER BY id DESC LIMIT 20`
+            );
+        }
+        res.json({ users: rows });
+    } catch (e) {
+        logger.error('获取@提及用户失败:', e.message);
+        res.status(500).json({ error: '获取失败' });
+    }
+});
+
 // ============ 管理端：气泡管理 ============
 
 router.get('/admin/bubbles', authMiddleware, adminMiddleware, async (req, res) => {

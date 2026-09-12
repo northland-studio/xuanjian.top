@@ -95,7 +95,7 @@ router.delete('/:id', authMiddleware, async (req, res) => {
 });
 
 // 创建通知的辅助函数（供其他路由调用）
-async function createNotification({ userId, type, title, content, postId, commentId, actorId }) {
+async function createNotification({ userId, type, title, content, postId, commentId, actorId, url }) {
     try {
         const result = await db.run(
             `INSERT INTO notifications (user_id, type, title, content, post_id, comment_id, actor_id)
@@ -119,7 +119,7 @@ async function createNotification({ userId, type, title, content, postId, commen
                 const r = await sendPushToSubscriptions(subs, {
                     title: title || '玄剑公会通知',
                     body: content || '',
-                    url: `${process.env.SITE_URL || 'https://xuanjian.top'}/notifications`,
+                    url: `${process.env.SITE_URL || 'https://xuanjian.top'}${url || '/notifications'}`,
                     icon: `${process.env.SITE_URL || 'https://xuanjian.top'}/icon.png`,
                     badge: `${process.env.SITE_URL || 'https://xuanjian.top'}/icon.png`
                 });

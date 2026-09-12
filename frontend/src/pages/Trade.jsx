@@ -13,7 +13,8 @@ const LOG_TYPE_META = {
   purchase: { label: '商城消费', color: 'var(--danger)' },
   reward: { label: '签到奖励', color: 'var(--success)' },
   admin: { label: '管理员调整', color: 'var(--warning)' },
-  exchange: { label: '外站兑换', color: 'var(--danger)' }
+  exchange: { label: '外站兑换', color: 'var(--danger)' },
+  payment: { label: '缴费单', color: 'var(--danger)' }
 };
 
 export default function Trade() {

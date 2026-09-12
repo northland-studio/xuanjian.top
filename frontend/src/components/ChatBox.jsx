@@ -23,6 +23,9 @@ export default function ChatBox() {
   const [showStickers, setShowStickers] = useState(false);
   const [recording, setRecording] = useState(false);
   const [recSecs, setRecSecs] = useState(0);
+  const [mentionOpen, setMentionOpen] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState('');
+  const [mentionUsers, setMentionUsers] = useState([]);
 
   const wsRef = useRef(null);
   const listRef = useRef(null);
@@ -34,6 +37,7 @@ export default function ChatBox() {
   const recSecsRef = useRef(0);
   const recMimeRef = useRef('');
   const fileRef = useRef(null);
+  const mentionsRef = useRef(new Map());
 
   useEffect(() => { collapsedRef.current = collapsed; }, [collapsed]);
   const user = getCurrentUser();
@@ -111,7 +115,40 @@ export default function ChatBox() {
   const sendText = () => {
     const content = input.trim();
     if (!content) return;
-    if (sendRaw({ type: 'chat', channel: 'public', content, bubbleId: bubbleId || undefined })) setInput('');
+    const mentions = [...mentionsRef.current.keys()];
+    if (sendRaw({ type: 'chat', channel: 'public', content, bubbleId: bubbleId || undefined, mentions })) {
+      setInput('');
+      mentionsRef.current.clear();
+      setMentionOpen(false);
+    }
+  };
+
+  // @提及：输入变化时检测是否处于「@」上下文
+  const handleInputChange = (v) => {
+    setInput(v);
+    const atIdx = v.lastIndexOf('@');
+    if (atIdx >= 0) {
+      const after = v.slice(atIdx + 1);
+      if (!after.includes(' ') && !after.includes('\n')) {
+        setMentionQuery(after);
+        setMentionOpen(true);
+        api.get('/api/chat/mentions?q=' + encodeURIComponent(after))
+          .then(d => setMentionUsers(d.users || []))
+          .catch(() => {});
+        return;
+      }
+    }
+    setMentionOpen(false);
+  };
+
+  // 选择被@用户：替换 @query 为 @昵称
+  const pickMention = (u) => {
+    const atIdx = input.lastIndexOf('@');
+    const name = u.nickname || u.username;
+    setInput(input.slice(0, atIdx) + '@' + name + ' ');
+    mentionsRef.current.set(u.id, u);
+    setMentionOpen(false);
+    setMentionUsers([]);
   };
 
   const sendSticker = (st) => {
@@ -252,12 +289,13 @@ export default function ChatBox() {
         {messages.length === 0 && <p style={hint}>还没有消息，来说点什么吧～</p>}
         {messages.map((m) => {
           const mine = String(m.sender?.id) === String(myIdRef.current);
+          const mentioned = !mine && Array.isArray(m.mentions) && m.mentions.some(x => String(x.id) === String(myIdRef.current));
           return (
             <div key={m.id} style={{ display: 'flex', flexDirection: 'column', alignItems: mine ? 'flex-end' : 'flex-start', marginBottom: 8 }}>
               <span style={{ fontSize: 11, color: 'rgba(255,255,255,.85)', textShadow: '0 1px 2px rgba(0,0,0,.4)', marginBottom: 2 }}>
-                {m.sender?.nickname || m.sender?.username || '用户'}
+                {m.sender?.nickname || m.sender?.username || '用户'}{mentioned ? ' · @了你' : ''}
               </span>
-              <div style={{ ...bubbleBase, ...bubbleStyle(m.bubble), ...(mine && !m.bubble ? { background: 'rgba(26,115,232,.85)', color: '#fff' } : {}) }}>
+              <div style={{ ...bubbleBase, ...bubbleStyle(m.bubble), ...(mine && !m.bubble ? { background: 'rgba(26,115,232,.85)', color: '#fff' } : {}), ...(mentioned ? { background: 'rgba(255,196,0,.28)', border: '1px solid rgba(255,196,0,.8)', color: '#fff' } : {}) }}>
                 {m.imageUrl ? (
                   <img src={m.imageUrl} alt="" style={{ maxWidth: 160, borderRadius: 8, display: 'block' }} />
                 ) : m.stickerUrl ? (
@@ -302,6 +340,21 @@ export default function ChatBox() {
         {myBubbles.length === 0 && <span style={{ fontSize: 11, color: 'rgba(255,255,255,.7)' }}>（去商城购买）</span>}
       </div>
 
+      {mentionOpen && (
+        <div style={mentionPanel}>
+          {mentionUsers.length === 0 ? (
+            <span style={{ fontSize: 11, color: '#5b6b8c' }}>未找到匹配成员</span>
+          ) : (
+            mentionUsers.map(u => (
+              <button key={u.id} style={mentionItem} onMouseDown={(e) => { e.preventDefault(); pickMention(u); }}>
+                <span style={{ fontWeight: 600 }}>{u.nickname || u.username}</span>
+                <span style={{ fontSize: 11, color: '#8697b5', marginLeft: 6 }}>@{u.username}</span>
+              </button>
+            ))
+          )}
+        </div>
+      )}
+
       <div style={inputRow}>
         <button style={toolBtn} title="表情包" onClick={() => setShowStickers(s => !s)}><SmileIcon size={17} color="#cfe0ff" /></button>
         <button style={toolBtn} title="发送图片" onClick={() => fileRef.current && fileRef.current.click()}><ImageIcon size={17} color="#cfe0ff" /></button>
@@ -314,8 +367,8 @@ export default function ChatBox() {
         <input
           style={inputStyle}
           value={input}
-          placeholder={recording ? `录音中 ${recSecs}s…点击麦克风结束` : '说点什么…'}
-          onChange={(e) => setInput(e.target.value)}
+          placeholder={recording ? `录音中 ${recSecs}s…点击麦克风结束` : '说点什么…（输入 @ 可提及成员）'}
+          onChange={(e) => handleInputChange(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendText(); } }}
           maxLength={500}
         />
@@ -357,3 +410,5 @@ const sendBtn = { background: 'rgba(26,115,232,.9)', color: '#fff', border: 'non
 const toolBtn = { background: 'transparent', border: 'none', cursor: 'pointer', padding: 4, borderRadius: 8, display: 'flex', alignItems: 'center' };
 const stickerPanel = { padding: '8px 10px', borderTop: '1px solid rgba(255,255,255,.15)', background: 'rgba(255,255,255,.95)' };
 const miniBtn = { fontSize: 11, background: '#1a73e8', color: '#fff', borderRadius: 6, padding: '2px 8px', cursor: 'pointer' };
+const mentionPanel = { position: 'absolute', left: 10, right: 10, bottom: 96, background: '#fff', borderRadius: 10, boxShadow: '0 6px 20px rgba(0,0,0,.3)', padding: 6, maxHeight: 180, overflowY: 'auto', zIndex: 62 };
+const mentionItem = { display: 'flex', alignItems: 'center', width: '100%', border: 'none', background: 'transparent', padding: '6px 8px', borderRadius: 6, cursor: 'pointer', fontSize: 13, color: '#1a3d7c', textAlign: 'left' };

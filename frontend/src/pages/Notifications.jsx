@@ -4,6 +4,14 @@ import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { timeAgo } from '../utils';
 
+const TYPE_LABELS = {
+  like: '点赞', follow: '关注', comment: '评论',
+  post_daily: '日报', post_decision: '决策', claim_result: '申报结果',
+  task_reward: '任务奖励', transfer: '转账', favorite: '收藏',
+  purchase: '消费', discipline: '处分', player_task: '玩家任务',
+  chat: '私聊', chat_mention: '被@提及'
+};
+
 export default function Notifications() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -41,6 +49,12 @@ export default function Notifications() {
     } else if (n.type === 'comment' || n.type === 'post_daily' || n.type === 'post_decision') {
       // 评论/日报/决策更新 → 进入对应帖子
       if (n.post_id) navigate(`/post/${n.post_id}`);
+    } else if (n.type === 'chat') {
+      // 私聊 → 打开与该用户的私聊页
+      if (n.actor_id) navigate(`/chat/${n.actor_id}`);
+    } else if (n.type === 'chat_mention') {
+      // 被@提及 → 打开与该用户的私聊页（公屏在每页左下角）
+      if (n.actor_id) navigate(`/chat/${n.actor_id}`);
     }
   };
 
@@ -78,7 +92,7 @@ export default function Notifications() {
               onClick={() => handleClick(n)}
             >
               <div className="flex-between" style={{ marginBottom: 6 }}>
-                <span className="badge badge-primary" style={{ fontSize: 11 }}>{n.type}</span>
+                <span className="badge badge-primary" style={{ fontSize: 11 }}>{TYPE_LABELS[n.type] || n.type}</span>
                 <span className="text-secondary" style={{ fontSize: 12 }}>{timeAgo(n.created_at)}</span>
               </div>
               <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 4 }}>{n.title}</div>
