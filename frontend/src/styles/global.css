@@ -1810,3 +1810,58 @@ html[data-native="true"] body {
     width: 96px !important;
   }
 }
+
+/* ============ 国庆节主题（feature/national-day） ============ */
+/* 覆盖主色为国庆红 + 金色，仅本分支生效，不影响 master */
+:root {
+  --primary: #C8102E;
+  --primary-dark: #9B0F24;
+  --primary-light: #E5484D;
+  --accent: #E6A817;
+  --gradient: linear-gradient(135deg, #C8102E 0%, #E6A817 100%);
+}
+
+[data-theme="dark"] {
+  --primary: #FF5C6E;
+  --primary-dark: #C8102E;
+  --primary-light: #FF8A93;
+  --accent: #F5C518;
+  --gradient: linear-gradient(135deg, #C8102E 0%, #E6A817 100%);
+}
+
+/* 顶部国庆横幅 */
+.national-day-banner {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 8px 16px;
+  background: linear-gradient(90deg, #A5000D 0%, #C8102E 40%, #E6A817 100%);
+  color: #FFE9A8;
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 1px;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, .35);
+  z-index: 90;
+}
+
+.national-day-banner .nd-star {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  animation: nd-twinkle 1.8s ease-in-out infinite;
+}
+
+.national-day-banner .nd-star:nth-child(2) { animation-delay: .9s; }
+
+@keyframes nd-twinkle {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: .55; transform: scale(.82); }
+}
+
+/* 导航栏在国庆主题下的金色描边点缀 */
+[data-theme="light"] .navbar,
+[data-theme="dark"] .navbar {
+  border-bottom: 2px solid var(--accent);
+}

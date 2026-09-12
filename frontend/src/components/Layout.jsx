@@ -98,6 +98,16 @@ export default function Layout({ children }) {
 
   return (
     <>
+      <div className="national-day-banner">
+        <svg className="nd-star" viewBox="0 0 24 24" fill="#FFE9A8" aria-hidden="true">
+          <path d="M12 2l2.9 6.3 6.9.7-5.2 4.6 1.5 6.8L12 16.9 5.9 20.4l1.5-6.8L2.2 9l6.9-.7L12 2z" />
+        </svg>
+        <span>欢度国庆 · 热烈庆祝中华人民共和国成立77周年</span>
+        <svg className="nd-star" viewBox="0 0 24 24" fill="#FFE9A8" aria-hidden="true">
+          <path d="M12 2l2.9 6.3 6.9.7-5.2 4.6 1.5 6.8L12 16.9 5.9 20.4l1.5-6.8L2.2 9l6.9-.7L12 2z" />
+        </svg>
+      </div>
+
       <nav className={`navbar ${hidden ? 'hidden' : ''}`}>
         <div className="navbar-content">
           <Link to="/" className="navbar-brand">
