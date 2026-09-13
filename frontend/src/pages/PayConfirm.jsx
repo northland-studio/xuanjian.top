@@ -178,11 +178,14 @@ function StatusTag({ status }) {
 
 const wrap = {
   minHeight: '100vh',
+  minHeight: 'calc(var(--app-vh, 1vh) * 100)',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
   background: 'linear-gradient(135deg, #eef4ff 0%, #f7faff 100%)',
   padding: 16,
+  paddingTop: 'calc(16px + var(--sat))',
+  paddingBottom: 'calc(16px + var(--sab))',
   boxSizing: 'border-box',
 };
 

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { api } from '../api';
+import { api, wsUrlWithToken } from '../api';
 import { AdminIcon } from './Icons';
 import SkinWidget from './SkinWidget';
 import ChatBox from './ChatBox';
@@ -36,8 +36,7 @@ export default function Layout({ children }) {
     if (!user) return;
     const token = localStorage.getItem('token');
     if (!token) return;
-    const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
-    const ws = new WebSocket(`${proto}://${window.location.host}/ws?token=${encodeURIComponent(token)}`);
+    const ws = new WebSocket(wsUrlWithToken());
     let cancelled = false;
     ws.onmessage = (ev) => {
       try {

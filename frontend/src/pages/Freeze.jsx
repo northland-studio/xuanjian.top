@@ -54,10 +54,13 @@ export default function Freeze() {
 const styles = {
   wrap: {
     minHeight: '100vh',
+    minHeight: 'calc(var(--app-vh, 1vh) * 100)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     padding: 24,
+    paddingTop: 'calc(24px + var(--sat))',
+    paddingBottom: 'calc(24px + var(--sab))',
     background: 'radial-gradient(circle at 50% 30%, #1e293b 0%, #0f172a 60%, #0b1120 100%)'
   },
   card: {

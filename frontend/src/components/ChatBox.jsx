@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { api, getToken, getCurrentUser } from '../api';
+import { api, getToken, getCurrentUser, wsUrlWithToken } from '../api';
 import { ChatIcon, CollapseIcon, ImageIcon, SmileIcon, MicIcon } from './ChatIcons';
 
 /**
@@ -54,8 +54,7 @@ export default function ChatBox() {
     const token = getToken();
     if (!token) return;
     let closed = false;
-    const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
-    const ws = new WebSocket(`${proto}://${window.location.host}/ws?token=${encodeURIComponent(token)}`);
+    const ws = new WebSocket(wsUrlWithToken());
     wsRef.current = ws;
 
     ws.onopen = () => {
@@ -381,16 +380,24 @@ export default function ChatBox() {
 // ---------- 透明背景样式 ----------
 const GLASS = 'rgba(20,32,58,.42)';
 const box = {
-  position: 'fixed', left: 16, bottom: 16, width: 300, height: 400,
+  position: 'fixed',
+  left: 'calc(16px + var(--sal))',
+  bottom: 'calc(16px + var(--sab))',
+  // 小屏自适应：宽度不超出视口；高度跟随动态视口，避免被移动端工具栏遮挡
+  width: 'min(300px, calc(100vw - 32px - var(--sal) - var(--sar)))',
+  height: 'min(400px, calc(var(--app-vh, 1vh) * 62))',
   background: GLASS,
   backdropFilter: 'blur(10px)',
   WebkitBackdropFilter: 'blur(10px)',
   borderRadius: 14, boxShadow: '0 10px 32px rgba(0,0,0,.28)',
-  display: 'flex', flexDirection: 'column', zIndex: 60, overflow: 'hidden',
+  display: 'flex', flexDirection: 'column', zIndex: 95, overflow: 'hidden',
   border: '1px solid rgba(255,255,255,.22)',
 };
 const collapsedBtn = {
-  position: 'fixed', left: 16, bottom: 16, width: 48, height: 48, borderRadius: '50%',
+  position: 'fixed',
+  left: 'calc(16px + var(--sal))',
+  bottom: 'calc(16px + var(--sab))',
+  width: 48, height: 48, borderRadius: '50%',
   background: 'rgba(26,115,232,.82)', backdropFilter: 'blur(6px)',
   color: '#fff', border: '1px solid rgba(255,255,255,.3)', cursor: 'pointer',
   display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -405,7 +412,7 @@ const bubbleBase = { maxWidth: '80%', padding: '6px 10px', borderRadius: 12, fon
 const bubbleBar = { display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderTop: '1px solid rgba(255,255,255,.12)', overflowX: 'auto' };
 const bubbleChip = { fontSize: 11, borderRadius: 999, padding: '2px 8px', cursor: 'pointer', whiteSpace: 'nowrap', border: 'none' };
 const inputRow = { display: 'flex', gap: 4, padding: 8, borderTop: '1px solid rgba(255,255,255,.15)', alignItems: 'center' };
-const inputStyle = { flex: 1, border: '1px solid rgba(255,255,255,.25)', background: 'rgba(255,255,255,.14)', color: '#fff', borderRadius: 10, padding: '6px 10px', fontSize: 13, outline: 'none', minWidth: 0 };
+const inputStyle = { flex: 1, border: '1px solid rgba(255,255,255,.25)', background: 'rgba(255,255,255,.14)', color: '#fff', borderRadius: 10, padding: '6px 10px', fontSize: 16, outline: 'none', minWidth: 0 };
 const sendBtn = { background: 'rgba(26,115,232,.9)', color: '#fff', border: 'none', borderRadius: 10, padding: '6px 12px', fontSize: 13, cursor: 'pointer' };
 const toolBtn = { background: 'transparent', border: 'none', cursor: 'pointer', padding: 4, borderRadius: 8, display: 'flex', alignItems: 'center' };
 const stickerPanel = { padding: '8px 10px', borderTop: '1px solid rgba(255,255,255,.15)', background: 'rgba(255,255,255,.95)' };

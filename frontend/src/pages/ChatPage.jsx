@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { api, getToken, getCurrentUser } from '../api';
+import { api, getToken, getCurrentUser, wsUrlWithToken } from '../api';
 import { SmileIcon, ImageIcon, MicIcon, SendIcon, UsersIcon } from '../components/ChatIcons';
 
 /**
@@ -77,8 +77,7 @@ export default function ChatPage() {
     const token = getToken();
     if (!token) return;
     let closed = false;
-    const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
-    const ws = new WebSocket(`${proto}://${window.location.host}/ws?token=${encodeURIComponent(token)}`);
+    const ws = new WebSocket(wsUrlWithToken());
     wsRef.current = ws;
     ws.onopen = () => setStatus('open');
     ws.onmessage = (ev) => {
@@ -189,9 +188,9 @@ export default function ChatPage() {
   }
 
   return (
-    <div style={page}>
+    <div style={page} className="dm-page">
       {/* 会话列表 */}
-      <aside style={side}>
+      <aside style={side} className="dm-side">
         <div style={sideHead}><UsersIcon size={15} color="var(--text)" /><span style={{ fontWeight: 700, fontSize: 13, color: 'var(--text)' }}>私聊</span></div>
         {convs.length === 0 && <p style={{ fontSize: 12, color: 'var(--text-secondary)', padding: '10px 12px' }}>还没有会话，去成员主页点「私聊」开始</p>}
         {convs.map(c => (
@@ -273,7 +272,7 @@ export default function ChatPage() {
 
 const wrap = { minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center' };
 const card = { background: 'var(--card)', borderRadius: 14, padding: 24, boxShadow: 'var(--shadow-lg)' };
-const page = { display: 'flex', gap: 12, height: 'calc(100vh - 200px)', minHeight: 420, background: 'var(--card)', borderRadius: 14, overflow: 'hidden', boxShadow: 'var(--shadow-lg)' };
+const page = { display: 'flex', gap: 12, height: 'calc(var(--app-vh, 1vh) * 100 - 220px)', minHeight: 360, background: 'var(--card)', borderRadius: 14, overflow: 'hidden', boxShadow: 'var(--shadow-lg)' };
 const side = { width: 220, borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflowY: 'auto', flex: 'none' };
 const sideHead = { display: 'flex', alignItems: 'center', gap: 6, padding: '10px 12px', borderBottom: '1px solid var(--border)' };
 const convItem = { padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid var(--border)' };
@@ -284,6 +283,6 @@ const bubble = { maxWidth: '70%', padding: '6px 10px', borderRadius: 12, fontSiz
 const stickerPanel = { padding: '8px 12px', borderTop: '1px solid var(--border)', background: 'var(--bg)' };
 const stickerImg = { width: 44, height: 44, objectFit: 'cover', borderRadius: 6, cursor: 'pointer', border: '1px solid var(--border)' };
 const inputRow = { display: 'flex', gap: 6, padding: 10, borderTop: '1px solid var(--border)', alignItems: 'center' };
-const inputStyle = { flex: 1, border: '1px solid var(--border)', background: 'var(--input-bg, var(--bg))', color: 'var(--text)', borderRadius: 10, padding: '6px 10px', fontSize: 13, outline: 'none', minWidth: 0 };
+const inputStyle = { flex: 1, border: '1px solid var(--border)', background: 'var(--input-bg, var(--bg))', color: 'var(--text)', borderRadius: 10, padding: '6px 10px', fontSize: 16, outline: 'none', minWidth: 0 };
 const sendBtn = { background: 'var(--primary, #1a73e8)', border: 'none', borderRadius: 10, padding: '7px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center' };
 const toolBtn = { background: 'transparent', border: 'none', cursor: 'pointer', padding: 4, borderRadius: 8, display: 'flex', alignItems: 'center', color: 'var(--text-secondary)' };

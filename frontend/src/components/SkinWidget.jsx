@@ -67,10 +67,11 @@ export default function SkinWidget() {
       className="skin-widget"
       style={{
         position: 'fixed',
-        right: 16,
-        bottom: 16,
+        right: 'calc(16px + var(--sar))',
+        bottom: 'calc(16px + var(--sab))',
         zIndex: 90,
-        userSelect: 'none'
+        userSelect: 'none',
+        maxWidth: 'calc(100vw - 32px - var(--sal) - var(--sar))'
       }}
     >
       {collapsed ? (

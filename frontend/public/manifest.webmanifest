@@ -6,10 +6,14 @@
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "orientation": "portrait-primary",
+  "display_override": ["standalone", "minimal-ui", "browser"],
+  "orientation": "any",
   "background_color": "#f6f8fb",
   "theme_color": "#004AAD",
   "lang": "zh-CN",
+  "dir": "ltr",
+  "categories": ["social", "games", "productivity"],
+  "prefer_related_applications": false,
   "icons": [
     {
       "src": "/icons/icon-192.png",
@@ -28,6 +32,32 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "贡献点商城",
+      "short_name": "商城",
+      "url": "/shop",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "贡献点交易",
+      "short_name": "交易",
+      "url": "/trade",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "我的通知",
+      "short_name": "通知",
+      "url": "/notifications",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "排行榜",
+      "short_name": "排行榜",
+      "url": "/rankings",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
     }
   ]
 }

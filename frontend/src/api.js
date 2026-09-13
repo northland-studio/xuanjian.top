@@ -1,21 +1,62 @@
 // API 客户端
-// 网页版同源（''）；Capacitor 原生 WebView 使用绝对地址
+// 网页版同源（''）；Capacitor / Electron 等原生壳使用绝对地址
+import { isCapacitor, isElectron } from './lib/platform';
+
+const SITE_ORIGIN = 'https://xuanjian.top';
+
 function detectNative() {
   if (typeof window === 'undefined') return { capacitor: false, electron: false };
   return {
-    capacitor: !!window.Capacitor?.isNativePlatform?.(),
-    electron: !!window.electronAPI
+    capacitor: isCapacitor,
+    electron: isElectron
   };
 }
 
+/**
+ * 解析 API 基址：
+ *  - 浏览器 http/https 同源 → ''
+ *  - 原生壳 / file: / capacitor: / app: 等非 http(s) 协议 → 线上站点绝对地址
+ * 否则原生 WebView 里的相对路径会打到本地地址，导致接口全部失败。
+ */
+function detectApiBase() {
+  if (typeof window === 'undefined') return '';
+  const proto = window.location.protocol;
+  if (!/^https?:$/.test(proto)) return SITE_ORIGIN;
+  if (isCapacitor) return SITE_ORIGIN;
+  return '';
+}
+
 const native = detectNative();
-const API_BASE = native.capacitor ? 'https://xuanjian.top' : '';
+const API_BASE = detectApiBase();
 
 // 平台信息（供原生能力模块使用）
 export const platformInfo = native;
 
 export function getToken() {
   return localStorage.getItem('token');
+}
+
+/**
+ * WebSocket 地址（实时通知 / 聊天）。
+ * 原生壳里 window.location.host 指向本地，必须改走 API 基址对应的主机。
+ */
+export function wsUrl() {
+  if (typeof window === 'undefined') return '';
+  const base = API_BASE || window.location.origin;
+  try {
+    const u = new URL(base, window.location.origin);
+    const proto = u.protocol === 'https:' ? 'wss' : 'ws';
+    return `${proto}://${u.host}/ws`;
+  } catch {
+    const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
+    return `${proto}://${window.location.host}/ws`;
+  }
+}
+
+/** 带鉴权 token 的完整 WS 地址 */
+export function wsUrlWithToken() {
+  const token = getToken();
+  return token ? `${wsUrl()}?token=${encodeURIComponent(token)}` : wsUrl();
 }
 
 export function setAuth(token, user) {

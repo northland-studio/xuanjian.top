@@ -1,8 +1,13 @@
 /* 玄剑公会 PWA Service Worker
- * 策略：应用壳（导航/静态资源）预缓存；API 请求一律走网络（保证数据新鲜）；
- * 离线时回退缓存壳。
+ *
+ * 策略（多端适配）：
+ *   - /api/      ：一律走网络，绝不缓存（避免串号/过期数据；接口本身已有服务端缓存策略）
+ *   - /assets/   ：缓存优先（Vite 产物带 hash，内容不可变）
+ *   - 页面导航    ：网络优先，离线时回退应用壳
+ *   - 其它同源静态：缓存优先 + 后台更新
+ * 版本号变更会在 activate 阶段清空旧缓存。
  */
-const CACHE_NAME = 'xuanjian-pwa-v1';
+const CACHE_NAME = 'xuanjian-pwa-v2';
 
 // 应用壳（安装时预缓存）
 const APP_SHELL = [
@@ -18,63 +23,78 @@ const APP_SHELL = [
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)).then(() => self.skipWaiting())
+    caches.open(CACHE_NAME)
+      .then((cache) => cache.addAll(APP_SHELL))
+      .catch(() => { /* 单个资源失败不阻塞安装 */ })
+      .then(() => self.skipWaiting())
   );
 });
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
-    ).then(() => self.clients.claim())
+    caches.keys()
+      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k))))
+      .then(() => self.clients.claim())
   );
 });
+
+/** 仅同源、GET、非 API 的请求才进入缓存逻辑 */
+function isCacheable(request, url) {
+  if (request.method !== 'GET') return false;
+  if (url.origin !== self.location.origin) return false;
+  if (url.pathname.startsWith('/api/')) return false;
+  if (url.pathname.startsWith('/uploads/')) return false;
+  return true;
+}
 
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // 仅处理同源 GET 请求
-  if (request.method !== 'GET' || url.origin !== self.location.origin) return;
+  // 跨域请求（七牛 CDN 等）直接交给浏览器，不介入
+  if (url.origin !== self.location.origin) return;
 
-  // API 请求：网络优先，失败时返回缓存（若存在）
-  if (url.pathname.startsWith('/api/')) {
-    event.respondWith(
-      fetch(request).then((response) => {
-        const copy = response.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
-        return response;
-      }).catch(() => caches.match(request))
-    );
+  // API / 上传：只走网络，不缓存
+  if (request.method !== 'GET' || url.pathname.startsWith('/api/') || url.pathname.startsWith('/uploads/')) {
     return;
   }
 
-  // 静态资源（带 hash 的 assets）：缓存优先，网络回退并更新缓存
+  // 带 hash 的构建产物：缓存优先（内容不可变）
   if (url.pathname.startsWith('/assets/')) {
     event.respondWith(
-      caches.match(request).then((cached) => {
-        if (cached) return cached;
-        return fetch(request).then((response) => {
+      caches.match(request).then((cached) => cached || fetch(request).then((response) => {
+        if (response && response.status === 200 && response.type === 'basic') {
           const copy = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
-          return response;
-        });
-      })
+          caches.open(CACHE_NAME).then((cache) => cache.put(request, copy)).catch(() => {});
+        }
+        return response;
+      }))
     );
     return;
   }
 
-  // 页面导航：网络优先（保证最新 SPA），失败时回退缓存壳
+  // 页面导航：网络优先，离线回退应用壳
   if (request.mode === 'navigate') {
     event.respondWith(
-      fetch(request).catch(() => caches.match('/index.html'))
+      fetch(request).catch(() => caches.match('/index.html').then((c) => c || caches.match('/')))
     );
     return;
   }
 
-  // 其他（图片等）：缓存优先，网络回退
+  if (!isCacheable(request, url)) return;
+
+  // 其它同源静态资源：缓存优先 + 后台更新
   event.respondWith(
-    caches.match(request).then((cached) => cached || fetch(request))
+    caches.match(request).then((cached) => {
+      const network = fetch(request).then((response) => {
+        if (response && response.status === 200 && response.type === 'basic') {
+          const copy = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(request, copy)).catch(() => {});
+        }
+        return response;
+      }).catch(() => cached);
+      return cached || network;
+    })
   );
 });
 
@@ -90,6 +110,7 @@ self.addEventListener('push', (event) => {
       body: data.body || '',
       icon: data.icon || '/icon.png',
       badge: data.badge || '/icon.png',
+      tag: data.tag || undefined,
       data: { url: data.url || '/notifications' }
     })
   );
@@ -101,7 +122,10 @@ self.addEventListener('notificationclick', (event) => {
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
       for (const client of clientList) {
-        if ('focus' in client) { client.navigate(url); return client.focus(); }
+        if ('focus' in client) {
+          try { client.navigate(url); } catch (e) { /* 部分环境不支持 navigate */ }
+          return client.focus();
+        }
       }
       return self.clients.openWindow(url);
     })

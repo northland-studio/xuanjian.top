@@ -26,6 +26,13 @@
   --gradient: linear-gradient(135deg, #004AAD 0%, #0066cc 100%);
   --navbar-bg: rgba(255, 255, 255, 0.9);
   --input-bg: #f8fafc;
+  /* 导航栏高度（小屏会重定义，供吸顶/下拉菜单共用，避免错位） */
+  --navbar-h: 64px;
+  /* 安全区域（刘海屏 / 灵动岛 / Home 指示条 / 圆角），非刘海设备为 0 */
+  --sat: env(safe-area-inset-top, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+  --sar: env(safe-area-inset-right, 0px);
 }
 
 [data-theme="dark"] {
@@ -81,11 +88,16 @@ img {
   max-width: 1200px;
   margin: 0 auto;
   padding: 0 20px;
+  padding-left: calc(20px + var(--sal));
+  padding-right: calc(20px + var(--sar));
 }
 
 .main-content {
+  /* dvh 修正移动端浏览器动态工具栏导致的 100vh 偏差；--app-vh 为 JS 兜底 */
   min-height: calc(100vh - 120px);
+  min-height: calc(var(--app-vh, 1vh) * 100 - 120px);
   padding: 24px 0 60px;
+  padding-bottom: calc(60px + var(--sab));
 }
 
 /* 导航栏 */
@@ -97,6 +109,10 @@ img {
   backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--border);
   transition: transform 0.3s;
+  /* 刘海屏 / 灵动岛：导航栏内容下移，避免被状态栏遮挡 */
+  padding-top: var(--sat);
+  padding-left: var(--sal);
+  padding-right: var(--sar);
 }
 
 .navbar.hidden {
@@ -107,7 +123,7 @@ img {
   max-width: 1200px;
   margin: 0 auto;
   padding: 0 20px;
-  height: 64px;
+  height: var(--navbar-h, 64px);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -275,7 +291,7 @@ img {
   }
   .navbar-nav {
     position: fixed;
-    top: 64px;
+    top: calc(var(--sat) + var(--navbar-h, 64px));
     left: 0;
     right: 0;
     flex-direction: column;
@@ -287,6 +303,9 @@ img {
     transform: translateY(-150%);
     transition: transform 0.3s;
     z-index: 999;
+    max-height: calc(var(--app-vh, 1vh) * 100 - var(--sat) - var(--navbar-h, 64px));
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
   .navbar-nav.active {
     transform: translateY(0);
@@ -1568,19 +1587,23 @@ mark {
 
 /* 小屏/移动端适配 */
 @media (max-width: 600px) {
+  :root {
+    --navbar-h: 56px;
+  }
   .container, .navbar-content, .footer-content {
-    padding-left: 12px;
-    padding-right: 12px;
+    padding-left: calc(12px + var(--sal));
+    padding-right: calc(12px + var(--sar));
   }
   .main-content {
     padding: 16px 0 48px;
+    padding-bottom: calc(48px + var(--sab));
   }
   .card {
     padding: 16px !important;
   }
   .navbar-title-en { display: none; }
   .navbar-logo { width: 34px; height: 34px; }
-  .navbar-content { height: 56px; }
+  .navbar-content { height: var(--navbar-h); }
 
   /* 表格横向滚动 */
   .table-wrap, .table, table {
@@ -1632,6 +1655,7 @@ mark {
   background: var(--card);
   border-top: 1px solid var(--border);
   padding: 32px 0;
+  padding-bottom: calc(32px + var(--sab));
   margin-top: 40px;
 }
 
@@ -1639,6 +1663,8 @@ mark {
   max-width: 1200px;
   margin: 0 auto;
   padding: 0 20px;
+  padding-left: calc(20px + var(--sal));
+  padding-right: calc(20px + var(--sar));
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -1665,4 +1691,122 @@ mark {
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--primary-light);
+}
+
+/* ==================== 多端适配（Web / PWA / Capacitor / Electron） ==================== */
+/* 环境标记由 src/lib/platform.js 写到 <html data-platform|data-shell|data-native|data-touch|data-standalone> */
+
+/* --- 触摸设备：去掉点击蓝色高亮、消除双击缩放 300ms 延迟 --- */
+[data-touch="true"] {
+  -webkit-tap-highlight-color: transparent;
+}
+
+[data-touch="true"] button,
+[data-touch="true"] a,
+[data-touch="true"] .btn,
+[data-touch="true"] .nav-link,
+[data-touch="true"] label,
+[data-touch="true"] [role="button"] {
+  touch-action: manipulation;
+}
+
+/* --- 无 hover 能力的设备：屏蔽「粘住」的 hover 态 --- */
+@media (hover: none) {
+  .nav-link:hover {
+    color: var(--text-secondary);
+    background: transparent;
+  }
+  .nav-link.active:hover {
+    color: var(--primary);
+    background: rgba(0, 74, 173, 0.12);
+  }
+  a:hover { color: var(--primary); }
+}
+
+/* --- 移动端：输入控件字号 ≥16px，避免 iOS 聚焦时自动放大整个页面 --- */
+@media (max-width: 900px) {
+  input:not([type="checkbox"]):not([type="radio"]),
+  select,
+  textarea,
+  .form-input,
+  .input {
+    font-size: 16px;
+  }
+}
+
+/* --- 弹窗高度：用动态视口单位，避免移动端浏览器工具栏遮挡 --- */
+.modal-content {
+  max-height: 85vh;
+  max-height: calc(var(--app-vh, 1vh) * 85);
+}
+
+/* --- iOS：文本尺寸自适应 + 滚动惯性 --- */
+[data-platform="ios"] {
+  -webkit-text-size-adjust: 100%;
+}
+
+[data-platform="ios"] .table-wrap,
+[data-platform="ios"] .table,
+[data-platform="ios"] table,
+[data-platform="ios"] .navbar-nav {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* --- 已安装为应用（PWA standalone / 原生壳）：底部留出 Home 指示条空间 --- */
+[data-standalone="true"] .main-content {
+  padding-bottom: calc(72px + var(--sab));
+}
+
+[data-standalone="true"] .footer {
+  padding-bottom: calc(28px + var(--sab));
+}
+
+/* --- 原生壳（Capacitor / Electron）：禁止橡皮筋与下拉刷新，贴近原生手感 --- */
+html[data-native="true"],
+html[data-native="true"] body {
+  overscroll-behavior: none;
+}
+
+/* --- 触摸端：长按不弹出系统菜单（图片/链接），但保留文字可选 --- */
+[data-touch="true"] img,
+[data-touch="true"] .navbar-logo,
+[data-touch="true"] .nav-avatar {
+  -webkit-touch-callout: none;
+}
+
+/* --- 宽屏桌面：悬浮挂件外移，避免贴边 --- */
+@media (min-width: 1600px) {
+  .skin-widget {
+    right: 28px !important;
+    bottom: 28px !important;
+  }
+}
+
+/* --- 横屏手机（高度很小）：压缩纵向留白 --- */
+@media (max-height: 480px) and (orientation: landscape) {
+  .main-content {
+    padding-top: 12px;
+    padding-bottom: 24px;
+  }
+  .navbar-content {
+    --navbar-h: 48px;
+    height: 48px;
+  }
+}
+
+/* --- 私聊页（/chat）：小屏收窄会话列表，给消息区让位 --- */
+@media (max-width: 700px) {
+  .dm-side {
+    width: 126px !important;
+  }
+  .dm-page {
+    gap: 8px !important;
+    border-radius: 10px !important;
+  }
+}
+
+@media (max-width: 420px) {
+  .dm-side {
+    width: 96px !important;
+  }
 }

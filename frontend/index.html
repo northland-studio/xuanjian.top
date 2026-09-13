@@ -1,10 +1,13 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="light">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" href="/icon.png" />
+    <!-- viewport-fit=cover：让页面铺满刘海屏，配合 env(safe-area-inset-*) 使用 -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="description" content="我的世界玄剑公会 - 官方网站" />
+    <meta name="color-scheme" content="light dark" />
+    <!-- 主题色（移动端状态栏 / 桌面端标题栏配色），由下方脚本按亮暗色初始化 -->
     <meta name="theme-color" content="#004AAD" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
@@ -14,6 +17,20 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="format-detection" content="telephone=no" />
     <title>我的世界玄剑公会</title>
+    <script>
+      // 首屏前置：尽早写入主题与主题色，避免暗色模式刷新时白屏闪烁（FOUC）
+      (function () {
+        try {
+          var t = localStorage.getItem('theme');
+          if (t !== 'dark' && t !== 'light') {
+            t = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+          }
+          document.documentElement.setAttribute('data-theme', t);
+          var m = document.querySelector('meta[name="theme-color"]');
+          if (m) m.setAttribute('content', t === 'dark' ? '#1a1b1d' : '#004AAD');
+        } catch (e) { /* 忽略：私密模式下 localStorage 可能不可用 */ }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
