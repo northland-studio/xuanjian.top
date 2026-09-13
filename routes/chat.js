@@ -369,4 +369,33 @@ router.get('/dm/:id/messages', authMiddleware, async (req, res) => {
     }
 });
 
+// 标记与某用户的私聊为已读（WS 不可用时的兜底；会实时通知对方）
+router.post('/dm/:id/read', authMiddleware, async (req, res) => {
+    try {
+        const other = parseInt(req.params.id);
+        if (!other) return res.status(400).json({ error: '参数无效' });
+        const r = await chat.markDmRead(req.userId, other);
+        if (r.count) {
+            // 通知双方（对方用于把自己发的消息标成已读；自己用于多端同步）
+            chat.sendToUsers([req.userId, other], {
+                type: 'chat_read', channel: 'dm', by: req.userId, with: other,
+                messageIds: r.ids, readAt: r.readAt,
+            });
+        }
+        res.json({ success: true, count: r.count, messageIds: r.ids, readAt: r.readAt });
+    } catch (e) {
+        logger.error('标记私聊已读失败:', e.message);
+        res.status(500).json({ error: '操作失败' });
+    }
+});
+
+// 我的私聊未读总数（供导航角标）
+router.get('/dm/unread', authMiddleware, async (req, res) => {
+    try {
+        res.json({ unread: await chat.dmUnreadTotal(req.userId) });
+    } catch (e) {
+        res.status(500).json({ error: '获取失败' });
+    }
+});
+
 module.exports = router;

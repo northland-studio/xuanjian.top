@@ -1810,3 +1810,123 @@ html[data-native="true"] body {
     width: 96px !important;
   }
 }
+
+/* ==================== 私聊：回复引用 + 已读回执 ==================== */
+
+/* 消息行：气泡 + 悬停出现的「回复」按钮 */
+.dm-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+}
+
+.dm-reply-btn {
+  flex-shrink: 0;
+  order: 2;
+  font-size: 11px;
+  line-height: 1;
+  padding: 3px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--text-secondary);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.dm-reply-btn:hover {
+  color: var(--primary);
+  border-color: var(--primary);
+}
+
+.dm-row:hover .dm-reply-btn {
+  opacity: 1;
+}
+
+/* 触摸端没有 hover：常显回复按钮 */
+[data-touch="true"] .dm-reply-btn {
+  opacity: 1;
+}
+
+/* 被引用消息块（嵌在原消息气泡顶部） */
+.dm-quote {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin-bottom: 5px;
+  padding: 4px 8px;
+  border-left: 3px solid currentColor;
+  border-radius: 6px;
+  background: rgba(127, 127, 127, 0.16);
+  cursor: pointer;
+  max-width: 100%;
+}
+
+.dm-quote-name {
+  font-size: 10px;
+  font-weight: 700;
+  opacity: 0.85;
+}
+
+.dm-quote-text {
+  font-size: 11px;
+  opacity: 0.72;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 220px;
+}
+
+/* 点击引用后原消息短暂高亮 */
+.dm-bubble-flash {
+  animation: dm-flash 1.2s ease-out;
+  border-radius: 12px;
+}
+
+@keyframes dm-flash {
+  0%, 100% { box-shadow: none; }
+  15% { box-shadow: 0 0 0 3px var(--primary); }
+}
+
+/* 回复输入条 */
+.dm-reply-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-top: 1px solid var(--border);
+  background: var(--bg);
+}
+
+.dm-reply-cancel {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: none;
+  background: var(--border);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 会话列表未读角标 */
+.dm-unread-badge {
+  flex-shrink: 0;
+  min-width: 16px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--danger, #ef4444);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+}

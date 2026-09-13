@@ -26,6 +26,8 @@ export default function ChatPage() {
   const [showStickers, setShowStickers] = useState(false);
   const [recording, setRecording] = useState(false);
   const [recSecs, setRecSecs] = useState(0);
+  const [replyTo, setReplyTo] = useState(null);      // 正在回复的消息（引用）
+  const [highlightId, setHighlightId] = useState(null); // 点击引用后短暂高亮原消息
 
   const wsRef = useRef(null);
   const listRef = useRef(null);
@@ -65,12 +67,42 @@ export default function ChatPage() {
       const d = await api.get(`/api/chat/dm/${targetId}/messages`);
       setPeer(d.peer);
       setMessages(d.messages || []);
+      setReplyTo(null);
+      // 打开会话即视为已读（WS 未连上时由 REST 兜底）
+      const ws = wsRef.current;
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'chat_read', channel: 'dm', with: targetId }));
+      } else {
+        api.post(`/api/chat/dm/${targetId}/read`, {})
+          .then(() => loadConvs())   // 回执后刷新会话列表未读角标
+          .catch(() => {});
+      }
     } catch (e) { setErr(e.message); }
-  }, []);
+  }, [loadConvs]);
 
   useEffect(() => {
     if (userId) openWith(parseInt(userId));
   }, [userId, openWith]);
+
+  // 上报当前会话已读（收到新消息 / 切回标签页时）
+  const reportRead = useCallback(() => {
+    const cur = peerRef.current;
+    if (!cur || document.visibilityState === 'hidden') return;
+    const ws = wsRef.current;
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'chat_read', channel: 'dm', with: cur.id }));
+    }
+  }, []);
+
+  useEffect(() => {
+    const onVisible = () => reportRead();
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', onVisible);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', onVisible);
+    };
+  }, [reportRead]);
 
   // WS 连接（用于实时收私聊）
   useEffect(() => {
@@ -79,15 +111,31 @@ export default function ChatPage() {
     let closed = false;
     const ws = new WebSocket(wsUrlWithToken());
     wsRef.current = ws;
-    ws.onopen = () => setStatus('open');
+    ws.onopen = () => {
+      setStatus('open');
+      // 连上后补报一次已读
+      const cur = peerRef.current;
+      if (cur) ws.send(JSON.stringify({ type: 'chat_read', channel: 'dm', with: cur.id }));
+    };
     ws.onmessage = (ev) => {
       let m; try { m = JSON.parse(ev.data); } catch (e) { return; }
       if (m.type === 'chat_error') { setErr(m.error || '发送失败'); setTimeout(() => setErr(''), 3000); return; }
+      // 已读回执：把对应消息标记为已读（双方都会收到，便于多端同步）
+      if (m.type === 'chat_read' && m.channel === 'dm') {
+        const ids = new Set((m.messageIds || []).map(String));
+        if (ids.size) {
+          setMessages(prev => prev.map(x => ids.has(String(x.id)) ? { ...x, readAt: m.readAt } : x));
+        }
+        loadConvs();
+        return;
+      }
       if (m.type === 'chat' && m.channel === 'dm') {
         const cur = peerRef.current;
-        const other = String(m.sender?.id) === String(myId) ? m.receiver?.id : m.sender?.id;
+        const mineMsg = String(m.sender?.id) === String(myId);
+        const other = mineMsg ? m.receiver?.id : m.sender?.id;
         if (cur && String(cur.id) === String(other)) {
           setMessages(prev => [...prev, m]);
+          if (!mineMsg) reportRead();   // 正在看这个会话 → 立即回执已读
         }
         loadConvs();
       }
@@ -95,7 +143,7 @@ export default function ChatPage() {
     ws.onclose = () => { if (!closed) setStatus('closed'); };
     ws.onerror = () => setStatus('closed');
     return () => { closed = true; try { ws.close(); } catch (e) {} };
-  }, [myId, loadConvs]);
+  }, [myId, loadConvs, reportRead]);
 
   const sendRaw = (payload) => {
     const ws = wsRef.current;
@@ -104,15 +152,27 @@ export default function ChatPage() {
     return true;
   };
 
+  /** 统一的私聊发送：自动带上「回复引用」，并在发送成功后清空回复态 */
+  const sendChat = (payload) => {
+    if (!peer) return false;
+    const ok = sendRaw({
+      type: 'chat', channel: 'dm', to: peer.id,
+      ...payload,
+      replyTo: replyTo ? replyTo.id : undefined,
+    });
+    if (ok) setReplyTo(null);
+    return ok;
+  };
+
   const sendText = () => {
     const content = input.trim();
     if (!content || !peer) return;
-    if (sendRaw({ type: 'chat', channel: 'dm', to: peer.id, content })) setInput('');
+    if (sendChat({ content })) setInput('');
   };
 
   const sendSticker = (url) => {
     if (!peer) return;
-    sendRaw({ type: 'chat', channel: 'dm', to: peer.id, stickerUrl: url, content: '[表情]' });
+    sendChat({ stickerUrl: url, content: '[表情]' });
     setShowStickers(false);
   };
 
@@ -129,7 +189,7 @@ export default function ChatPage() {
       const res = await fetch('/api/chat/upload', { method: 'POST', headers: token ? { Authorization: 'Bearer ' + token } : {}, body: fd });
       const j = await res.json();
       if (!res.ok) throw new Error(j.error || '上传失败');
-      sendRaw({ type: 'chat', channel: 'dm', to: peer.id, imageUrl: j.url, content: '[图片]' });
+      sendChat({ imageUrl: j.url, content: '[图片]' });
     } catch (e2) { setErr(e2.message); }
   };
 
@@ -179,7 +239,7 @@ export default function ChatPage() {
       const res = await fetch('/api/chat/upload?kind=voice', { method: 'POST', headers: token ? { Authorization: 'Bearer ' + token } : {}, body: fd });
       const j = await res.json();
       if (!res.ok) throw new Error(j.error || '语音上传失败');
-      sendRaw({ type: 'chat', channel: 'dm', to: peer.id, voiceUrl: j.url, duration: duration || 0, content: '[语音]' });
+      sendChat({ voiceUrl: j.url, duration: duration || 0, content: '[语音]' });
     } catch (e) { setErr(e.message); }
   };
 
@@ -196,8 +256,14 @@ export default function ChatPage() {
         {convs.map(c => (
           <div key={c.userId} onClick={() => nav(`/chat/${c.userId}`)}
             style={{ ...convItem, background: peer && String(peer.id) === String(c.userId) ? 'var(--primary-light)' : 'transparent' }}>
-            <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--text)' }}>{c.nickname}</div>
-            <div style={{ fontSize: 11, color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.lastMessage}</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ fontWeight: 600, fontSize: 13, color: 'var(--text)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.nickname}</span>
+              {c.unread > 0 && <span className="dm-unread-badge">{c.unread > 99 ? '99+' : c.unread}</span>}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--text-secondary)' }}>
+              {c.lastFromMe && <span style={{ flexShrink: 0, color: c.lastRead ? 'var(--success, #10b981)' : 'var(--text-secondary)' }}>{c.lastRead ? '已读' : '未读'}</span>}
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.lastMessage}</span>
+            </div>
           </div>
         ))}
       </aside>
@@ -219,18 +285,44 @@ export default function ChatPage() {
           {messages.map(m => {
             const mine = String(m.sender?.id) === String(myId);
             return (
-              <div key={m.id} style={{ display: 'flex', flexDirection: 'column', alignItems: mine ? 'flex-end' : 'flex-start', marginBottom: 8 }}>
+              <div key={m.id} id={`dm-msg-${m.id}`}
+                style={{ display: 'flex', flexDirection: 'column', alignItems: mine ? 'flex-end' : 'flex-start', marginBottom: 8 }}>
                 <span style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 2 }}>{m.sender?.nickname}</span>
-                <div style={{ ...bubble, ...(mine ? { background: 'var(--primary, #1a73e8)', color: '#fff' } : {}) }}>
-                  {m.imageUrl ? (
-                    <img src={m.imageUrl} alt="" style={{ maxWidth: 200, borderRadius: 8, display: 'block' }} />
-                  ) : m.stickerUrl ? (
-                    <img src={m.stickerUrl} alt="" style={{ maxWidth: 100, display: 'block' }} />
-                  ) : m.voiceUrl ? (
-                    <audio controls src={m.voiceUrl} style={{ height: 32, maxWidth: 200 }} />
-                  ) : m.content}
+                <div className="dm-row">
+                  {/* 回复按钮：桌面悬停出现，触摸端常显 */}
+                  <button className="dm-reply-btn" title="回复该消息"
+                    onClick={() => setReplyTo({ id: m.id, senderName: m.sender?.nickname || '用户', preview: m.imageUrl ? '[图片]' : m.stickerUrl ? '[表情]' : m.voiceUrl ? '[语音]' : String(m.content || '').slice(0, 60) })}>回复</button>
+                  <div className={highlightId === m.id ? 'dm-bubble-flash' : ''}
+                    style={{ ...bubble, ...(mine ? { background: 'var(--primary, #1a73e8)', color: '#fff' } : {}) }}>
+                    {m.replyTo && (
+                      <div className="dm-quote" title="点击定位原消息"
+                        onClick={() => {
+                          const el = document.getElementById(`dm-msg-${m.replyTo.id}`);
+                          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                          setHighlightId(m.replyTo.id);
+                          setTimeout(() => setHighlightId(null), 1200);
+                        }}>
+                        <span className="dm-quote-name">{m.replyTo.senderName}</span>
+                        <span className="dm-quote-text">{m.replyTo.preview}</span>
+                      </div>
+                    )}
+                    {m.imageUrl ? (
+                      <img src={m.imageUrl} alt="" style={{ maxWidth: 200, borderRadius: 8, display: 'block' }} />
+                    ) : m.stickerUrl ? (
+                      <img src={m.stickerUrl} alt="" style={{ maxWidth: 100, display: 'block' }} />
+                    ) : m.voiceUrl ? (
+                      <audio controls src={m.voiceUrl} style={{ height: 32, maxWidth: 200 }} />
+                    ) : m.content}
+                  </div>
                 </div>
-                {m.imageUrl && m.expiresAt && <span style={{ fontSize: 10, color: 'var(--text-secondary)' }}>图片 3 天后过期</span>}
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                  {m.imageUrl && m.expiresAt && <span style={{ fontSize: 10, color: 'var(--text-secondary)' }}>图片 3 天后过期</span>}
+                  {mine && (
+                    <span style={{ fontSize: 10, color: m.readAt ? 'var(--success, #10b981)' : 'var(--text-secondary)' }}>
+                      {m.readAt ? '已读' : '未读'}
+                    </span>
+                  )}
+                </div>
               </div>
             );
           })}
@@ -246,6 +338,16 @@ export default function ChatPage() {
               {stickers.map(st => <img key={'m' + st.id} src={st.url} alt="" style={stickerImg} onClick={() => sendSticker(st.url)} />)}
               {publicStickers.map(st => <img key={'p' + st.id} src={st.url} alt="" style={stickerImg} title={st.name} onClick={() => sendSticker(st.url)} />)}
             </div>
+          </div>
+        )}
+
+        {replyTo && (
+          <div className="dm-reply-bar">
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <div style={{ fontSize: 11, color: 'var(--primary)', fontWeight: 700 }}>回复 {replyTo.senderName}</div>
+              <div style={{ fontSize: 11, color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{replyTo.preview}</div>
+            </div>
+            <button className="dm-reply-cancel" title="取消回复" onClick={() => setReplyTo(null)}>×</button>
           </div>
         )}
 
