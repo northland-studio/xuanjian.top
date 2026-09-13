@@ -206,13 +206,21 @@ const server = app.listen(PORT, () => {
 const { initRealtime } = require('./lib/realtime');
 initRealtime(server);
 
-// 聊天过期内容清理（私聊图片3天过期），每小时执行一次
+// 聊天媒体清理（数据库 + 对象存储双删），每小时执行一次
+//  - 私聊图片/语音：CHAT_DM_MEDIA_RETENTION_DAYS（默认 3 天）到期整条删除
+//  - 公屏图片/语音：CHAT_PUBLIC_MEDIA_RETENTION_DAYS（默认 30 天）到期只回收文件、消息保留
 try {
     const chatLib = require('./lib/chat');
     const runChatCleanup = () => {
         chatLib.cleanupExpired()
-            .then(n => { if (n) logger.info(`聊天过期内容已清理 ${n} 条`); })
-            .catch(e => logger.error('聊天过期清理失败:', e.message));
+            .then(r => {
+                if (chatLib.cleanupIsEmpty(r)) return;
+                logger.info(
+                    `聊天媒体清理完成: 私聊删除 ${r.dmDeleted} 条 / 公屏回收 ${r.mediaStripped} 条 / ` +
+                    `对象存储删除 ${r.objectsDeleted} 个（不存在 ${r.objectsMissing}，失败 ${r.objectsFailed}）`
+                );
+            })
+            .catch(e => logger.error('聊天清理失败:', e.message));
     };
     setTimeout(runChatCleanup, 60 * 1000);
     setInterval(runChatCleanup, 60 * 60 * 1000);

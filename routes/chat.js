@@ -215,9 +215,14 @@ router.delete('/admin/bubbles/:id', authMiddleware, adminMiddleware, async (req,
 // 管理端：公屏消息删除（治理用）
 router.delete('/admin/messages/:id', authMiddleware, adminMiddleware, async (req, res) => {
     try {
+        const row = await db.get('SELECT id, image_url, voice_url FROM chat_messages WHERE id=?', [req.params.id]);
+        if (!row) return res.status(404).json({ error: '消息不存在' });
+        // 表情包属于用户资产（chat_stickers / chat_stickers_public 长期引用），不随消息删除
+        const del = await chatUpload.deleteByUrls([row.image_url, row.voice_url]);
         await db.run('DELETE FROM chat_messages WHERE id=?', [req.params.id]);
-        res.json({ success: true });
+        res.json({ success: true, objectsDeleted: del.deleted });
     } catch (e) {
+        logger.error('删除公屏消息失败:', e.message);
         res.status(500).json({ error: '删除失败' });
     }
 });
@@ -286,14 +291,16 @@ router.post('/stickers', authMiddleware, uploadMem.single('file'), async (req, r
     }
 });
 
-// 删除我的表情包
+// 删除我的表情包（同时回收对象存储文件）
 router.delete('/stickers/:id', authMiddleware, async (req, res) => {
     try {
-        const row = await db.get('SELECT id FROM chat_stickers WHERE id=? AND user_id=?', [req.params.id, req.userId]);
+        const row = await db.get('SELECT id, url FROM chat_stickers WHERE id=? AND user_id=?', [req.params.id, req.userId]);
         if (!row) return res.status(404).json({ error: '表情包不存在' });
         await db.run('DELETE FROM chat_stickers WHERE id=?', [req.params.id]);
-        res.json({ success: true });
+        const del = await chatUpload.deleteByUrls([row.url]);
+        res.json({ success: true, objectsDeleted: del.deleted });
     } catch (e) {
+        logger.error('删除表情包失败:', e.message);
         res.status(500).json({ error: '删除失败' });
     }
 });
@@ -324,9 +331,15 @@ router.get('/admin/stickers', authMiddleware, adminMiddleware, async (req, res) 
 
 router.delete('/admin/stickers/:id', authMiddleware, adminMiddleware, async (req, res) => {
     try {
+        const row = await db.get('SELECT id, url FROM chat_stickers_public WHERE id=?', [req.params.id]);
+        if (!row) return res.status(404).json({ error: '表情包不存在' });
         await db.run('DELETE FROM chat_stickers_public WHERE id=?', [req.params.id]);
-        res.json({ success: true });
-    } catch (e) { res.status(500).json({ error: '删除失败' }); }
+        const del = await chatUpload.deleteByUrls([row.url]);
+        res.json({ success: true, objectsDeleted: del.deleted });
+    } catch (e) {
+        logger.error('删除公共表情包失败:', e.message);
+        res.status(500).json({ error: '删除失败' });
+    }
 });
 
 // ============ 私聊 ============

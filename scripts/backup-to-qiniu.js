@@ -116,13 +116,21 @@ async function cleanupBackups(kind) {
     let deleted = 0;
     for (const ts of toDelete) {
       const keys = dirs.get(ts);
-      await new Promise((resolve, reject) => {
-        bucketManager.deleteMany(config.bucket, keys.map(k => ({ key: k })), (err) => {
-          if (err) return reject(err);
-          deleted += keys.length;
-          resolve();
+      // qiniu SDK 7.x 没有 deleteMany，改用 batch + deleteOp（单次上限 1000）
+      for (let i = 0; i < keys.length; i += 1000) {
+        const slice = keys.slice(i, i + 1000);
+        await new Promise((resolve, reject) => {
+          const ops = slice.map(k => qiniu.rs.deleteOp(config.bucket, k));
+          bucketManager.batch(ops, (err, body) => {
+            if (err) return reject(err);
+            // 逐条统计：200=成功，612=对象不存在（同样视为已清理）
+            const arr = Array.isArray(body) ? body : [];
+            if (arr.length) deleted += arr.filter(r => r && (r.code === 200 || r.code === 612)).length;
+            else deleted += slice.length;
+            resolve();
+          });
         });
-      });
+      }
     }
     return deleted;
   } catch (e) {
