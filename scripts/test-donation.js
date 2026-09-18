@@ -5,6 +5,11 @@
  *   $env:DB_FILE="reports/_donation-test.db"; node scripts/test-donation.js
  */
 const path = require('path');
+
+// 先加载 .env：lib/donation-upload.js 在模块加载时读取七牛凭证，
+// 不加载的话 ready() 恒为 false，就无法验证「真实上传」路径。
+require('dotenv').config({ path: path.join(__dirname, '..', '.env'), quiet: true });
+
 const db = require(path.join(__dirname, '..', 'database'));
 const donation = require(path.join(__dirname, '..', 'lib', 'donation'));
 
@@ -122,6 +127,37 @@ const balOf = async (uid) => (await db.get('SELECT COALESCE(contribution,0) AS c
     assert((await donation.createEntry({ direction: 'in', amount: 10, ratio: 1 }, 1)).error, '入账未选成员被拒绝');
     assert((await donation.createEntry({ direction: 'in', userId: 999999, amount: 10, ratio: 1 }, 1)).error, '不存在的成员被拒绝');
     assert((await donation.updateEntry(999999, { amount: 1 }, 1)).error, '编辑不存在的账目被拒绝');
+
+    console.log('\n=== 12) 材料/收款码上传代码路径（回归：formUploader TDZ）===');
+    const dUpload = require(path.join(__dirname, '..', 'lib', 'donation-upload'));
+    // 1x1 PNG
+    const PNG = Buffer.from(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+        'base64'
+    );
+    assert(dUpload.classify('image/png', 'a.png') === 'image', 'classify: PNG → image');
+    assert(dUpload.classify('application/pdf', 'a.pdf') === 'pdf', 'classify: PDF → pdf');
+    assert(dUpload.classify('text/plain', 'a.txt') === null, 'classify: 不支持的 txt → null');
+
+    // 关键：调上传必须走到「配置缺失」或「真的上传成功」，绝不能是 ReferenceError（变量遮蔽/TDZ）
+    const callUpload = async (fn, label) => {
+        try {
+            const r = await fn();
+            console.log(`    ${label} 实际上传成功: ${r && (r.url || r)}`);
+            assert(!!(r && (r.url || r)), `${label}: 返回了 URL`);
+        } catch (e) {
+            assert(!(e instanceof ReferenceError), `${label}: 不抛 ReferenceError（实际: ${e.message}）`);
+            assert(/对象存储未配置|七牛/.test(e.message), `${label}: 失败属预期（配置/网络），实际: ${e.message}`);
+        }
+    };
+    await callUpload(
+        () => dUpload.uploadMaterial({ buffer: PNG, mimetype: 'image/png', originalname: 't.png', size: PNG.length }),
+        'uploadMaterial'
+    );
+    await callUpload(
+        () => dUpload.uploadQr({ buffer: PNG, mimetype: 'image/png', originalname: 'qr.png', size: PNG.length }),
+        'uploadQr'
+    );
 
     console.log(failed ? `\n=== 存在 ${failed} 个失败用例 ===` : '\n=== 全部通过 ===');
     db.close();

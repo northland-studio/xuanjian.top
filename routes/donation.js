@@ -192,11 +192,12 @@ router.delete('/admin/entry/:id', authMiddleware, adminMiddleware, async (req, r
 
 router.get('/export/xlsx', authMiddleware, adminMiddleware, async (req, res) => {
     try {
-        const { start, end } = req.query;
+        const { start, end, direction } = req.query;
         const params = [];
         const where = [];
         if (start) { where.push('d.occurred_on >= ?'); params.push(String(start).slice(0, 10)); }
         if (end) { where.push('d.occurred_on <= ?'); params.push(String(end).slice(0, 10)); }
+        if (direction === 'in' || direction === 'out') { where.push('d.direction = ?'); params.push(direction); }
         const w = where.length ? 'WHERE ' + where.join(' AND ') : '';
 
         const rows = await db.all(

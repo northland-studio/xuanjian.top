@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { api } from '../api';
+import { api, getToken } from '../api';
 import { useToast } from '../components/UI';
 import { useAuth } from '../context/AuthContext';
 import SkinViewer from '../components/SkinViewer';
@@ -69,17 +69,54 @@ export default function Donation() {
   const changeDirection = (d) => { setDirection(d); setLedgerPage(1); loadLedger(1, d); };
 
   // ---------- 导出 ----------
-  const exportExcel = () => {
-    window.open('/api/donation/export/xlsx', '_blank');
+  // 导出接口需要 Bearer 鉴权。window.open 不会带 Authorization 头，
+  // 必须自己 fetch 拿 blob 再触发下载，否则会报「未提供认证令牌」。
+  const downloadAuthed = async (url, fallbackName) => {
+    const token = getToken();
+    const res = await fetch(url, { headers: token ? { Authorization: 'Bearer ' + token } : {} });
+    if (!res.ok) {
+      let msg = `导出失败（HTTP ${res.status}）`;
+      try { const j = await res.json(); if (j.error) msg = j.error; } catch { /* 非 JSON 忽略 */ }
+      throw new Error(msg);
+    }
+    let name = fallbackName;
+    const cd = res.headers.get('Content-Disposition') || '';
+    const m = cd.match(/filename\*=UTF-8''([^;]+)/i) || cd.match(/filename="?([^";]+)"?/i);
+    if (m) { try { name = decodeURIComponent(m[1]); } catch { name = m[1]; } }
+
+    const blob = await res.blob();
+    const objUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = objUrl;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(objUrl), 3000);
+  };
+
+  const exportExcel = async () => {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      const qs = direction ? `?direction=${direction}` : '';
+      await downloadAuthed(`/api/donation/export/xlsx${qs}`, `捐赠墙公账-${new Date().toISOString().slice(0, 10)}.xlsx`);
+      showToast('Excel 已导出', 'success');
+    } catch (e) {
+      showToast(e.message || 'Excel 导出失败', 'error');
+    } finally {
+      setExporting(false);
+    }
   };
 
   const exportPdf = async () => {
     if (exporting) return;
     setExporting(true);
     try {
-      const [{ jsPDF }, autoTableMod] = await Promise.all([
+      const [{ jsPDF }, autoTableMod, { registerCjkFont, CJK_FONT_NAME }] = await Promise.all([
         import('jspdf'),
         import('jspdf-autotable'),
+        import('../lib/pdf-font'),
       ]);
       const autoTable = autoTableMod.default || autoTableMod.autoTable || autoTableMod;
 
@@ -96,6 +133,9 @@ export default function Donation() {
       const donorsAll = await api.get('/api/donation/donors?page=1&limit=60');
 
       const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+      // 关键：jsPDF 内置字体不含中文字形，必须先注册等线字体，否则 PDF 全篇乱码
+      await registerCjkFont(doc);
+
       const W = doc.internal.pageSize.getWidth();
 
       doc.setFontSize(16);
@@ -118,11 +158,12 @@ export default function Donation() {
           (r.purpose ? r.purpose + ' ' : '') + (r.note || ''),
           (r.materials?.length || 0) + (r.hiddenMaterialCount ? `(+${r.hiddenMaterialCount}私)` : ''),
         ]),
-        styles: { fontSize: 8, cellPadding: 3 },
-        headStyles: { fillColor: [0, 74, 173] },
+        styles: { font: CJK_FONT_NAME, fontSize: 8, cellPadding: 3 },
+        headStyles: { fillColor: [0, 74, 173], font: CJK_FONT_NAME, fontStyle: 'normal' },
         theme: 'grid',
         margin: { left: 40, right: 40 },
         didDrawPage: (data) => {
+          doc.setFont(CJK_FONT_NAME, 'normal');
           doc.setFontSize(8);
           doc.text(`第 ${data.pageNumber} 页`, W - 70, doc.internal.pageSize.getHeight() - 20);
         },
@@ -130,14 +171,15 @@ export default function Donation() {
 
       // 捐赠者汇总另起一页
       doc.addPage();
+      await registerCjkFont(doc);
       doc.setFontSize(14);
       doc.text('捐赠者汇总（按累计捐赠额排序）', 40, 40);
       autoTable(doc, {
         startY: 58,
         head: [['#', '捐赠人', '累计捐赠(元)', '累计发放贡献点', '捐赠次数', '最近捐赠']],
         body: (donorsAll.list || []).map((d, i) => [i + 1, d.nickname, d.totalAmount, d.totalPoints, d.times, d.lastOn || '']),
-        styles: { fontSize: 9, cellPadding: 4 },
-        headStyles: { fillColor: [0, 74, 173] },
+        styles: { font: CJK_FONT_NAME, fontSize: 9, cellPadding: 4 },
+        headStyles: { fillColor: [0, 74, 173], font: CJK_FONT_NAME, fontStyle: 'normal' },
         theme: 'grid',
         margin: { left: 40, right: 40 },
       });
