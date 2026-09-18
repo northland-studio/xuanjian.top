@@ -2047,15 +2047,47 @@ html[data-native="true"] body {
   }
 }
 
-/* ==================== 统一原生表单控件外观 ==================== */
-/* 浏览器原生 select / date / number 等与站内 .input 风格统一 */
+/* ==================== 统一表单控件外观 ==================== */
+
+/*
+ * .input —— 管理后台工具栏输入框的类名。
+ * 注意：这个类此前**从未在样式表里定义过**，导致管理页 20 处 <input className="input">
+ * 一直是浏览器原生裸样式（高度约 21px），与旁边已被统一样式的 <select>/<input type="date">
+ * （约 38px）高低不齐。这里补齐定义，与站内配色/圆角/focus 环保持一致，尺寸按工具栏场景取紧凑值。
+ */
+.input {
+  font-family: inherit;
+  color: var(--text);
+  background-color: var(--input-bg, var(--bg));
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 14px;
+  line-height: 1.4;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(0, 74, 173, 0.12);
+}
+
+.input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/*
+ * 原生控件兜底：没有写 class 的 input / select / textarea 也跟随站内风格。
+ * 用 :not() 排除：
+ *  - 非文本类控件（checkbox/radio/file/color/range/按钮）
+ *  - 已有专门样式的 .form-input / .form-select / .form-textarea / .input
+ *    （否则这里的属性选择器优先级会盖掉 .form-* 的 12px 内边距）
+ */
 select,
-input[type="date"],
-input[type="datetime-local"],
-input[type="month"],
-input[type="time"],
-input[type="number"],
-textarea {
+textarea,
+input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="color"]):not([type="range"]):not([type="submit"]):not([type="button"]):not([type="reset"]):not([type="image"]):not([type="hidden"]):not(.input):not(.input-inline):not(.form-input):not(.form-select):not(.form-textarea) {
   font-family: inherit;
   color: var(--text);
   background-color: var(--input-bg, var(--bg));
@@ -2071,24 +2103,43 @@ textarea {
 }
 
 select:focus,
-input[type="date"]:focus,
-input[type="datetime-local"]:focus,
-input[type="month"]:focus,
-input[type="time"]:focus,
-input[type="number"]:focus,
-textarea:focus {
+textarea:focus,
+input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="color"]):not([type="range"]):not([type="submit"]):not([type="button"]):not([type="reset"]):not([type="image"]):not([type="hidden"]):not(.input):not(.input-inline):not(.form-input):not(.form-select):not(.form-textarea):focus {
   border-color: var(--primary);
   box-shadow: 0 0 0 3px rgba(0, 74, 173, 0.12);
 }
 
 select:disabled,
-input:disabled,
-textarea:disabled {
+textarea:disabled,
+input:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
 
-/* 自定义下拉箭头（appearance:none 会去掉原生箭头） */
+/* 非文本类控件保持浏览器原样，不要被上面的规则影响 */
+input[type="checkbox"],
+input[type="radio"],
+input[type="range"],
+input[type="color"],
+input[type="file"] {
+  -webkit-appearance: auto;
+  appearance: auto;
+  background: none;
+  border: none;
+  padding: 0;
+  width: auto;
+  box-shadow: none;
+}
+
+input[type="checkbox"],
+input[type="radio"] {
+  cursor: pointer;
+  accent-color: var(--primary);
+  vertical-align: middle;
+  margin-right: 2px;
+}
+
+/* 自定义下拉箭头（appearance:none 会去掉原生箭头），.form-select 一并覆盖 */
 select {
   background-image: url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
@@ -2097,6 +2148,7 @@ select {
   cursor: pointer;
 }
 
+/* 日期类控件的日历图标可点区域 */
 input[type="date"]::-webkit-calendar-picker-indicator,
 input[type="datetime-local"]::-webkit-calendar-picker-indicator,
 input[type="month"]::-webkit-calendar-picker-indicator,
@@ -2127,4 +2179,44 @@ input[type="number"] {
 [data-theme="dark"] select option {
   background: var(--card);
   color: var(--text);
+}
+
+/*
+ * 后台工具栏：把同一行里的 .input / select / input[type=date] / .btn 高度对齐。
+ * 这些控件的 box-sizing 已全局设为 border-box，这里只需统一 min-height。
+ */
+.admin-content .input,
+.admin-content select,
+.admin-content input[type="date"],
+.admin-content input[type="number"],
+.admin-content input:not(.input-inline):not(.form-input) {
+  min-height: 38px;
+}
+
+/*
+ * .input-inline —— 嵌在文字行里的小输入框（如「服务器IP：____」）。
+ * 之前用 form-input + 内联 padding:3px 8px / fontSize:12 硬压成 26px，与站内尺寸脱节；
+ * 这里给出统一的行内尺寸（约 32px 高，可与 12-13px 文字同行对齐）。
+ */
+.input-inline {
+  display: inline-block;
+  width: auto;
+  min-width: 140px;
+  padding: 6px 10px;
+  font-size: 13px;
+  line-height: 1.4;
+  vertical-align: middle;
+  margin-left: 6px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--input-bg, var(--bg));
+  color: var(--text);
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.input-inline:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(0, 74, 173, 0.12);
 }

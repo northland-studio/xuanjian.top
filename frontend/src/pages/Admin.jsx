@@ -1832,8 +1832,8 @@ function ModServerManager({ showToast }) {
               <div className="text-secondary" style={{ fontSize: 12, marginTop: 4 }}>
                 服务器IP：
                 <input
-                  className="form-input"
-                  style={{ display: 'inline-flex', width: 180, padding: '3px 8px', fontSize: 12, marginLeft: 4 }}
+                  className="input-inline"
+                  style={{ width: 180 }}
                   value={s.server_ip}
                   onChange={e => updateServer(s.id, 'server_ip', e.target.value)}
                   onBlur={e => updateServer(s.id, 'server_ip', e.target.value)}
