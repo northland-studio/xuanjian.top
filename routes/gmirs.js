@@ -27,10 +27,12 @@ const TYPE_LABELS = {
     discipline: '处分扣点',
     post: '发帖奖励',
     exchange: '外站兑换',
-    payment: '缴费单'
+    payment: '缴费单',
+    donation: '捐赠奖励',
+    bubble: '聊天气泡'
 };
 // 展示顺序（未列出的类型排最后）
-const GROUP_ORDER = ['task', 'player_task', 'claim', 'transfer_in', 'transfer_out', 'purchase', 'exchange', 'payment', 'title', 'reward', 'discipline', 'post', 'admin'];
+const GROUP_ORDER = ['task', 'player_task', 'claim', 'transfer_in', 'transfer_out', 'purchase', 'exchange', 'payment', 'donation', 'title', 'bubble', 'reward', 'discipline', 'post', 'admin'];
 
 const DISCIPLINE_LEVEL_TEXT = { 1: '全会通报批评', 2: '全会通报批评+扣除贡献点', 3: '开除会籍（冻结账号）' };
 

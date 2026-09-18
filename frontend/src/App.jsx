@@ -24,6 +24,7 @@ import Tasks from './pages/Tasks';
 import Following from './pages/Following';
 import Trade from './pages/Trade';
 import Economics from './pages/Economics';
+import Donation from './pages/Donation';
 import Mods from './pages/Mods';
 import Projections from './pages/Projections';
 import Freeze from './pages/Freeze';
@@ -64,6 +65,7 @@ function MainSite() {
         <Route path="/following" element={<Following />} />
         <Route path="/trade" element={<Trade />} />
         <Route path="/economics" element={<Economics />} />
+        <Route path="/donation" element={<Donation />} />
         <Route path="/mods" element={<Mods />} />
         <Route path="/chat" element={<ChatPage />} />
         <Route path="/chat/:userId" element={<ChatPage />} />

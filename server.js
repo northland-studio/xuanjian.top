@@ -40,6 +40,7 @@ const qqbotRoutes = require('./routes/qqbot');
 const paygateRoutes = require('./routes/paygate');
 const chatRoutes = require('./routes/chat');
 const payConfirmRoutes = require('./routes/pay-confirm');
+const donationRoutes = require('./routes/donation');
 const db = require('./database');
 
 const app = express();
@@ -166,6 +167,7 @@ app.use('/api/qqbot', qqbotRoutes);
 app.use('/api/paygate', paygateRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/pay-confirm', payConfirmRoutes);
+app.use('/api/donation', donationRoutes);
 
 // ============ React前端（frontend/dist）托管 ============
 const frontendDist = path.join(__dirname, 'frontend', 'dist');

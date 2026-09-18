@@ -34,6 +34,8 @@ export default function Economics() {
   const [loading, setLoading] = useState(true);
   const [startDate, setStartDate] = useState(getMondayStr);
   const [endDate, setEndDate] = useState(() => toDateStr(new Date()));
+  // 流入口径是否包含「捐赠发放的贡献点」（默认包含，可切换）
+  const [includeDonation, setIncludeDonation] = useState(true);
 
   useEffect(() => {
     api.get('/api/economics/overview')
@@ -54,7 +56,12 @@ export default function Economics() {
   if (!data) return <div className="empty-state"><p>经济数据加载失败</p></div>;
 
   const { metrics, totals, dailyFlows, overLimit, eco, priceItems, topHolders } = data;
-  const maxFlow = Math.max(1, ...dailyFlows.map(d => Math.max(d.inflow, d.outflow)));
+  // 捐赠发放的贡献点属于「外部注资」，可一键从流入口径中剔除
+  const donationGain = totals.totalDonation || 0;
+  const gainExDonation = totals.totalGainExDonation != null ? totals.totalGainExDonation : (totals.totalGain - donationGain);
+  const gainShown = includeDonation ? totals.totalGain : gainExDonation;
+  const flowOf = (d) => (includeDonation ? d.inflow : Math.max(0, d.inflow - (d.donation || 0)));
+  const maxFlow = Math.max(1, ...dailyFlows.map(d => Math.max(flowOf(d), d.outflow)));
 
   return (
     <div className="fade-in-up">
@@ -102,13 +109,20 @@ export default function Economics() {
 
       {/* 总量统计 */}
       <div className="card" style={{ padding: 20, marginBottom: 20 }}>
-        <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 14 }}>总量概览</h3>
+        <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+          <span>总量概览</span>
+          <label className="text-secondary" style={{ fontSize: 12, fontWeight: 400, display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+            <input type="checkbox" checked={includeDonation} onChange={e => setIncludeDonation(e.target.checked)} />
+            流入量包含捐赠奖励{donationGain > 0 ? `（${fmtPoints(donationGain)}）` : ''}
+          </label>
+        </h3>
         <div className="grid grid-4" style={{ gap: 10 }}>
           {[
             { label: '成员总数', value: totals.totalUsers },
             { label: '持有贡献点成员', value: totals.holders },
             { label: '当前流通总量', value: fmtPoints(totals.totalSupply) },
-            { label: '累计获得', value: fmtPoints(totals.totalGain) },
+            { label: includeDonation ? '累计获得（含捐赠）' : '累计获得（不含捐赠）', value: fmtPoints(gainShown) },
+            { label: '其中捐赠发放', value: fmtPoints(donationGain) },
             { label: '累计消费（商城）', value: fmtPoints(totals.totalPurchase) },
             { label: '累计总流出', value: fmtPoints(totals.totalOutflow) },
             { label: '期初存量（推算）', value: fmtPoints(totals.startSupply) },
@@ -124,7 +138,12 @@ export default function Economics() {
 
       {/* 近7天流动 */}
       <div className="card" style={{ padding: 20, marginBottom: 20 }}>
-        <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 14 }}>近7天贡献点流动</h3>
+        <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 14 }}>
+          近7天贡献点流动
+          <span className="text-secondary" style={{ fontSize: 12, fontWeight: 400, marginLeft: 8 }}>
+            （口径：{includeDonation ? '含捐赠' : '不含捐赠'}）
+          </span>
+        </h3>
         {dailyFlows.length === 0 ? (
           <div className="empty-state"><p>暂无流动记录</p></div>
         ) : (
@@ -132,7 +151,7 @@ export default function Economics() {
             {dailyFlows.map(d => (
               <div key={d.d} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%', justifyContent: 'flex-end' }}>
                 <div style={{ display: 'flex', gap: 3, alignItems: 'flex-end', height: '100%', width: '100%', justifyContent: 'center' }}>
-                  <div style={{ width: '30%', height: `${Math.max(2, (d.inflow / maxFlow) * 100)}%`, background: 'var(--primary)', borderRadius: '4px 4px 0 0', minHeight: 2 }} title={`流入 ${d.inflow}`} />
+                  <div style={{ width: '30%', height: `${Math.max(2, (flowOf(d) / maxFlow) * 100)}%`, background: 'var(--primary)', borderRadius: '4px 4px 0 0', minHeight: 2 }} title={`流入 ${flowOf(d)}${includeDonation && d.donation ? `（含捐赠 ${d.donation}）` : ''}`} />
                   <div style={{ width: '30%', height: `${Math.max(2, (d.outflow / maxFlow) * 100)}%`, background: 'var(--danger)', opacity: 0.75, borderRadius: '4px 4px 0 0', minHeight: 2 }} title={`流出 ${d.outflow}`} />
                 </div>
                 <div className="text-secondary" style={{ fontSize: 11, marginTop: 6, whiteSpace: 'nowrap' }}>{d.d.slice(5)}</div>
@@ -236,7 +255,10 @@ export default function Economics() {
       </div>
 
       <p className="text-secondary" style={{ fontSize: 12, lineHeight: 1.8 }}>
-        口径说明：参与率按近30天活跃成员计算；消费率按贡献点流水（商城 purchase）计算，称号/补签卡/股市交易暂未计入流水；期初存量无历史快照，由「期末存量 − 期间净流入」反推，仅供参考。
+        口径说明：参与率按近30天活跃成员计算；消费率按贡献点流水（商城 purchase）计算，称号/补签卡/股市交易暂未计入流水；
+        期初存量无历史快照，由「期末存量 − 期间净流入」反推，仅供参考。
+        <b>捐赠奖励</b>（捐赠墙按比例发放的贡献点）默认为<b>计入</b>流入口径，可用上方开关单独剔除——
+        它属于外部注资而非公会内部产出，两种口径均可查看。消费率/流通速度/总量增速的计算仍按完整流入口径。
       </p>
     </div>
   );

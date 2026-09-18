@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, uploadImage, uploadProjection, getToken } from '../api';
 import { useAuth } from '../context/AuthContext';
@@ -18,12 +18,27 @@ const TABS = [
   { key: 'discipline', label: '处分管理' },
   { key: 'generations', label: '代系管理' },
   { key: 'verify', label: '核销商品' },
+  { key: 'donation', label: '捐赠墙/公账' },
   { key: 'paygate', label: '支付对接/兑换' },
   { key: 'paylink', label: '缴费单/链接' },
   { key: 'bubbles', label: '聊天气泡' },
   { key: 'stickers', label: '公共表情包' },
   { key: 'mod', label: '模组管理' }
 ];
+
+/** 侧边栏分组：把 18 个页面按职能归类，避免一排按钮挤成一团 */
+const TAB_GROUPS = [
+  { group: '概览', keys: ['dashboard'] },
+  { group: '成员', keys: ['users', 'discipline', 'generations'] },
+  { group: '内容', keys: ['posts', 'announcements', 'banners'] },
+  { group: '经济', keys: ['shop', 'logs', 'claims', 'tasks', 'verify', 'donation'] },
+  { group: '接入', keys: ['paygate', 'paylink', 'mod'] },
+  { group: '聊天', keys: ['bubbles', 'stickers'] }
+];
+
+const TAB_LABELS = Object.fromEntries(TABS.map(t => [t.key, t.label]));
+const ALL_TAB_KEYS = TABS.map(t => t.key);
+const LAST_TAB_KEY = 'admin_last_tab';
 
 const LEVEL_NAMES = { 0: '成员', 1: '管理员', 2: '超级管理员' };
 
@@ -32,9 +47,39 @@ export default function Admin() {
   const { user } = useAuth();
   const { showToast } = useToast();
   const [tab, setTab] = useState(() => {
-    const h = window.location.hash;
-    return h.includes('mod-servers') || h.includes('mod') ? 'mod' : 'banners';
+    // 优先级：URL hash > 上次访问 > 默认
+    const h = window.location.hash.replace(/^#/, '');
+    if (h) {
+      if (h.includes('mod-servers') || h === 'mod') return 'mod';
+      if (ALL_TAB_KEYS.includes(h)) return h;
+    }
+    try {
+      const last = localStorage.getItem(LAST_TAB_KEY);
+      if (last && ALL_TAB_KEYS.includes(last)) return last;
+    } catch { /* 私密模式忽略 */ }
+    return 'dashboard';
   });
+  const [filter, setFilter] = useState('');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // 切换页面：同步 URL hash（支持 /admin#donation 深链与浏览器前进后退）+ 记住上次
+  const selectTab = useCallback((key) => {
+    setTab(key);
+    setSidebarOpen(false);
+    try { localStorage.setItem(LAST_TAB_KEY, key); } catch { /* 忽略 */ }
+    if (window.location.hash !== `#${key}`) {
+      window.history.replaceState(null, '', `#${key}`);
+    }
+  }, []);
+
+  useEffect(() => {
+    const onHash = () => {
+      const h = window.location.hash.replace(/^#/, '');
+      if (h && ALL_TAB_KEYS.includes(h)) setTab(h);
+    };
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
 
   useEffect(() => {
     if (!user) { navigate('/login?redirect=/admin'); return; }
@@ -42,11 +87,21 @@ export default function Admin() {
       showToast('没有管理权限', 'error');
       navigate('/');
     }
-  }, [user, navigate]);
+  }, [user, navigate, showToast]);
 
   if (!user || user.level < 1) {
     return <div className="loading"><div className="spinner" /></div>;
   }
+
+  // 关键词过滤：命中标签或分组名即保留
+  const kw = filter.trim().toLowerCase();
+  const groups = TAB_GROUPS
+    .map(g => ({
+      ...g,
+      items: g.keys.filter(k => !kw || TAB_LABELS[k].toLowerCase().includes(kw) || g.group.toLowerCase().includes(kw)),
+    }))
+    .filter(g => g.items.length > 0);
+  const noMatch = kw && groups.length === 0;
 
   return (
     <div className="fade-in-up">
@@ -57,29 +112,62 @@ export default function Admin() {
         </div>
       </div>
 
-      <div className="flex" style={{ gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
-        {TABS.map(t => (
-          <button key={t.key} className={`btn ${tab === t.key ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setTab(t.key)}>{t.label}</button>
-        ))}
-      </div>
+      <div className="admin-layout">
+        {/* 侧边栏 */}
+        <aside className={`admin-side ${sidebarOpen ? 'open' : ''}`}>
+          <div className="admin-side-search">
+            <input
+              className="input"
+              placeholder="搜索功能，如「气泡」"
+              value={filter}
+              onChange={e => setFilter(e.target.value)}
+            />
+          </div>
+          <nav className="admin-side-nav">
+            {noMatch && <p className="admin-side-empty">没有匹配的功能</p>}
+            {groups.map(g => (
+              <div key={g.group} className="admin-side-group">
+                <div className="admin-side-group-title">{g.group}</div>
+                {g.items.map(k => (
+                  <button
+                    key={k}
+                    className={`admin-side-item ${tab === k ? 'active' : ''}`}
+                    onClick={() => selectTab(k)}
+                  >
+                    {TAB_LABELS[k]}
+                  </button>
+                ))}
+              </div>
+            ))}
+          </nav>
+        </aside>
 
-      {tab === 'dashboard' && <Dashboard showToast={showToast} />}
-      {tab === 'banners' && <BannerManager showToast={showToast} />}
-      {tab === 'users' && <UserManager showToast={showToast} isSuper={user.level >= 2} />}
-      {tab === 'posts' && <PostManager showToast={showToast} />}
-      {tab === 'announcements' && <AnnouncementManager showToast={showToast} />}
-      {tab === 'shop' && <ShopManager showToast={showToast} />}
-      {tab === 'claims' && <ClaimReview showToast={showToast} />}
-      {tab === 'tasks' && <TaskManager showToast={showToast} />}
-      {tab === 'logs' && <ContributionLogs showToast={showToast} />}
-      {tab === 'discipline' && <DisciplineManager showToast={showToast} />}
-      {tab === 'generations' && <GenerationManager showToast={showToast} />}
-      {tab === 'verify' && <VerifyManager showToast={showToast} />}
-      {tab === 'paygate' && <PaygateManager showToast={showToast} />}
-      {tab === 'paylink' && <PayLinkManager showToast={showToast} />}
-      {tab === 'bubbles' && <BubbleManager showToast={showToast} />}
-      {tab === 'stickers' && <StickerManager showToast={showToast} />}
-      {tab === 'mod' && <ModServerManager showToast={showToast} />}
+        {/* 内容区 */}
+        <div className="admin-content">
+          <button className="admin-side-toggle btn btn-secondary btn-sm" onClick={() => setSidebarOpen(o => !o)}>
+            {sidebarOpen ? '收起菜单' : '功能菜单'}
+          </button>
+
+          {tab === 'dashboard' && <Dashboard showToast={showToast} />}
+          {tab === 'banners' && <BannerManager showToast={showToast} />}
+          {tab === 'users' && <UserManager showToast={showToast} isSuper={user.level >= 2} />}
+          {tab === 'posts' && <PostManager showToast={showToast} />}
+          {tab === 'announcements' && <AnnouncementManager showToast={showToast} />}
+          {tab === 'shop' && <ShopManager showToast={showToast} />}
+          {tab === 'claims' && <ClaimReview showToast={showToast} />}
+          {tab === 'tasks' && <TaskManager showToast={showToast} />}
+          {tab === 'logs' && <ContributionLogs showToast={showToast} />}
+          {tab === 'discipline' && <DisciplineManager showToast={showToast} />}
+          {tab === 'generations' && <GenerationManager showToast={showToast} />}
+          {tab === 'verify' && <VerifyManager showToast={showToast} />}
+          {tab === 'donation' && <DonationManager showToast={showToast} />}
+          {tab === 'paygate' && <PaygateManager showToast={showToast} />}
+          {tab === 'paylink' && <PayLinkManager showToast={showToast} />}
+          {tab === 'bubbles' && <BubbleManager showToast={showToast} />}
+          {tab === 'stickers' && <StickerManager showToast={showToast} />}
+          {tab === 'mod' && <ModServerManager showToast={showToast} />}
+        </div>
+      </div>
     </div>
   );
 }
@@ -948,7 +1036,7 @@ function Dashboard({ showToast }) {
   const maxFlow = Math.max(...data.contributionFlow.map(d => Math.abs(d.amount)), 1);
   const maxUsers = Math.max(...data.userGrowth.map(d => d.count), 1);
   const maxViews = Math.max(...data.viewsTrend.map(d => d.pv), 1);
-  const TYPE_NAMES = { claim: '申报', task: '任务', transfer_in: '转入', transfer_out: '转出', purchase: '消费', reward: '签到', admin: '管理调整', exchange: '外站兑换', payment: '缴费单' };
+  const TYPE_NAMES = { claim: '申报', task: '任务', transfer_in: '转入', transfer_out: '转出', purchase: '消费', reward: '签到', admin: '管理调整', exchange: '外站兑换', payment: '缴费单', donation: '捐赠奖励', bubble: '聊天气泡' };
 
   // 补全近7天浏览量（无访问的天补 0）
   const viewsByDate = {};
@@ -1054,7 +1142,7 @@ function Dashboard({ showToast }) {
 }
 
 /* ============ 贡献点日志 ============ */
-const LOG_TYPE_NAMES = { claim: '申报', task: '任务', transfer_in: '转入', transfer_out: '转出', purchase: '商城消费', reward: '签到奖励', admin: '管理调整', exchange: '外站兑换', payment: '缴费单' };
+const LOG_TYPE_NAMES = { claim: '申报', task: '任务', transfer_in: '转入', transfer_out: '转出', purchase: '商城消费', reward: '签到奖励', admin: '管理调整', exchange: '外站兑换', payment: '缴费单', donation: '捐赠奖励', bubble: '聊天气泡' };
 
 function ContributionLogs({ showToast }) {
   const [logs, setLogs] = useState([]);
@@ -2365,6 +2453,451 @@ function StickerManager({ showToast }) {
                 <button className="btn btn-secondary" style={{ padding: '2px 8px', fontSize: 12 }} onClick={() => del(s.id)}>删除</button>
               </div>
             ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ============ 捐赠墙 / 公账管理 ============ */
+const EMPTY_DONATION_FORM = {
+  direction: 'in',
+  userId: null,
+  userLabel: '',
+  amount: '',
+  ratio: '',
+  purpose: '',
+  note: '',
+  occurredOn: new Date().toISOString().slice(0, 10),
+  isPublic: true,
+  materials: [],
+};
+
+function DonationManager({ showToast }) {
+  const [summary, setSummary] = useState(null);
+  const [qrUrl, setQrUrl] = useState('');
+  const [list, setList] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [direction, setDirection] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+
+  const [form, setForm] = useState({ ...EMPTY_DONATION_FORM });
+  const [editingId, setEditingId] = useState(null);
+
+  const [searchQ, setSearchQ] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [searching, setSearching] = useState(false);
+
+  const qrRef = useRef(null);
+  const matRef = useRef(null);
+
+  const PAGE_SIZE = 20;
+  const isIn = form.direction === 'in';
+  const previewPoints = isIn
+    ? Math.round((Number(form.amount) || 0) * (Number(form.ratio) || 0) * 100) / 100
+    : 0;
+
+  const loadSummary = () => {
+    api.get('/api/donation/summary')
+      .then(d => { setSummary(d.summary); setQrUrl(d.qrUrl || ''); })
+      .catch(e => showToast(e.message, 'error'));
+  };
+
+  const loadList = (p = page, dir = direction) => {
+    setLoading(true);
+    const q = [`page=${p}`, `limit=${PAGE_SIZE}`];
+    if (dir) q.push(`direction=${dir}`);
+    api.get(`/api/donation/ledger?${q.join('&')}`)
+      .then(d => { setList(d.list || []); setTotal(d.total || 0); })
+      .catch(e => showToast(e.message, 'error'))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => { loadSummary(); loadList(1, ''); }, []);
+
+  const resetForm = () => {
+    setForm({ ...EMPTY_DONATION_FORM });
+    setEditingId(null);
+    setSearchQ('');
+    setSearchResults([]);
+  };
+
+  // ---- 成员搜索 ----
+  const doSearch = async () => {
+    const q = searchQ.trim();
+    if (!q) return;
+    setSearching(true);
+    try {
+      const d = await api.get(`/api/donation/admin/search-users?q=${encodeURIComponent(q)}`);
+      setSearchResults(d.users || []);
+      if (!d.users?.length) showToast('没有匹配的成员', 'error');
+    } catch (e) {
+      showToast(e.message || '搜索失败', 'error');
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  // ---- 材料上传 ----
+  const onPickMaterials = async (e) => {
+    const files = Array.from(e.target.files || []);
+    e.target.value = '';
+    if (!files.length) return;
+    for (const f of files) {
+      const isPdf = f.type === 'application/pdf' || /\.pdf$/i.test(f.name);
+      if (!isPdf && !f.type.startsWith('image/')) {
+        showToast(`不支持的文件类型：${f.name}`, 'error');
+        return;
+      }
+      if (!isPdf && f.size > 5 * 1024 * 1024) { showToast(`图片不能超过 5MB：${f.name}`, 'error'); return; }
+      if (isPdf && f.size > 20 * 1024 * 1024) { showToast(`PDF 不能超过 20MB：${f.name}`, 'error'); return; }
+    }
+    setBusy(true);
+    try {
+      const fd = new FormData();
+      files.forEach(f => fd.append('files', f));
+      const token = getToken();
+      const res = await fetch('/api/donation/admin/materials', {
+        method: 'POST',
+        headers: token ? { Authorization: 'Bearer ' + token } : {},
+        body: fd,
+      });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error || '上传失败');
+      setForm(prev => ({ ...prev, materials: [...prev.materials, ...(j.materials || [])] }));
+      showToast(`已上传 ${j.materials?.length || 0} 份材料`, 'success');
+    } catch (e2) {
+      showToast(e2.message || '上传失败', 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const removeMaterial = (idx) => {
+    setForm(prev => ({ ...prev, materials: prev.materials.filter((_, i) => i !== idx) }));
+  };
+
+  // ---- 收款码 ----
+  const onPickQr = async (e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    if (!file.type.startsWith('image/')) return showToast('收款码必须是图片', 'error');
+    setBusy(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const token = getToken();
+      const res = await fetch('/api/donation/admin/qr', {
+        method: 'POST',
+        headers: token ? { Authorization: 'Bearer ' + token } : {},
+        body: fd,
+      });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error || '上传失败');
+      setQrUrl(j.qrUrl);
+      showToast('收款码已更新', 'success');
+    } catch (e2) {
+      showToast(e2.message || '上传失败', 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // ---- 提交账目 ----
+  const submit = async () => {
+    if (!(Number(form.amount) > 0)) return showToast('金额必须大于 0', 'error');
+    if (isIn && !form.userId) return showToast('请先搜索并选择捐赠成员', 'error');
+    if (!isIn && !form.purpose.trim()) return showToast('请填写支出用处', 'error');
+    setBusy(true);
+    try {
+      const payload = {
+        direction: form.direction,
+        userId: form.userId,
+        amount: Number(form.amount),
+        ratio: Number(form.ratio) || 0,
+        purpose: form.purpose.trim(),
+        note: form.note.trim(),
+        occurredOn: form.occurredOn,
+        isPublic: form.isPublic,
+        materialsJson: JSON.stringify(form.materials),
+      };
+      if (editingId) {
+        await api.put(`/api/donation/admin/entry/${editingId}`, payload);
+        showToast('账目已更新', 'success');
+      } else {
+        await api.post('/api/donation/admin/entry', payload);
+        showToast('账目已新增', 'success');
+      }
+      resetForm();
+      loadSummary();
+      loadList(page, direction);
+    } catch (e) {
+      showToast(e.message || '保存失败', 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const startEdit = (row) => {
+    setEditingId(row.id);
+    setForm({
+      direction: row.direction,
+      userId: row.donor?.id || null,
+      userLabel: row.donor ? (row.donor.nickname || row.donor.username) : '',
+      amount: String(row.amount),
+      ratio: String(row.ratio || ''),
+      purpose: row.purpose || '',
+      note: row.note || '',
+      occurredOn: row.occurredOn,
+      isPublic: !row.anonymous,
+      materials: row.materials || [],
+    });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const remove = async (id) => {
+    if (!confirm('确认删除该账目？若为入账，已发放的贡献点会被自动扣回。')) return;
+    try {
+      await api.delete(`/api/donation/admin/entry/${id}`);
+      showToast('已删除（贡献点已回滚）', 'success');
+      if (editingId === id) resetForm();
+      loadSummary();
+      loadList(page, direction);
+    } catch (e) {
+      showToast(e.message || '删除失败', 'error');
+    }
+  };
+
+  const statusText = (row) => (row.direction === 'in'
+    ? (row.anonymous ? '匿名' : (row.donor?.nickname || '-'))
+    : (row.purpose || '-'));
+
+  return (
+    <div>
+      {/* 公账概览 + 收款码 */}
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div className="flex-between" style={{ flexWrap: 'wrap', gap: 12 }}>
+          <h3 style={{ margin: 0 }}>公账概览</h3>
+          <div className="flex" style={{ gap: 8, alignItems: 'center' }}>
+            <input ref={qrRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={onPickQr} />
+            <button className="btn btn-secondary" disabled={busy} onClick={() => qrRef.current && qrRef.current.click()}>
+              {qrUrl ? '替换收款码' : '上传收款码'}
+            </button>
+          </div>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(140px,1fr))', gap: 10, marginTop: 14 }}>
+          {[
+            { label: '累计收入(元)', value: summary?.income, color: 'var(--success)' },
+            { label: '累计支出(元)', value: summary?.expense, color: 'var(--danger)' },
+            { label: '公账余额(元)', value: summary?.balance, color: 'var(--primary)' },
+            { label: '入账笔数', value: summary?.inCount, color: 'var(--text)' },
+            { label: '支出笔数', value: summary?.outCount, color: 'var(--text)' },
+            { label: '累计发放贡献点', value: summary?.pointsTotal, color: 'var(--warning)' },
+          ].map(s => (
+            <div key={s.label} style={{ background: 'var(--input-bg)', borderRadius: 10, padding: '10px 12px' }}>
+              <div className="text-secondary" style={{ fontSize: 12 }}>{s.label}</div>
+              <div style={{ fontSize: 18, fontWeight: 700, marginTop: 2, color: s.color }}>{s.value ?? 0}</div>
+            </div>
+          ))}
+        </div>
+        {qrUrl && (
+          <div style={{ marginTop: 12 }}>
+            <img src={qrUrl} alt="收款码" style={{ width: 96, borderRadius: 8, border: '1px solid var(--border)' }} />
+          </div>
+        )}
+      </div>
+
+      {/* 新增 / 编辑账目 */}
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div className="flex-between" style={{ marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+          <h3 style={{ margin: 0 }}>{editingId ? `编辑账目 #${editingId}` : '新增账目'}</h3>
+          {editingId && <button className="btn btn-secondary btn-sm" onClick={resetForm}>取消编辑</button>}
+        </div>
+
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+          <div>
+            <div className="text-secondary" style={{ fontSize: 12, marginBottom: 4 }}>类型</div>
+            <select className="input" style={{ width: 120 }} value={form.direction}
+              disabled={!!editingId}
+              onChange={e => setForm({ ...form, direction: e.target.value })}>
+              <option value="in">入账（捐赠）</option>
+              <option value="out">支出</option>
+            </select>
+          </div>
+
+          {isIn ? (
+            <>
+              <div>
+                <div className="text-secondary" style={{ fontSize: 12, marginBottom: 4 }}>捐赠成员</div>
+                <div className="flex" style={{ gap: 6 }}>
+                  <input className="input" style={{ width: 170 }} value={searchQ} placeholder="用户名 / 昵称 / ID"
+                    onChange={e => setSearchQ(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') doSearch(); }} />
+                  <button className="btn btn-secondary" disabled={searching} onClick={doSearch}>{searching ? '搜索中' : '搜索'}</button>
+                </div>
+              </div>
+              <div>
+                <div className="text-secondary" style={{ fontSize: 12, marginBottom: 4 }}>已选成员</div>
+                <div className="input" style={{ width: 150, display: 'flex', alignItems: 'center', minHeight: 38 }}>
+                  {form.userId ? (form.userLabel || `#${form.userId}`) : <span className="text-secondary">未选择</span>}
+                </div>
+              </div>
+              <div>
+                <div className="text-secondary" style={{ fontSize: 12, marginBottom: 4 }}>金额（元）</div>
+                <input className="input" style={{ width: 110 }} type="number" step="0.01" min="0" value={form.amount}
+                  onChange={e => setForm({ ...form, amount: e.target.value })} />
+              </div>
+              <div>
+                <div className="text-secondary" style={{ fontSize: 12, marginBottom: 4 }}>比例（点/元）</div>
+                <input className="input" style={{ width: 110 }} type="number" step="0.01" min="0" value={form.ratio}
+                  onChange={e => setForm({ ...form, ratio: e.target.value })} />
+              </div>
+              <div>
+                <div className="text-secondary" style={{ fontSize: 12, marginBottom: 4 }}>发放贡献点</div>
+                <div className="input" style={{ width: 110, display: 'flex', alignItems: 'center', minHeight: 38, fontWeight: 700, color: 'var(--warning)' }}>
+                  {previewPoints}
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
+              <div>
+                <div className="text-secondary" style={{ fontSize: 12, marginBottom: 4 }}>用处</div>
+                <input className="input" style={{ width: 220 }} value={form.purpose} placeholder="如 服务器续费"
+                  onChange={e => setForm({ ...form, purpose: e.target.value })} />
+              </div>
+              <div>
+                <div className="text-secondary" style={{ fontSize: 12, marginBottom: 4 }}>金额（元）</div>
+                <input className="input" style={{ width: 110 }} type="number" step="0.01" min="0" value={form.amount}
+                  onChange={e => setForm({ ...form, amount: e.target.value })} />
+              </div>
+            </>
+          )}
+
+          <div>
+            <div className="text-secondary" style={{ fontSize: 12, marginBottom: 4 }}>日期</div>
+            <input className="input" style={{ width: 150 }} type="date" value={form.occurredOn}
+              onChange={e => setForm({ ...form, occurredOn: e.target.value })} />
+          </div>
+          <div style={{ flex: 1, minWidth: 160 }}>
+            <div className="text-secondary" style={{ fontSize: 12, marginBottom: 4 }}>备注</div>
+            <input className="input" style={{ width: '100%' }} value={form.note} placeholder="可选"
+              onChange={e => setForm({ ...form, note: e.target.value })} />
+          </div>
+          {isIn && (
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, paddingBottom: 10, cursor: 'pointer' }}>
+              <input type="checkbox" checked={form.isPublic} onChange={e => setForm({ ...form, isPublic: e.target.checked })} />
+              公开展示捐赠者
+            </label>
+          )}
+        </div>
+
+        {searchResults.length > 0 && (
+          <div className="card" style={{ marginTop: 10, padding: 8, maxHeight: 180, overflowY: 'auto' }}>
+            {searchResults.map(u => (
+              <button key={u.id} className="admin-side-item" style={{ color: 'var(--text)' }}
+                onClick={() => {
+                  setForm(prev => ({ ...prev, userId: u.id, userLabel: u.nickname || u.username }));
+                  setSearchResults([]);
+                  setSearchQ('');
+                }}>
+                {u.nickname || u.username} <span className="text-secondary" style={{ fontSize: 12 }}>@{u.username} · 余额 {u.contribution}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* 材料 */}
+        <div style={{ marginTop: 12 }}>
+          <div className="flex" style={{ gap: 8, alignItems: 'center', marginBottom: 6, flexWrap: 'wrap' }}>
+            <span className="text-secondary" style={{ fontSize: 12 }}>凭证材料（图片 ≤5MB / PDF ≤20MB，数量不限）</span>
+            <input ref={matRef} type="file" multiple accept="image/*,application/pdf" style={{ display: 'none' }} onChange={onPickMaterials} />
+            <button className="btn btn-secondary btn-sm" disabled={busy} onClick={() => matRef.current && matRef.current.click()}>+ 添加材料</button>
+          </div>
+          {form.materials.length > 0 && (
+            <div className="flex" style={{ gap: 8, flexWrap: 'wrap' }}>
+              {form.materials.map((m, i) => (
+                <div key={i} style={{ position: 'relative' }}>
+                  {m.type === 'image'
+                    ? <img src={m.url} alt={m.name} style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border)' }} />
+                    : <div style={{ width: 64, height: 64, borderRadius: 8, border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11 }}>PDF</div>}
+                  <button onClick={() => removeMaterial(i)} title="移除"
+                    style={{ position: 'absolute', top: -6, right: -6, width: 18, height: 18, borderRadius: '50%', border: 'none', background: 'var(--danger)', color: '#fff', cursor: 'pointer', fontSize: 11, lineHeight: 1 }}>×</button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div style={{ marginTop: 14 }}>
+          <button className="btn btn-primary" disabled={busy} onClick={submit}>
+            {busy ? '保存中…' : (editingId ? '保存修改' : (isIn ? '记一笔入账' : '记一笔支出'))}
+          </button>
+        </div>
+      </div>
+
+      {/* 明细 */}
+      <div className="card">
+        <div className="flex-between" style={{ marginBottom: 10, flexWrap: 'wrap', gap: 10 }}>
+          <h3 style={{ margin: 0 }}>出入账明细（共 {total} 条）</h3>
+          <div className="flex" style={{ gap: 6 }}>
+            {[['', '全部'], ['in', '入账'], ['out', '支出']].map(([v, label]) => (
+              <button key={v || 'all'} className={`btn btn-sm ${direction === v ? 'btn-primary' : 'btn-secondary'}`}
+                onClick={() => { setDirection(v); setPage(1); loadList(1, v); }}>{label}</button>
+            ))}
+            <button className="btn btn-secondary btn-sm" onClick={() => loadList(page, direction)}>刷新</button>
+          </div>
+        </div>
+
+        {loading ? <p className="text-secondary">加载中…</p> : list.length === 0 ? (
+          <p className="text-secondary">暂无记录</p>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table className="table" style={{ width: '100%', fontSize: 13 }}>
+              <thead>
+                <tr>
+                  <th>日期</th><th>类型</th><th>捐赠人 / 用处</th><th>金额</th>
+                  <th>比例</th><th>贡献点</th><th>备注</th><th>材料</th><th>操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                {list.map(r => (
+                  <tr key={r.id}>
+                    <td className="text-secondary" style={{ fontSize: 12 }}>{r.occurredOn}</td>
+                    <td>
+                      <span className="badge" style={{
+                        background: r.direction === 'in' ? 'rgba(16,185,129,.15)' : 'rgba(239,68,68,.15)',
+                        color: r.direction === 'in' ? 'var(--success)' : 'var(--danger)',
+                      }}>{r.direction === 'in' ? '入账' : '支出'}</span>
+                    </td>
+                    <td>{statusText(r)}</td>
+                    <td style={{ fontWeight: 700, color: r.direction === 'in' ? 'var(--success)' : 'var(--danger)' }}>
+                      {r.direction === 'in' ? '+' : '-'}{r.amount}
+                    </td>
+                    <td className="text-secondary">{r.direction === 'in' ? (r.ratio || 0) : '—'}</td>
+                    <td className="text-secondary">{r.direction === 'in' ? r.points : '—'}</td>
+                    <td className="text-secondary" style={{ fontSize: 12, maxWidth: 180 }}>{r.note || '—'}</td>
+                    <td>{r.materials?.length || 0}</td>
+                    <td style={{ display: 'flex', gap: 6 }}>
+                      <button className="btn btn-secondary" style={{ padding: '2px 8px', fontSize: 12 }} onClick={() => startEdit(r)}>编辑</button>
+                      <button className="btn btn-secondary" style={{ padding: '2px 8px', fontSize: 12 }} onClick={() => remove(r.id)}>删除</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {Math.ceil(total / PAGE_SIZE) > 1 && (
+          <div className="flex" style={{ gap: 8, justifyContent: 'center', marginTop: 14, alignItems: 'center' }}>
+            <button className="btn btn-secondary btn-sm" disabled={page <= 1} onClick={() => { setPage(page - 1); loadList(page - 1, direction); }}>上一页</button>
+            <span className="text-secondary" style={{ fontSize: 13 }}>第 {page} / {Math.ceil(total / PAGE_SIZE)} 页</span>
+            <button className="btn btn-secondary btn-sm" disabled={page >= Math.ceil(total / PAGE_SIZE)} onClick={() => { setPage(page + 1); loadList(page + 1, direction); }}>下一页</button>
           </div>
         )}
       </div>

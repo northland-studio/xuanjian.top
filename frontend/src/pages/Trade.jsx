@@ -14,7 +14,9 @@ const LOG_TYPE_META = {
   reward: { label: '签到奖励', color: 'var(--success)' },
   admin: { label: '管理员调整', color: 'var(--warning)' },
   exchange: { label: '外站兑换', color: 'var(--danger)' },
-  payment: { label: '缴费单', color: 'var(--danger)' }
+  payment: { label: '缴费单', color: 'var(--danger)' },
+  donation: { label: '捐赠奖励', color: 'var(--success)' },
+  bubble: { label: '聊天气泡', color: 'var(--danger)' }
 };
 
 export default function Trade() {

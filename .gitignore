@@ -27,4 +27,12 @@ scripts/deploy-20260822.sh
 scripts/upload-projections-local.js
 scripts/tmp-*.js
 scripts/_inspect.js
-scripts/repair-user52-null.jsbrowser-screenshots/
+scripts/repair-user52-null.js
+browser-screenshots/
+# 生产库导出（含用户数据，禁止入库）
+guild*.db
+guild*.db-shm
+guild*.db-wal
+"guild (*).db"*
+# 经济面板分析产出（由 scripts/econ/ 生成）
+reports/
