@@ -113,13 +113,18 @@ router.get('/checkin', async (req, res) => {
             `SELECT u.id, u.username, u.nickname, u.avatar, u.equipped_title,
                     (SELECT name FROM titles WHERE id = u.equipped_title) as title_name,
                     (SELECT color FROM titles WHERE id = u.equipped_title) as title_color,
+                    COALESCE((
+                        SELECT c2.continuous_days FROM checkins c2
+                        WHERE c2.user_id = u.id AND c2.checkin_date >= DATE('now', '-1 day')
+                        ORDER BY c2.checkin_date DESC LIMIT 1
+                    ), 0) AS continuous_days,
                     MAX(c.continuous_days) as max_continuous_days,
                     COUNT(c.id) as total_checkins
              FROM users u
              LEFT JOIN checkins c ON u.id = c.user_id
              GROUP BY u.id
              HAVING total_checkins > 0
-             ORDER BY max_continuous_days DESC, total_checkins DESC
+             ORDER BY continuous_days DESC, max_continuous_days DESC, total_checkins DESC
              LIMIT ?`,
             [parseInt(limit)]
         );
