@@ -12,6 +12,7 @@ import PostDetail from './pages/PostDetail';
 import Editor from './pages/Editor';
 import Shop from './pages/Shop';
 import Rankings from './pages/Rankings';
+import Team from './pages/Team';
 import Social from './pages/Social';
 import Notifications from './pages/Notifications';
 import Checkin from './pages/Checkin';
@@ -53,6 +54,7 @@ function MainSite() {
         <Route path="/editor/:id" element={<Editor />} />
         <Route path="/shop" element={<Shop />} />
         <Route path="/rankings" element={<Rankings />} />
+        <Route path="/team" element={<Team />} />
         <Route path="/social" element={<Social />} />
         <Route path="/notifications" element={<Notifications />} />
         <Route path="/checkin" element={<Checkin />} />

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { api, uploadImage, uploadProjection, getToken } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/UI';
+import TeamAdmin from '../components/TeamAdmin';
 import { formatDate } from '../utils';
 
 const TABS = [
@@ -23,13 +24,14 @@ const TABS = [
   { key: 'paylink', label: '缴费单/链接' },
   { key: 'bubbles', label: '聊天气泡' },
   { key: 'stickers', label: '公共表情包' },
-  { key: 'mod', label: '模组管理' }
+  { key: 'mod', label: '模组管理' },
+  { key: 'team', label: '队伍配置' }
 ];
 
 /** 侧边栏分组：把 18 个页面按职能归类，避免一排按钮挤成一团 */
 const TAB_GROUPS = [
   { group: '概览', keys: ['dashboard'] },
-  { group: '成员', keys: ['users', 'discipline', 'generations'] },
+  { group: '成员', keys: ['users', 'discipline', 'generations', 'team'] },
   { group: '内容', keys: ['posts', 'announcements', 'banners'] },
   { group: '经济', keys: ['shop', 'logs', 'claims', 'tasks', 'verify', 'donation'] },
   { group: '接入', keys: ['paygate', 'paylink', 'mod'] },
@@ -166,6 +168,7 @@ export default function Admin() {
           {tab === 'bubbles' && <BubbleManager showToast={showToast} />}
           {tab === 'stickers' && <StickerManager showToast={showToast} />}
           {tab === 'mod' && <ModServerManager showToast={showToast} />}
+          {tab === 'team' && <TeamAdmin showToast={showToast} />}
         </div>
       </div>
     </div>

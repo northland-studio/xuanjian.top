@@ -1931,6 +1931,141 @@ html[data-native="true"] body {
   text-align: center;
 }
 
+/* ==================== 自写语音播放框（QQ 风格语音条） ==================== */
+
+/* 颜色一律用 currentColor：气泡文字是白的（自己的蓝色气泡）就是白的，
+   是深灰（对方气泡）就是深灰，换气泡配色不用改这里 */
+.vb {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 22px;
+  padding: 0 0 5px;
+  color: inherit;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+  outline: none;
+}
+
+.vb:focus-visible {
+  box-shadow: 0 0 0 2px var(--primary);
+  border-radius: 6px;
+}
+
+/* 自己发的语音左右镜像：秒数在左、波形在右 */
+.vb--mine {
+  flex-direction: row-reverse;
+}
+
+.vb-waves {
+  display: inline-flex;
+  align-items: center;
+  gap: 2.5px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.vb-bar {
+  display: block;
+  width: 3px;
+  height: 8px;
+  border-radius: 2px;
+  background: currentColor;
+  opacity: 0.55;
+  transform-origin: center;
+  transition: opacity 0.15s ease;
+}
+
+.vb-bar:nth-child(1) { height: 7px; }
+.vb-bar:nth-child(2) { height: 13px; }
+.vb-bar:nth-child(3) { height: 10px; }
+.vb-bar:nth-child(4) { height: 15px; }
+
+.vb.is-playing .vb-bar {
+  opacity: 0.95;
+  animation: vb-wave 900ms ease-in-out infinite;
+}
+
+.vb.is-playing .vb-bar:nth-child(2) { animation-delay: 0.13s; }
+.vb.is-playing .vb-bar:nth-child(3) { animation-delay: 0.26s; }
+.vb.is-playing .vb-bar:nth-child(4) { animation-delay: 0.39s; }
+
+@keyframes vb-wave {
+  0%, 100% { transform: scaleY(0.4); }
+  50% { transform: scaleY(1.25); }
+}
+
+.vb-secs {
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.2px;
+  opacity: 0.85;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.vb.is-failed .vb-secs {
+  color: var(--danger, #ef4444);
+  opacity: 1;
+}
+
+/* 未播放的红点（只出现在别人发来的语音上，播放过就消失） */
+.vb-dot {
+  width: 7px;
+  height: 7px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--danger, #ef4444);
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.18);
+}
+
+/* 播放进度：一条贴在底部的细线，未播放时透明，避免布局跳动 */
+.vb-track {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  border-radius: 2px;
+  background: currentColor;
+  opacity: 0.18;
+  overflow: hidden;
+}
+
+.vb-fill {
+  display: block;
+  height: 100%;
+  background: currentColor;
+  opacity: 0.9;
+  transition: width 0.12s linear;
+}
+
+/* 倍速：仅播放中出现，避免空闲时干扰 */
+.vb-speed {
+  flex-shrink: 0;
+  padding: 0 4px;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 13px;
+  opacity: 0.75;
+  transition: opacity 0.15s ease;
+}
+
+.vb-speed:hover {
+  opacity: 1;
+}
+
+/* 深色背景（悬浮公屏窗口）下红点加深描边，保证可见 */
+.chat-box-voice .vb-dot {
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.28);
+}
+
 /* ==================== 管理后台：分组侧边栏 ==================== */
 
 .admin-layout {
@@ -2219,4 +2354,215 @@ input[type="number"] {
 .input-inline:focus {
   border-color: var(--primary);
   box-shadow: 0 0 0 3px rgba(0, 74, 173, 0.12);
+}
+
+/* ============================================================
+ * 导航栏一级分组（内容 / 互动 / 成员 / 经济 / 福利 / 工具）
+ * 桌面：悬浮、点击、键盘聚焦都能展开下拉；移动：带分组标题的折叠列表
+ * 仅新增类，未改动 .nav-link / .navbar-nav 等已有类的语义
+ * ============================================================ */
+.nav-group {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.nav-group-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 14px;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.25s;
+}
+
+.nav-group-btn:hover {
+  color: var(--primary);
+  background: rgba(0, 74, 173, 0.08);
+}
+
+.nav-group-btn.active {
+  color: var(--primary);
+  background: rgba(0, 74, 173, 0.12);
+  font-weight: 600;
+}
+
+.nav-caret {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+  transition: transform 0.2s;
+}
+
+/* 下拉面板：默认隐藏，用 opacity/visibility 过渡，保留 ::before 作 hover 桥接（鼠标从按钮下移到面板不会丢失悬浮） */
+.nav-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  min-width: 190px;
+  padding: 8px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-lg);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(6px);
+  transition: opacity 0.18s ease, transform 0.18s ease, visibility 0.18s;
+  z-index: 1001;
+}
+
+.nav-dropdown::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -14px;
+  height: 14px;
+}
+
+.nav-dropdown-item {
+  display: block;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 14px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  transition: all 0.2s;
+}
+
+.nav-dropdown-item:hover {
+  color: var(--primary);
+  background: rgba(0, 74, 173, 0.08);
+}
+
+.nav-dropdown-item.active {
+  color: var(--primary);
+  background: rgba(0, 74, 173, 0.12);
+  font-weight: 600;
+}
+
+/* 桌面端：悬浮 / 点击展开（.open）/ 键盘聚焦展开 */
+@media (min-width: 901px) {
+  .nav-group:hover > .nav-dropdown,
+  .nav-group.open > .nav-dropdown,
+  .nav-group:focus-within > .nav-dropdown {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+  }
+
+  .nav-group:hover .nav-caret,
+  .nav-group.open .nav-caret,
+  .nav-group:focus-within .nav-caret {
+    transform: rotate(180deg);
+  }
+}
+
+/* 中等宽度：压缩分组按钮留白，避免一级导航横向溢出 */
+@media (min-width: 901px) and (max-width: 1120px) {
+  .nav-group-btn {
+    padding: 8px 8px;
+    font-size: 13px;
+  }
+
+  .nav-user {
+    margin-left: 4px;
+    gap: 6px;
+  }
+}
+
+/* 移动端：抽屉内的分组折叠列表（同一份数据渲染，无横向溢出） */
+@media (max-width: 900px) {
+  .nav-group {
+    position: static;
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+  }
+
+  .nav-group-btn {
+    width: 100%;
+    justify-content: space-between;
+    padding: 12px 14px;
+    border-radius: 10px;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .nav-group-btn:hover {
+    background: rgba(0, 74, 173, 0.08);
+  }
+
+  .nav-dropdown {
+    position: static;
+    display: none;
+    min-width: 0;
+    max-width: 100%;
+    padding: 0 0 6px;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    opacity: 1;
+    visibility: visible;
+    transform: none;
+  }
+
+  .nav-group.open .nav-dropdown {
+    display: block;
+  }
+
+  .nav-group.open .nav-caret {
+    transform: rotate(180deg);
+  }
+
+  .nav-dropdown::before {
+    display: none;
+  }
+
+  .nav-dropdown-item {
+    padding: 10px 14px 10px 28px;
+    font-size: 14px;
+    white-space: normal;
+    word-break: break-word;
+  }
+}
+
+/* 队伍配置 ID 芯片（管理页「队伍配置」列表中可点击复制，供插件 /nt apply <ID> 使用） */
+.team-id-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border: 1px dashed var(--primary);
+  border-radius: 8px;
+  background: rgba(0, 74, 173, 0.08);
+  color: var(--primary);
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.team-id-chip b {
+  font-size: 14px;
+  letter-spacing: 0.5px;
+}
+
+.team-id-chip span {
+  font-size: 11px;
+  opacity: 0.85;
+}
+
+.team-id-chip:hover {
+  background: rgba(0, 74, 173, 0.18);
 }
