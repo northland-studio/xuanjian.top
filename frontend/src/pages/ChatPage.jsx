@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { api, getToken, getCurrentUser, wsUrlWithToken } from '../api';
 import { SmileIcon, ImageIcon, MicIcon, SendIcon, UsersIcon } from '../components/ChatIcons';
+import VoiceBubble from '../components/VoiceBubble';
 
 /**
  * 独立私聊页
@@ -311,7 +312,7 @@ export default function ChatPage() {
                     ) : m.stickerUrl ? (
                       <img src={m.stickerUrl} alt="" style={{ maxWidth: 100, display: 'block' }} />
                     ) : m.voiceUrl ? (
-                      <audio controls src={m.voiceUrl} style={{ height: 32, maxWidth: 200 }} />
+                      <VoiceBubble url={m.voiceUrl} duration={m.voiceDuration} mine={mine} />
                     ) : m.content}
                   </div>
                 </div>
