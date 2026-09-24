@@ -100,7 +100,8 @@ router.get('/home.xaml', async (req, res) => {
         brand += `</StackPanel>`;
         brand += `<StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,4,0,0">`;
         brand += `<local:MyTextButton Text="访问官网" EventType="打开网页" EventData="${esc(SITE)}" />`;
-        brand += `<local:MyTextButton Margin="18,0,0,0" Text="加入QQ群" EventType="打开网页" EventData="https://qm.qq.com/cgi-bin/qm/qr?k=xuanjian" />`;
+        // QQ 群链接与 frontend/src/config/social.js 保持一致（启动器端无法复用前端配置）
+        brand += `<local:MyTextButton Margin="18,0,0,0" Text="加入QQ群" EventType="打开网页" EventData="${esc('https://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=c4YCghT0qBwEA4BxF0Ust1DuNHo6zHLo&authKey=E8jLEy1%2BmA1Tr77Ply9XPv3Txz81oFa%2BbJugmdA0c71MADjAsbdqzRwFVJgTNDTd&noverify=0&group_code=860336849')}" />`;
         brand += `</StackPanel>`;
         if (banners[0] && banners[0].image) {
             brand += text(`轮播：${banners[0].title || ''}${banners[0].subtitle ? ' - ' + banners[0].subtitle : ''}`, 'Foreground="#8C8C8C" FontSize="11"');

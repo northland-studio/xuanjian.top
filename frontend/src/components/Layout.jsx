@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { api, wsUrlWithToken } from '../api';
 import { AdminIcon } from './Icons';
+import { QQ_GROUP_URL } from '../config/social';
 import SkinWidget from './SkinWidget';
 import ChatBox from './ChatBox';
 
@@ -319,7 +320,7 @@ export default function Layout({ children }) {
           <span>© 2026 我的世界玄剑公会</span>
           <span style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
             <a href="https://xuanjian.top" target="_blank" rel="noreferrer">官网</a>
-            <a href="https://qm.qq.com/cgi-bin/qm/qr?k=xuanjian" target="_blank" rel="noreferrer">QQ群</a>
+            <a href={QQ_GROUP_URL} target="_blank" rel="noreferrer">QQ群</a>
           </span>
         </div>
       </footer>

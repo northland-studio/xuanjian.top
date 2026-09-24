@@ -1,30 +1,5 @@
 import { Link } from 'react-router-dom';
-import { QQIcon, BilibiliIcon, DouyinIcon } from '../components/Icons';
-
-// 社交媒体页面：展示公会各平台官方账号
-const PLATFORMS = [
-  {
-    name: 'QQ群',
-    desc: '加入玄剑公会官方QQ群，与成员实时交流',
-    Icon: QQIcon,
-    color: '#12B7F5',
-    link: 'https://qm.qq.com/cgi-bin/qm/qr?k=xuanjian'
-  },
-  {
-    name: 'B站',
-    desc: '关注B站账号，观看公会视频与实况',
-    Icon: BilibiliIcon,
-    color: '#00A1D6',
-    link: '#'
-  },
-  {
-    name: '抖音',
-    desc: '关注抖音账号，获取公会日常花絮',
-    Icon: DouyinIcon,
-    color: '#FE2C55',
-    link: '#'
-  }
-];
+import { SOCIAL_PLATFORMS as PLATFORMS } from '../config/social';
 
 export default function Social() {
   return (
@@ -38,7 +13,7 @@ export default function Social() {
 
       <div className="grid grid-3">
         {PLATFORMS.map(p => (
-          <a key={p.name} href={p.link} target={p.link !== '#' ? '_blank' : undefined} rel="noreferrer" className="card card-hover text-center" style={{ padding: 36, textDecoration: 'none', display: 'block' }}>
+          <a key={p.name} href={p.link} target="_blank" rel="noreferrer" className="card card-hover text-center" style={{ padding: 36, textDecoration: 'none', display: 'block' }}>
             <div className="flex-center" style={{ width: 72, height: 72, margin: '0 auto 18px', borderRadius: 20, background: `${p.color}14`, color: p.color }}>
               <p.Icon size={36} color={p.color} />
             </div>
