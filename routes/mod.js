@@ -689,6 +689,54 @@ router.post('/online/leave', playerAuth, async (req, res) => {
     }
 });
 
+/**
+ * 服务端「整表上报」在线名单（mod 心跳定时调用）。
+ *
+ * 与玩家级 join/leave 的区别：这是**快照语义** —— 一次上报即代表该服务器当前的完整在线名单，
+ * 因此先清空该服务器的在线记录再按 players 重建，避免玩家异常退出（没发 leave）导致幽灵在线。
+ * 需要 serverIp 命中管理后台的白名单（与 join/leave 同一套 matchWhiteList）。
+ *
+ * body: { serverIp: "1.2.3.4", players: [{ uuid, name }] }
+ */
+router.post('/online/report', async (req, res) => {
+    try {
+        const { serverIp, players } = req.body || {};
+        if (!serverIp || typeof serverIp !== 'string') {
+            return res.status(400).json({ error: '缺少服务器地址' });
+        }
+        const matched = await matchWhiteList(serverIp);
+        if (!matched) {
+            return res.json({ ignored: true, message: '服务器不在白名单，未记录在线' });
+        }
+        const list = Array.isArray(players) ? players : [];
+        if (list.length > 200) {
+            return res.status(400).json({ error: '单次上报玩家数过多（上限 200）' });
+        }
+        const now = getLocalTimestamp();
+        await db.transaction(async () => {
+            await db.run('DELETE FROM mod_online WHERE server_ip = ?', [matched]);
+            for (const p of list) {
+                const uuid = String((p && p.uuid) || '').trim();
+                const name = String((p && p.name) || '').trim();
+                if (!uuid) continue;
+                await db.run(
+                    'INSERT OR REPLACE INTO mod_online (server_ip, uuid, player_name, updated_at) VALUES (?, ?, ?, ?)',
+                    [matched, uuid, name, now]
+                );
+            }
+        });
+        // 顺带累计时长（user 传 null：只累加时间差，不依赖官网账号信息）
+        for (const p of list) {
+            const uuid = String((p && p.uuid) || '').trim();
+            if (uuid) await accumulateOnlineTime(uuid, null);
+        }
+        res.json({ message: '在线名单已同步', server: matched, count: list.filter(p => p && p.uuid).length });
+    } catch (e) {
+        logger.error('服务端在线名单上报错误:', e);
+        res.status(500).json({ error: '上报失败' });
+    }
+});
+
 /** 白名单匹配：server 与 mod_servers.server_ip 去掉端口后相等即命中，返回存储的 server_ip；否则返回空 */
 async function matchWhiteList(server) {
     const base = String(server).split(':')[0];
