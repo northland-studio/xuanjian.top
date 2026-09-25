@@ -283,7 +283,7 @@ export default function Layout({ children }) {
                         </Link>
                       )}
                       {user.level >= 1 && (
-                        <Link to="/pay/admin" className="user-menu-item" onClick={() => setUserMenuOpen(false)}>
+                        <Link to="/admin#pay" className="user-menu-item" onClick={() => setUserMenuOpen(false)}>
                           <AdminIcon size={16} />
                           支付管理
                         </Link>

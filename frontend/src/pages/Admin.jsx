@@ -4,6 +4,7 @@ import { api, uploadImage, uploadProjection, getToken } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/UI';
 import TeamAdmin from '../components/TeamAdmin';
+import PayAdminPanel from '../components/PayAdminPanel';
 import { formatDate } from '../utils';
 
 const TABS = [
@@ -22,6 +23,7 @@ const TABS = [
   { key: 'donation', label: '捐赠墙/公账' },
   { key: 'paygate', label: '支付对接/兑换' },
   { key: 'paylink', label: '缴费单/链接' },
+  { key: 'pay', label: '支付管理' },
   { key: 'bubbles', label: '聊天气泡' },
   { key: 'stickers', label: '公共表情包' },
   { key: 'mod', label: '模组管理' },
@@ -34,7 +36,7 @@ const TAB_GROUPS = [
   { group: '成员', keys: ['users', 'discipline', 'generations', 'team'] },
   { group: '内容', keys: ['posts', 'announcements', 'banners'] },
   { group: '经济', keys: ['shop', 'logs', 'claims', 'tasks', 'verify', 'donation'] },
-  { group: '接入', keys: ['paygate', 'paylink', 'mod'] },
+  { group: '接入', keys: ['paygate', 'paylink', 'pay', 'mod'] },
   { group: '聊天', keys: ['bubbles', 'stickers'] }
 ];
 
@@ -165,6 +167,7 @@ export default function Admin() {
           {tab === 'donation' && <DonationManager showToast={showToast} />}
           {tab === 'paygate' && <PaygateManager showToast={showToast} />}
           {tab === 'paylink' && <PayLinkManager showToast={showToast} />}
+          {tab === 'pay' && <PayAdminPanel />}
           {tab === 'bubbles' && <BubbleManager showToast={showToast} />}
           {tab === 'stickers' && <StickerManager showToast={showToast} />}
           {tab === 'mod' && <ModServerManager showToast={showToast} />}

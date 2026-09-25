@@ -434,7 +434,8 @@ Aug 15 与 Aug 22 两次批量提交合并记录：
   前端自行解析 `expiresAt` 字符串会把「未过期」误判成「已过期」（`routes/pay.js` 的 `remainSecOf()` 与
   `PayIntent.jsx` / `PayCharge.jsx` / `PayRecords.jsx` 的 `serverRemain()` 即为此约定）。
 - 前端页面：`/pay`（支付中心：收款码 / 付款码 / 扫一扫）、`/pay/:token`（付款落地页）、`/pay/charge/:token`（缴费单）、
-  `/pay/records`（我的记录）、`/pay/admin`（审批 + 对账 + 阈值，仅管理员）。
+  `/pay/records`（我的记录）、`/pay/admin`（审批 + 对账 + 阈值，仅管理员；同一份面板也已接入站点管理后台
+  的「支付管理」分页 `/admin#pay`，两处共用 `components/PayAdminPanel.jsx`）。
 
 运维与联调：
 
