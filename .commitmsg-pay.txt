@@ -1,0 +1,25 @@
+feat(pay): 贡献点扫码支付阶段 2 —— 数据表与收款码主扫闭环
+
+- scripts/migrate-pay.js：新建 pay_payees / pay_intents / pay_transactions / pay_charges；
+  登记系统金库账户「玄剑财政」(users.username=guild_treasury) 与对应的 system 收款主体；
+  幂等扩展 contribution_logs.type（pay_out / pay_in）与 notifications.type（pay）的 CHECK 白名单
+  （解析 sqlite_master 原始建表语句后重建表并恢复索引，不改动其它列）。
+- routes/pay.js（server.js 挂载于 /api/pay）：
+  * POST /receive-code：任意登录用户生成一次性收款码（128bit token、90 秒 TTL、可带金额与备注）
+  * GET /intents/:token：扫码读取付款信息（收款方、金额、备注、风控阈值、今日已付、isSelf）
+  * POST /intents/:token/confirm：付款人本人确认支付——禁止自我付款、幂等（已付 409 / 过期 410 /
+    审批中 409 / 超 500 拦截 / 日累计超 2000 拦截）、金额 >200 只登记 pending_approval 不动余额；
+    正常支付在 BEGIN IMMEDIATE 事务内完成「扣款 + 入账 + 流水 + 意图归位」，事务外补
+    contribution_logs(pay_out/pay_in) 与 createNotification(type=pay)
+  * GET /records：我的收付款记录（含今日已付额度）
+  * GET|PUT /admin/settings：风控阈值管理（管理员，落 settings 表）
+- 金额沿用 REAL 两位小数口径（ROUND + trg_users_contribution_2dp），接口以「元」收发，无「分」换算。
+- scripts/test-pay-e2e.js：31 项断言的闭环联调脚本（正常支付 / 重复 / 过期 / 超限 / 日累计 /
+  大额审批 / 流水与通知落库 / 记录 / 权限），结束后回滚余额并删除测试数据；
+  生产可用 PAY_TEST_USERS=<idA>,<idB> 指定临时账号。
+- 部署与生产联调脚本：scripts/deploy-pay-20260925.sh、scripts/deploy-pay-verify.sh。
+- 文档：README 增加扫码支付进度表与阶段 2 接口说明；docs/PAY-QR-DESIGN.md 对齐两位小数实现、
+  修正表结构字段并标记开发顺序第 2 步完成；docs/API.md 重新生成（新增 /api/pay 6 个接口）。
+
+生产验证：HK 已部署并跑通（31/31 通过），临时账号与测试流水清理后残留为 0；
+数据库备份 data/guild.db.bak-20260925-pay。

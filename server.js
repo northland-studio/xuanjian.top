@@ -41,6 +41,7 @@ const qqbotRoutes = require('./routes/qqbot');
 const paygateRoutes = require('./routes/paygate');
 const chatRoutes = require('./routes/chat');
 const payConfirmRoutes = require('./routes/pay-confirm');
+const payRoutes = require('./routes/pay');
 const donationRoutes = require('./routes/donation');
 const db = require('./database');
 
@@ -169,6 +170,8 @@ app.use('/api/qqbot', qqbotRoutes);
 app.use('/api/paygate', paygateRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/pay-confirm', payConfirmRoutes);
+// 贡献点扫码支付（收款码/付款码/缴费单，设计见 docs/PAY-QR-DESIGN.md）
+app.use('/api/pay', payRoutes);
 app.use('/api/donation', donationRoutes);
 
 // ============ React前端（frontend/dist）托管 ============

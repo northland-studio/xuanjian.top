@@ -25,7 +25,7 @@
 | 4 | 风控 | 单笔 ≤ **500**、日累计 ≤ **2000**、> **200** 需管理员审批；全量流水 + 对账页。**无手续费、不做反跑分、不做退款/撤回** |
 | 5 | 有效期 | 付款 intent **90 秒**；付款码 **60 秒**刷新；个人收款码**不做长期固定码** |
 | 6 | 入口 | 官网 H5 + QQ 机器人 |
-| 7 | 金额口径 | 余额与金额**整数分存储、展示两位小数**（现有浮点数据迁移） |
+| 7 | 金额口径 | 余额与金额沿用 `REAL` 存**两位小数**，靠 `ROUND(...,2)` + 触发器 `trg_users_contribution_2dp` 保证精度（**未采用整数分改造**，见 §3 实现说明） |
 
 补充：生成收款码 = 所有已登录用户；生成缴费单 = 仅管理员/已认证成员。
 
@@ -51,7 +51,7 @@ CREATE TABLE pay_intents (
   kind          TEXT NOT NULL,              -- receive | charge | payer_code
   payee_id      INTEGER NOT NULL,
   payer_user_id INTEGER,                    -- 指定付款人；NULL = 任何人可付（收款码/缴费单）
-  amount_cents  INTEGER,                    -- 缴费单/指定金额时为定值；收款码可 NULL（由付款方填）
+  amount        REAL,                       -- 缴费单/指定金额时为定值；收款码可 NULL（由付款方填）
   note          TEXT,                       -- 用途/备注
   expires_at    TEXT NOT NULL,              -- 默认 now + 90s；payer_code 为 60s
   status        TEXT NOT NULL DEFAULT 'created', -- created|scanned|awaiting_approval|paid|expired|cancelled
@@ -69,7 +69,7 @@ CREATE TABLE pay_transactions (
   intent_id     INTEGER,
   from_user_id  INTEGER,                    -- NULL = 系统（金库支出）
   to_payee_id   INTEGER NOT NULL,
-  amount_cents  INTEGER NOT NULL,
+  amount        REAL NOT NULL,
   note          TEXT,
   status        TEXT NOT NULL,              -- success | pending_approval | rejected | failed
   approver_id   INTEGER,                    -- 大额审批人
@@ -85,16 +85,20 @@ CREATE TABLE pay_charges (
   intent_id     INTEGER NOT NULL,           -- 指向缴费单码
   user_id       INTEGER,                    -- 应付人（可空 = 公开报名式）
   player_name   TEXT,
-  amount_cents  INTEGER NOT NULL,
+  amount        REAL NOT NULL,
   status        TEXT NOT NULL DEFAULT 'unpaid', -- unpaid | paid | waived
   paid_tx_id    INTEGER,
   updated_at    TEXT NOT NULL
 );
 ```
 
-**余额整数化**：`users.balance`（浮点）→ 新增 `balance_cents INTEGER`，迁移时 `ROUND(balance*100)`，
-展示层 `/100` 保留两位小数；后续所有扣加一律走 `balance_cents`。`transfer` / `checkin` / `shop` /
-`claims` / `donation` 的相关读写一并切换。
+**金额口径（实现说明）**：原计划把余额整数化（新增 `users.balance_cents` 并切换所有读写），实际落地时改用
+**更小改动面**的方案：金额仍存 `REAL`，全链路按两位小数处理——
+`scripts/migrate-contribution-2dp.js` 一次性 `ROUND(contribution, 2)`，并加触发器
+`trg_users_contribution_2dp`（AFTER UPDATE OF contribution，`NEW.contribution <> ROUND(NEW.contribution,2)` 时回写），
+现有 30 余处扣加 SQL 无需逐个改造；`routes/pay.js` 侧所有金额读写再显式 `ROUND(...,2)`。
+因此本文档下方表结构里的 `amount_cents INTEGER` 实际实现为 `amount REAL`（两位小数），
+API 一律以「元」为单位收发，不再出现「分」。
 
 ## 4. 接口
 
@@ -153,8 +157,11 @@ created ──扫开──▶ scanned ──付款方确认──▶ [amount>200
 
 ## 7. 开发顺序（每步可独立验证）
 
-1. **余额整数化迁移**（`users.balance_cents` + 相关读写切换 + 对账校验脚本）
-2. 数据表迁移 + 收款码（个人/活动/金库）生成与主扫付款闭环
+1. ~~余额整数化迁移~~ → **改用两位小数方案**（`scripts/migrate-contribution-2dp.js` + 触发器），已上线
+2. ✅ **数据表迁移 + 收款码（个人/活动/金库）生成与主扫付款闭环**（2026-09-25 上线 HK；
+   `scripts/migrate-pay.js` 建表并扩展 `contribution_logs.type` / `notifications.type` 白名单，
+   `routes/pay.js` 提供 `receive-code` / `intents/:token` / `confirm` / `records` / `admin/settings`，
+   联调 `scripts/test-pay-e2e.js` 31 项断言全通过，生产已用临时账号跑通并清理）
 3. 付款码（反扫）+ 站内相机 + 三级降级
 4. 缴费单码（多人各付各的、名单与截止）
 5. 风控与审批、管理员对账页

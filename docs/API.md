@@ -3,7 +3,7 @@
 > 本文件由 `scripts/gen-api-docs.js` 从 `server.js` 与 `routes/*.js` 自动生成，
 > 请勿手工编辑：改完接口后在仓库根目录执行 `node scripts/gen-api-docs.js` 重新生成。
 >
-> 生成时间：2026-09-25 05:10:16 UTC ｜ 共 35 个模块、262 个端点
+> 生成时间：2026-09-25 08:20:20 UTC ｜ 共 36 个模块、268 个端点
 
 ## 通用约定
 
@@ -42,6 +42,7 @@
 | `/api/oauth` | `routes/oauth.js` | 5 | — |
 | `/api/password` | `routes/password.js` | 3 | — |
 | `/api/pay-confirm` | `routes/pay-confirm.js` | 5 | — |
+| `/api/pay` | `routes/pay.js` | 6 | — |
 | `/api/paygate` | `routes/paygate.js` | 9 | — |
 | `/api/player-tasks` | `routes/player-tasks.js` | 6 | — |
 | `/api/posts` | `routes/posts.js` | 9 | — |
@@ -348,6 +349,19 @@
 | `POST` | `/api/pay-confirm/admin/link` | 管理员（需 JWT） | 后台：生成缴费链接（管理员） |
 | `GET` | `/api/pay-confirm/admin/orders` | 管理员（需 JWT） | 后台：缴费单列表 |
 | `GET` | `/api/pay-confirm/admin/sites` | 管理员（需 JWT） | 后台：可选扣款主体列表（含「本站」虚拟项） |
+
+## /api/pay
+
+文件：`routes/pay.js`（6 个端点）
+
+| 方法 | 路径 | 鉴权 | 说明 |
+|---|---|---|---|
+| `GET` | `/api/pay/admin/settings` | 管理员（需 JWT） | — |
+| `PUT` | `/api/pay/admin/settings` | 管理员（需 JWT） | — |
+| `GET` | `/api/pay/intents/:token` | JWT 登录 | 扫码后读取付款信息（主扫第二步） / 不暴露付款方隐私；付款人需登录（决策：必须本人登录确认） |
+| `POST` | `/api/pay/intents/:token/confirm` | JWT 登录 | 付款人本人确认支付（主扫第三步） / body: { amount?: number, note?: string }  —— 收款码未定金额时由付款方填写 |
+| `POST` | `/api/pay/receive-code` | JWT 登录 | 生成我的收款码（主扫第一步：收款方出示，付款方扫码） / body: { amount?: number, note?: string } |
+| `GET` | `/api/pay/records` | JWT 登录 | — |
 
 ## /api/paygate
 

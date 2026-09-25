@@ -376,12 +376,42 @@ Aug 15 与 Aug 22 两次批量提交合并记录：
   任何写入（现有 30 余处 SQL 与新代码）都会自动取整到两位，无需逐个改造。
 - 前端金额输入框已放开 `step="0.01"`。
 
-## 贡献点扫码支付（开发中）
+## 贡献点扫码支付
 
 设计契约见 `docs/PAY-QR-DESIGN.md`：收款码（主扫）+ 付款码（反扫，60 秒刷新）+ 缴费单码（一码多人），
 付款必须由付款方在已登录会话中二次确认；单笔 ≤500、日累计 ≤2000、>200 需管理员审批；
 收款方支持个人 / 活动摊位 / 公会官方（系统金库「玄剑财政」）；入口为官网 H5 与 QQ 机器人。
 
+**进度**
+
+| 阶段 | 内容 | 状态 |
+| --- | --- | --- |
+| 1 | 表结构（`pay_payees` / `pay_intents` / `pay_transactions` / `pay_charges`）+ 系统金库账户 | ✅ 已上线 |
+| 2 | 收款码「主扫」闭环（生成 → 扫码 → 本人确认 → 划转 / 审批 / 记录） | ✅ 已上线 |
+| 3 | 付款码「反扫」（60 秒刷新）+ 站内相机扫码 | 🚧 开发中 |
+| 4 | 缴费单码（一码多人 + 截止时间） | 🚧 开发中 |
+| 5 | 审批台 + 对账页 + 阈值管理界面 | 🚧 开发中 |
+| 6 | QQ 机器人指令入口 | 🚧 开发中 |
+
+**阶段 2 已提供接口**（挂载于 `server.js` → `/api/pay`，实现见 `routes/pay.js`）
+
+- `POST /api/pay/receive-code`：生成我的收款码（任意登录用户；可带金额与备注，有效期 90 秒，一次性 token）。
+- `GET /api/pay/intents/:token`：扫码后读取付款信息（收款方、金额、备注、阈值、我今日已付额度）。
+- `POST /api/pay/intents/:token/confirm`：**付款人本人**确认支付。余额校验与「扣款 + 入账 + 流水 + 意图归位」在
+  单个 `BEGIN IMMEDIATE` 事务内完成；金额 >200 只登记 `pending_approval` 流水，不动余额。
+- `GET /api/pay/records`：我的收付款记录（含今日已付额度）。
+- `GET|PUT /api/pay/admin/settings`：风控阈值（管理员），落 `settings` 表：`pay_single_limit` / `pay_daily_limit` / `pay_approval_threshold`。
+
+运维与联调：
+
+- 迁移脚本 `scripts/migrate-pay.js`（幂等）：建表、登记金库账户、扩展
+  `contribution_logs.type`（`pay_out` / `pay_in`）与 `notifications.type`（`pay`）的 CHECK 白名单。
+- 闭环联调 `scripts/test-pay-e2e.js`（31 项断言：正常支付 / 重复支付 / 过期 / 超限 / 日累计 / 大额审批 / 记录 / 权限，
+  结束后回滚余额并清理数据），生产可用 `PAY_TEST_USERS=<idA>,<idB>` 指定临时账号。
+- 部署脚本 `scripts/deploy-pay-20260925.sh`、生产联调 `scripts/deploy-pay-verify.sh`。
+
 新模块的通知统一走既有 `createNotification()`（`routes/notifications.js`）：
 付款成功/被拒/待审批、收到款项、缴费单开单与截止提醒，均按用户维度落一条通知，
-并在 QQ 机器人侧可选播报（复用群机器人服务）。
+并在 QQ 机器人侧可选播报（复用群机器人服务）。贡献点变动同时写入
+`contribution_logs`（`pay_out` / `pay_in`），保证任何余额变化都可追溯。
+
