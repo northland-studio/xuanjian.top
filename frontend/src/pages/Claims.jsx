@@ -112,7 +112,7 @@ export default function Claims() {
           <h3 style={{ fontSize: 17, fontWeight: 700, marginBottom: 18 }}>提交申报</h3>
           <div className="form-group">
             <label className="form-label">申报贡献点数量</label>
-            <input type="number" className="form-input" value={amount} onChange={e => setAmount(e.target.value)} placeholder="例如：10" min="1" />
+            <input type="number" className="form-input" value={amount} onChange={e => setAmount(e.target.value)} placeholder="例如：10" min="1"  step="0.01"/>
           </div>
           <div className="form-group">
             <label className="form-label">申报原因（至少10个字符）</label>

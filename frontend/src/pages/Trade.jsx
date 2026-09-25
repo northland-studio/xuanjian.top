@@ -104,7 +104,7 @@ export default function Trade() {
           </div>
           <div className="form-group">
             <label className="form-label">转账数量</label>
-            <input type="number" className="form-input" value={amount} onChange={e => setAmount(e.target.value)} placeholder="例如：50" min="1" />
+            <input type="number" className="form-input" value={amount} onChange={e => setAmount(e.target.value)} placeholder="例如：50" min="1"  step="0.01"/>
           </div>
           <div className="form-group">
             <label className="form-label">备注（可选）</label>

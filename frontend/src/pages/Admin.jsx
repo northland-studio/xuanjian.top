@@ -278,7 +278,7 @@ function BannerManager({ showToast }) {
             </div>
             <div className="form-group" style={{ marginBottom: 0 }}>
               <label className="form-label">排序（数字越小越靠前）</label>
-              <input type="number" className="form-input" value={form.sort_order} onChange={e => setForm(f => ({ ...f, sort_order: e.target.value }))} />
+              <input type="number" className="form-input" value={form.sort_order} onChange={e => setForm(f => ({ ...f, sort_order: e.target.value }))}  step="0.01"/>
             </div>
           </div>
           <div className="form-group mt-4">
@@ -783,7 +783,7 @@ function ShopManager({ showToast }) {
           )}
           <div className="form-group" style={{ marginBottom: 0 }}>
             <label className="form-label">价格（贡献点）</label>
-            <input type="number" className="form-input" value={form.price} onChange={e => setForm(f => ({ ...f, price: e.target.value }))} placeholder="0" />
+            <input type="number" className="form-input" value={form.price} onChange={e => setForm(f => ({ ...f, price: e.target.value }))} placeholder="0"  step="0.01"/>
           </div>
           <div className="form-group" style={{ marginBottom: 0 }}>
             <label className="form-label">库存（-1 为不限量）</label>
@@ -1344,13 +1344,13 @@ function DisciplineManager({ showToast }) {
             {level === 2 && (
               <div className="form-group" style={{ marginTop: 10, marginBottom: 0 }}>
                 <label className="form-label">扣除贡献点数量（≥1）*</label>
-                <input type="number" className="form-input" min="1" placeholder="例如：50" value={deductPoints} onChange={e => setDeductPoints(e.target.value)} />
+                <input type="number" className="form-input" min="1" placeholder="例如：50" value={deductPoints} onChange={e => setDeductPoints(e.target.value)}  step="0.01"/>
               </div>
             )}
             {level === 3 && (
               <div className="form-group" style={{ marginTop: 10, marginBottom: 0 }}>
                 <label className="form-label">附加扣除贡献点（可选，默认0）</label>
-                <input type="number" className="form-input" min="0" placeholder="0" value={deductPoints} onChange={e => setDeductPoints(e.target.value)} />
+                <input type="number" className="form-input" min="0" placeholder="0" value={deductPoints} onChange={e => setDeductPoints(e.target.value)}  step="0.01"/>
               </div>
             )}
           </div>
@@ -1568,7 +1568,7 @@ function TaskManager({ showToast }) {
               {form.projection && <button type="button" className="link-btn" onClick={() => setForm(f => ({ ...f, projection: '' }))}>移除投影</button>}
               {form.projection && <span className="text-secondary" style={{ fontSize: 12 }}>已上传投影文件</span>}
             </div>
-            <input className="form-input" type="number" placeholder="贡献点奖励 *" value={form.reward} onChange={e => setForm({ ...form, reward: e.target.value })} />
+            <input className="form-input" type="number" placeholder="贡献点奖励 *" value={form.reward} onChange={e => setForm({ ...form, reward: e.target.value })}  step="0.01"/>
             <div className="flex" style={{ gap: 12, alignItems: 'center' }}>
               <input className="form-input" type="number" placeholder="可接取人数（-1 无限 / 1及以上限量）" value={form.maxPeople} onChange={e => setForm({ ...form, maxPeople: e.target.value })} />
               <span className="text-secondary" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>{form.maxPeople === -1 ? '无限人数' : `限量 ${form.maxPeople} 人`}</span>
@@ -2191,7 +2191,7 @@ function PayLinkManager({ showToast }) {
           </div>
           <div>
             <div className="text-secondary" style={{ fontSize: 12, marginBottom: 4 }}>金额（贡献点）</div>
-            <input className="input" style={{ width: 110 }} type="number" min="1" value={amount} onChange={e => setAmount(e.target.value)} />
+            <input className="input" style={{ width: 110 }} type="number" min="1" value={amount} onChange={e => setAmount(e.target.value)}  step="0.01"/>
           </div>
           <div>
             <div className="text-secondary" style={{ fontSize: 12, marginBottom: 4 }}>方向</div>
@@ -2327,7 +2327,7 @@ function BubbleManager({ showToast }) {
             </div>
             <div>
               <div className="text-secondary" style={{ fontSize: 12, marginBottom: 4 }}>价格（贡献点）</div>
-              <input className="input" style={{ width: 110 }} type="number" min="0" value={edit.price} onChange={e => setEdit({ ...edit, price: e.target.value })} />
+              <input className="input" style={{ width: 110 }} type="number" min="0" value={edit.price} onChange={e => setEdit({ ...edit, price: e.target.value })}  step="0.01"/>
             </div>
             <div>
               <div className="text-secondary" style={{ fontSize: 12, marginBottom: 4 }}>排序</div>
