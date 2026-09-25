@@ -43,6 +43,7 @@ const paygateRoutes = require('./routes/paygate');
 const chatRoutes = require('./routes/chat');
 const payConfirmRoutes = require('./routes/pay-confirm');
 const payRoutes = require('./routes/pay');
+const mcRoutes = require('./routes/mc');
 const donationRoutes = require('./routes/donation');
 const db = require('./database');
 
@@ -175,6 +176,8 @@ app.use('/api/chat', chatRoutes);
 app.use('/api/pay-confirm', payConfirmRoutes);
 // 贡献点扫码支付（收款码/付款码/缴费单，设计见 docs/PAY-QR-DESIGN.md）
 app.use('/api/pay', payRoutes);
+// Minecraft 服务器只读对接（115 状态查询，115 侧不部署任何进程）
+app.use('/api/mc', mcRoutes);
 app.use('/api/donation', donationRoutes);
 
 // ============ React前端（frontend/dist）托管 ============
