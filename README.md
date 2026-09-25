@@ -376,6 +376,23 @@ Aug 15 与 Aug 22 两次批量提交合并记录：
   任何写入（现有 30 余处 SQL 与新代码）都会自动取整到两位，无需逐个改造。
 - 前端金额输入框已放开 `step="0.01"`。
 
+## Minecraft 服务器只读对接（115）
+
+把 115（`115.190.153.44`，十一服·历史展览馆）的服务器状态接进官网与群机器人。**115 侧不部署任何进程**
+（实测只剩约 175MB 可用内存、Paper 使用 `-Xmx1152M`），所有客户端都跑在 HK 官网进程里：
+
+- `GET /api/mc/servers` 服务器清单（不含密钥）；`GET /api/mc/status?server=s115` 基础状态（公开，缓存 20 秒）：
+  在线/最大人数、版本、协议号、MOTD、延迟（Minecraft Server List Ping，原生 25565，无需凭据）。
+- `GET /api/mc/status-detail?server=s115` 明细（**管理员**，缓存 15 秒）：在线名单、TPS、白名单（RCON）。
+- 115 的 RCON（25575）被 ufw 拦截、25565 开放，且不宜改 115 防火墙，因此 RCON 走 **HK→115 的 SSH 隧道**：
+  `scripts/setup-mc115-tunnel.sh` 会在 HK 建立 pm2 常驻隧道 `mc115-rcon-tunnel`
+  （`127.0.0.1:25585 → 115:25575`）并写入 env `MC_RCON_HOST_S115` / `MC_RCON_PORT_S115` /
+  `MC_RCON_PASSWORD_S115`（密码只在 HK 的 .env，不下发前端、不进日志）。
+- 配置项：`MC_SERVERS="s115=115.190.153.44:25565"`、`MC_LABEL_S115`、`MC_RCON_*_S115`。
+- 诊断脚本：`scripts/discover-mc115.sh`（只读探查 RCON 配置/内存/启动参数）、`scripts/probe-mc115.sh`、
+  `scripts/probe-mc115-detail.sh`。
+- 红线：不要往 115 上装常驻服务或新进程（内存已接近上限）；写操作（广播/踢人/白名单）属第二阶段，需先加限流与权限校验。
+
 ## 贡献点扫码支付
 
 设计契约见 `docs/PAY-QR-DESIGN.md`：收款码（主扫）+ 付款码（反扫，60 秒刷新）+ 缴费单码（一码多人），
@@ -414,6 +431,12 @@ Aug 15 与 Aug 22 两次批量提交合并记录：
 - 审批与对账：`GET /api/pay/admin/approvals`、`POST /api/pay/admin/approve/:id`（`action=approve|reject`）、
   `GET /api/pay/admin/records`（筛选 + `format=csv`）、`GET /api/pay/admin/summary`。
 - 二维码图片：`GET /api/pay/qr.png?text=`（公开只读，仅接受本站 `/pay/<token>` 链接或纯 token，≤512 字符）。
+- 出图（QQ 群机器人直发图片，见 `lib/pay-render.js`，SVG→PNG 由 sharp 渲染，中文依赖系统 CJK 字体）：
+  `GET /api/pay/render/charge/<token>.png`（缴费单海报，公开只读，**不含名单姓名**）、
+  `GET /api/pay/render/summary.png?exp=&sig=`（财务对账海报，**必须 HMAC 签名**，10 分钟有效，篡改/过期 403）。
+- 机器人审批与播报：`GET /api/qqbot/pay/render-url?kind=summary`（换签名短链接，QQ 取图不带请求头）、
+  `GET /api/qqbot/pay/charge-poster?token=`、`GET /api/qqbot/pay/pending-approvals`、
+  `POST /api/qqbot/pay/approve/:id`（群内审批，校验绑定账号 level≥1）。
 - 机器人入口：`/api/qqbot/pay/*`（沿用机器人 token 鉴权与 QQ↔官网绑定关系，内部复用同一套出码/权限逻辑）。
 
 **QQ 机器人指令**（群内 `#` 或 `/` 前缀均可；机器人只出码与提示，**扣款一律回官网由付款方本人确认**）

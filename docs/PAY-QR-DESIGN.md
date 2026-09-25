@@ -214,10 +214,26 @@ created ──扫开──▶ scanned ──付款方确认──▶ [amount>200
 | GET | `/admin/summary` | 管理员 | 对账概览（含金库余额与最终对账口径） |
 | GET/PUT | `/admin/settings` | 管理员 | 风控阈值（`pay_single_limit` / `pay_daily_limit` / `pay_approval_threshold`） |
 | GET | `/qr.png?text=` | 公开只读 | 二维码图片（仅允许 `https://xuanjian.top/pay/<token>` 或纯 token，≤512 字符） |
-| POST/GET | `/api/qqbot/pay/*` | 机器人 token | 机器人代绑定 QQ 用户出码 / 查记录 / 开单（复用同一套函数与权限） |
+| GET | `/render/charge/<token>.png` | 公开只读 | 缴费单海报（标题/金额/截止/双进度条/二维码，**不含名单姓名**），供 QQ 机器人直发图片 |
+| GET | `/render/summary.png?exp=&sig=` | 签名短链 | 财务对账海报（HMAC 签名 10 分钟有效，篡改/过期 403）；机器人先用 `/api/qqbot/pay/render-url` 换链接 |
+| POST/GET | `/api/qqbot/pay/*` | 机器人 token | 机器人代绑定 QQ 用户出码 / 查记录 / 开单 / 换签名图片链接 / 轮询待审批 / 群内审批 |
 
 联调脚本：`scripts/test-pay-e2e.js`（阶段 2，31 项断言）、`scripts/test-pay-e2e2.js`（阶段 3-5，57 项断言），
 两者都会在结束时回滚余额、恢复阈值、清理测试数据；生产联调见 `scripts/deploy-pay-verify.sh` / `deploy-pay-verify2.sh`（用临时账号）。
+
+## 7.3 群内出图、审批与播报（阶段 6 增强）
+
+- **出图**：`lib/pay-render.js` 用 SVG→PNG（sharp）渲染两张海报，中文依赖系统 CJK 字体（HK 已装 fonts-noto-cjk）。
+  缴费单海报公开只读，故意**不含名单姓名**；对账海报含管理数据，必须签名链接 ——
+  签名用 `JWT_SECRET` 做 HMAC-SHA256（`kind:exp`），10 分钟有效、常量时间比较，日志与前端都不出现密钥。
+- **为什么要签名链接**：QQ 服取图时不带任何请求头，所以带 `X-Bot-Token` 的图片接口机器人发不出去，
+  只能先用机器人接口换一个短时效签名 URL。
+- **群内审批**：机器人轮询 `/api/qqbot/pay/pending-approvals`（每 60 秒，带 id 去重持久化避免重启重复播报），
+  发现新的大额待审批就播报并给出 `#通过 <id>` / `#驳回 <id>`；审批动作调用
+  `/api/qqbot/pay/approve/:id`，权限校验为「绑定账号 level≥1」，与网页管理端共用 `approveTransaction()`。
+- **播报**：财务月报（每月 1 日 10:00）发对账海报图，周报（每周一 09:00）发文字活跃榜；
+  时区按 Asia/Shanghai 换算（服务器为 UTC），全部由 env `PAY_BROADCAST` 控制开关（缺省 off），
+  单次播报对官网请求 ≤3 次，失败静默退避。
 
 ## 8. 已知取舍
 
