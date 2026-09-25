@@ -54,7 +54,7 @@ const POSITION_OPTIONS = [
 
 const SCORE_MODE_OPTIONS = [
   { value: 'member_count', label: 'member_count（按人数自动）' },
-  { value: 'fixed', label: 'fixed（固定分数，本期保留）' }
+  { value: 'fixed', label: 'fixed（每队固定分，选后在下方填写）' }
 ];
 
 const KEY_RE = /^[a-z0-9_]{1,16}$/;
@@ -93,7 +93,8 @@ function emptyForm() {
       objective: 'nt_teams',
       display_name: '<gold>队伍</gold>',
       position: 'sidebar',
-      score_mode: 'member_count'
+      score_mode: 'member_count',
+      unit_scores: {}
     },
     units: [newUnit(0)]
   };
@@ -177,7 +178,8 @@ function buildPayload(form) {
       objective: (form.scoreboard.objective || 'nt_teams').trim() || 'nt_teams',
       display_name: (form.scoreboard.display_name || '').slice(0, MAX_TEXT) || '<gold>队伍</gold>',
       position: form.scoreboard.position,
-      score_mode: form.scoreboard.score_mode
+      score_mode: form.scoreboard.score_mode,
+      unit_scores: form.scoreboard.unit_scores || {}
     },
     units: form.units.map((u, i) => ({
       key: (u.key || '').trim().toLowerCase(),
@@ -209,7 +211,8 @@ function configToForm(cfg) {
       objective: sb.objective || 'nt_teams',
       display_name: sb.display_name || '<gold>队伍</gold>',
       position: sb.position || 'sidebar',
-      score_mode: sb.score_mode || 'member_count'
+      score_mode: sb.score_mode || 'member_count',
+      unit_scores: sb.unit_scores || {}
     },
     units: (cfg.units || []).map(u => ({
       key: u.key || '',
@@ -481,7 +484,7 @@ export default function TeamAdmin({ showToast }) {
               onChange={e => patchScoreboard({ enabled: e.target.checked })}
               style={{ accentColor: 'var(--primary)', width: 16, height: 16 }}
             />
-            应用配置时同步记分板（每队一行，分数=人数）
+            应用配置时同步记分板（队伍行 + 在线成员行；队头显示「队伍名 · 数字」）
           </label>
           <div className="grid grid-2" style={{ gap: 14 }}>
             <div className="form-group" style={{ marginBottom: 0 }}>
@@ -525,6 +528,42 @@ export default function TeamAdmin({ showToast }) {
               </select>
             </div>
           </div>
+
+          {/* 1.1.0：fixed 模式才需要填「每队固定分」——插件会把数字显示在侧边栏队头行「队伍名 · N」里 */}
+          {form.scoreboard.score_mode === 'fixed' && (
+            <div className="mt-3">
+              <label className="form-label">
+                每队固定分（仅 fixed 模式使用；留空则该队回退为「按人数」，数值只影响显示、不参与排序）
+              </label>
+              <div className="grid grid-3" style={{ gap: 10 }}>
+                {form.units.map((u, index) => (
+                  <div key={u.key || index} className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label" style={{ fontSize: 12 }}>
+                      {u.display_name || u.key || `队伍 ${index + 1}`}
+                      {u.key ? <span className="text-secondary">（{u.key}）</span> : null}
+                    </label>
+                    <input
+                      className="form-input"
+                      type="number"
+                      value={form.scoreboard.unit_scores?.[u.key] ?? ''}
+                      placeholder={String((u.members || []).length)}
+                      onChange={e => {
+                        const raw = e.target.value;
+                        const key = u.key;
+                        if (!key) return;
+                        setForm(f => {
+                          const next = { ...(f.scoreboard.unit_scores || {}) };
+                          if (raw === '') delete next[key];
+                          else next[key] = Math.trunc(Number(raw) || 0);
+                          return { ...f, scoreboard: { ...f.scoreboard, unit_scores: next } };
+                        });
+                      }}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* 队伍编辑器 */}

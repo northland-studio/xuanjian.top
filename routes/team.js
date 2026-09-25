@@ -54,6 +54,26 @@ async function serverKeyAuth(req, res, next) {
 }
 
 /* ==================== 组装 / 校验 ==================== */
+/**
+ * 还原 unit_scores（DB 里存 JSON 文本）。
+ * 坏数据退化为空对象而不是抛错 —— 这是公示读接口，宁可少显示也不能 500。
+ */
+function parseUnitScores(raw) {
+    if (!raw) return {};
+    try {
+        const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+        const out = {};
+        for (const [k, v] of Object.entries(parsed)) {
+            const n = Number(v);
+            if (k && Number.isFinite(n)) out[k] = Math.trunc(n);
+        }
+        return out;
+    } catch (e) {
+        return {};
+    }
+}
+
 function shapeConfig(row, units) {
     return {
         schema: 1,
@@ -68,7 +88,9 @@ function shapeConfig(row, units) {
             objective: row.scoreboard_objective,
             display_name: row.scoreboard_display_name,
             position: row.scoreboard_position,
-            score_mode: row.scoreboard_score_mode
+            score_mode: row.scoreboard_score_mode,
+            // 1.1.0：fixed 模式下每队的固定分，插件会把数字显示在队头行「队伍名 · N」里
+            unit_scores: parseUnitScores(row.scoreboard_unit_scores)
         },
         units: units.map(u => ({
             key: u.key,
@@ -189,12 +211,37 @@ function validatePayload(body) {
         });
     }
 
+    // unit_scores（1.1.0）：仅 fixed 模式使用，key 必须对应本配置里的队伍，值必须是整数。
+    // 数值只用于显示在队头行文本里（插件侧），不参与排序。
+    const unit_scores = {};
+    const rawScores = (sb.unit_scores && typeof sb.unit_scores === 'object' && !Array.isArray(sb.unit_scores))
+        ? sb.unit_scores : {};
+    for (const [rawKey, rawValue] of Object.entries(rawScores)) {
+        const key = String(rawKey || '').trim().toLowerCase();
+        if (!key) continue;
+        if (!keys.has(key)) {
+            return { ok: false, error: `记分板 unit_scores 里的 key「${rawKey}」不对应任何队伍` };
+        }
+        const n = Number(rawValue);
+        if (!Number.isFinite(n)) {
+            return { ok: false, error: `记分板 unit_scores.${key} 必须是整数` };
+        }
+        const value = Math.trunc(n);
+        if (Math.abs(value) > 1000000) {
+            return { ok: false, error: `记分板 unit_scores.${key} 数值过大（|值| ≤ 1000000）` };
+        }
+        unit_scores[key] = value;
+    }
+
     return {
         ok: true,
         data: {
             name, description, event_date,
             is_public: bool(body.is_public) ? 1 : 0,
-            scoreboard: { enabled: bool(sb.enabled) ? 1 : 0, objective, display_name, position, score_mode },
+            scoreboard: {
+                enabled: bool(sb.enabled) ? 1 : 0,
+                objective, display_name, position, score_mode, unit_scores
+            },
             units
         }
     };
@@ -211,11 +258,12 @@ async function saveConfig(data, { id = null, createdBy = null, forcePrivate = fa
             await db.run(
                 `UPDATE team_configs SET name=?, description=?, event_date=?, is_public=?,
                    scoreboard_enabled=?, scoreboard_objective=?, scoreboard_display_name=?,
-                   scoreboard_position=?, scoreboard_score_mode=?, updated_at=?
+                   scoreboard_position=?, scoreboard_score_mode=?, scoreboard_unit_scores=?, updated_at=?
                  WHERE id=?`,
                 [data.name, data.description, data.event_date, isPublic,
                     data.scoreboard.enabled, data.scoreboard.objective, data.scoreboard.display_name,
-                    data.scoreboard.position, data.scoreboard.score_mode, now, configId]
+                    data.scoreboard.position, data.scoreboard.score_mode,
+                    JSON.stringify(data.scoreboard.unit_scores || {}), now, configId]
             );
             await db.run(
                 'DELETE FROM team_members WHERE unit_id IN (SELECT id FROM team_units WHERE config_id = ?)', [configId]);
@@ -224,11 +272,13 @@ async function saveConfig(data, { id = null, createdBy = null, forcePrivate = fa
             const r = await db.run(
                 `INSERT INTO team_configs
                  (name, description, event_date, is_public, scoreboard_enabled, scoreboard_objective,
-                  scoreboard_display_name, scoreboard_position, scoreboard_score_mode, created_by, created_at, updated_at)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                  scoreboard_display_name, scoreboard_position, scoreboard_score_mode, scoreboard_unit_scores,
+                  created_by, created_at, updated_at)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                 [data.name, data.description, data.event_date, isPublic,
                     data.scoreboard.enabled, data.scoreboard.objective, data.scoreboard.display_name,
-                    data.scoreboard.position, data.scoreboard.score_mode, createdBy, now, now]
+                    data.scoreboard.position, data.scoreboard.score_mode,
+                    JSON.stringify(data.scoreboard.unit_scores || {}), createdBy, now, now]
             );
             configId = r.id;
         }
