@@ -64,6 +64,16 @@ const OBJECTIVE_RE = /^[A-Za-z0-9_.-]{1,32}$/;
 const MAX_UNITS = 32;
 const MAX_MEMBERS = 100;
 const MAX_TEXT = 64;
+// 1.1.0：prefix/suffix 从 64 放宽到 256（MiniMessage 标签很占长度）
+const MAX_PREFIX = 256;
+
+/** 去掉 MiniMessage 标签与传统颜色码后的可见长度（display_name 按此口径限制） */
+function visibleLength(text) {
+  return String(text || '')
+    .replace(/<[^>]*>/g, '')
+    .replace(/&[0-9a-fk-or]/gi, '')
+    .length;
+}
 
 /** 新建一个空白队伍单元（unchecked 项按后端默认值给） */
 function newUnit(index = 0) {
@@ -148,11 +158,14 @@ function validateForm(form) {
 
     const displayName = (u.display_name || '').trim();
     if (!displayName) return `队伍 ${key} 的显示名必填`;
-    if (displayName.length > 32) return `队伍 ${key} 的显示名不能超过 32 个字符`;
+    const displayVisible = visibleLength(displayName);
+    if (!displayVisible) return `队伍 ${key} 的显示名不能只有颜色标签`;
+    if (displayVisible > 32) return `队伍 ${key} 的显示名可见长度 ${displayVisible} 超过 32（颜色标签不占额度）`;
+    if (displayName.length > MAX_PREFIX) return `队伍 ${key} 的显示名原始长度 ${displayName.length} 超过 ${MAX_PREFIX}（颜色标签过多）`;
 
     if (!COLORS.includes(u.color)) return `队伍 ${key} 的颜色不在允许的 16 种原版颜色内`;
-    if ((u.prefix || '').length > MAX_TEXT) return `队伍 ${key} 的前缀不能超过 ${MAX_TEXT} 个字符`;
-    if ((u.suffix || '').length > MAX_TEXT) return `队伍 ${key} 的后缀不能超过 ${MAX_TEXT} 个字符`;
+    if ((u.prefix || '').length > MAX_PREFIX) return `队伍 ${key} 的前缀长度 ${(u.prefix || '').length} 超过上限 ${MAX_PREFIX}（含颜色标签）`;
+    if ((u.suffix || '').length > MAX_PREFIX) return `队伍 ${key} 的后缀长度 ${(u.suffix || '').length} 超过上限 ${MAX_PREFIX}（含颜色标签）`;
 
     const members = dedupeMembers(parseMembersText(u.membersText));
     if (members.length > MAX_MEMBERS) return `队伍 ${key} 的成员数不能超过 ${MAX_MEMBERS} 人`;
@@ -176,7 +189,7 @@ function buildPayload(form) {
     scoreboard: {
       enabled: !!form.scoreboard.enabled,
       objective: (form.scoreboard.objective || 'nt_teams').trim() || 'nt_teams',
-      display_name: (form.scoreboard.display_name || '').slice(0, MAX_TEXT) || '<gold>队伍</gold>',
+      display_name: (form.scoreboard.display_name || '').slice(0, MAX_PREFIX) || '<gold>队伍</gold>',
       position: form.scoreboard.position,
       score_mode: form.scoreboard.score_mode,
       unit_scores: form.scoreboard.unit_scores || {}
@@ -502,7 +515,7 @@ export default function TeamAdmin({ showToast }) {
               <input
                 className="form-input"
                 value={form.scoreboard.display_name}
-                maxLength={MAX_TEXT}
+                maxLength={MAX_PREFIX}
                 placeholder="<gold>队伍</gold>"
                 onChange={e => patchScoreboard({ display_name: e.target.value })}
               />
@@ -609,11 +622,11 @@ export default function TeamAdmin({ showToast }) {
                       />
                     </div>
                     <div className="form-group" style={{ marginBottom: 0 }}>
-                      <label className="form-label">显示名 *（≤32）</label>
+                      <label className="form-label">显示名 *（可见 ≤32，颜色标签不占额度）</label>
                       <input
                         className="form-input"
                         value={u.display_name}
-                        maxLength={32}
+                        maxLength={MAX_PREFIX}
                         placeholder="黄队"
                         onChange={e => updateUnit(index, { display_name: e.target.value })}
                       />
@@ -632,21 +645,21 @@ export default function TeamAdmin({ showToast }) {
                       </div>
                     </div>
                     <div className="form-group" style={{ marginBottom: 0 }}>
-                      <label className="form-label">前缀（MiniMessage，≤64）</label>
+                      <label className="form-label">前缀（MiniMessage，≤{MAX_PREFIX}，含颜色标签）</label>
                       <input
                         className="form-input"
                         value={u.prefix}
-                        maxLength={MAX_TEXT}
+                        maxLength={MAX_PREFIX}
                         placeholder="<yellow>[黄]</yellow> "
                         onChange={e => updateUnit(index, { prefix: e.target.value })}
                       />
                     </div>
                     <div className="form-group" style={{ marginBottom: 0 }}>
-                      <label className="form-label">后缀（MiniMessage，≤64）</label>
+                      <label className="form-label">后缀（MiniMessage，≤{MAX_PREFIX}，含颜色标签）</label>
                       <input
                         className="form-input"
                         value={u.suffix}
-                        maxLength={MAX_TEXT}
+                        maxLength={MAX_PREFIX}
                         placeholder="留空表示无后缀"
                         onChange={e => updateUnit(index, { suffix: e.target.value })}
                       />

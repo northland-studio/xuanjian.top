@@ -32,9 +32,24 @@ const SCORE_MODES = ['member_count', 'fixed'];
 const MAX_UNITS = 32;
 const MAX_MEMBERS_PER_UNIT = 100;
 const MAX_TEXT = 64;
+// 1.1.0：prefix/suffix 从 64 放宽到 256 —— MiniMessage 标签很占长度
+// （<dark_gray>…</dark_gray> 一段就 21 字符），多段变色时 64 很容易撞上限。
+// 现代版本的前后缀是 Component，原版无硬性长度限制，只有客户端显示上的截断。
+const MAX_PREFIX = 256;
 const KEY_RE = /^[a-z0-9_]{1,13}$/;   // 13 位：插件侧拼成 nt_<key> 后正好 16，卡在原版记分板队伍名上限内
 const PLAYER_RE = /^[A-Za-z0-9_]{1,16}$/;
 const OBJECTIVE_RE = /^[A-Za-z0-9_.-]{1,32}$/;
+
+/**
+ * 去掉 MiniMessage 标签与传统颜色码后的可见长度。
+ * display_name 按这个口径限制（颜色标签不占额度），与插件侧校验器一致。
+ */
+function visibleLength(text) {
+    return String(text || '')
+        .replace(/<[^>]*>/g, '')
+        .replace(/&[0-9a-fk-or]/gi, '')
+        .length;
+}
 
 const bool = v => v === true || v === 1 || v === '1' || v === 'true';
 
@@ -155,7 +170,14 @@ function validatePayload(body) {
     const sb = (body.scoreboard && typeof body.scoreboard === 'object') ? body.scoreboard : {};
     const objective = String(sb.objective || 'nt_teams').trim() || 'nt_teams';
     if (!OBJECTIVE_RE.test(objective)) return { ok: false, error: '记分板 objective 名称不合法（只允许字母数字._-）' };
-    const display_name = String(sb.display_name || '<gold>队伍</gold>').slice(0, MAX_TEXT);
+    const display_name = String(sb.display_name || '<gold>队伍</gold>').slice(0, MAX_PREFIX);
+    const displayNameVisible = visibleLength(display_name);
+    if (!displayNameVisible) {
+        return { ok: false, error: '记分板 display_name 不能只有颜色标签' };
+    }
+    if (displayNameVisible > 32) {
+        return { ok: false, error: `记分板 display_name 可见长度 ${displayNameVisible} 超过 32 字符（颜色标签不占额度）` };
+    }
     const position = POSITIONS.includes(sb.position) ? sb.position : 'sidebar';
     const score_mode = SCORE_MODES.includes(sb.score_mode) ? sb.score_mode : 'member_count';
 
@@ -174,8 +196,20 @@ function validatePayload(body) {
         keys.add(key);
 
         const uname = String(u.display_name || '').trim();
-        if (!uname || uname.length > 32) return { ok: false, error: `队伍 ${key} 的显示名必填且不超过 32 字符` };
+        const unameVisible = visibleLength(uname);
+        if (!unameVisible) return { ok: false, error: `队伍 ${key} 的显示名必填（不能只有颜色标签）` };
+        if (unameVisible > 32) return { ok: false, error: `队伍 ${key} 的显示名可见长度 ${unameVisible} 超过 32 字符（颜色标签不占额度）` };
+        if (uname.length > MAX_PREFIX) return { ok: false, error: `队伍 ${key} 的显示名原始长度 ${uname.length} 超过 ${MAX_PREFIX}（颜色标签过多）` };
         if (!COLORS.includes(u.color)) return { ok: false, error: `队伍 ${key} 的颜色不在允许列表（16 种原版颜色）` };
+
+        // prefix/suffix：1.1.0 起上限 256（含标签）。以前是 slice 静默截断，现在明确报错，
+        // 避免管理员以为存上了其实被砍掉一半。
+        for (const [field, rawValue] of [['prefix', u.prefix], ['suffix', u.suffix]]) {
+            const text = String(rawValue || '');
+            if (text.length > MAX_PREFIX) {
+                return { ok: false, error: `队伍 ${key} 的 ${field} 长度 ${text.length} 超过上限 ${MAX_PREFIX}（含颜色标签）` };
+            }
+        }
 
         const members = [];
         const seen = new Set();
@@ -199,8 +233,8 @@ function validatePayload(body) {
             key,
             display_name: uname,
             color: u.color,
-            prefix: String(u.prefix || '').slice(0, MAX_TEXT),
-            suffix: String(u.suffix || '').slice(0, MAX_TEXT),
+            prefix: String(u.prefix || ''),
+            suffix: String(u.suffix || ''),
             friendly_fire: bool(u.friendly_fire) ? 1 : 0,
             see_friendly_invisibles: u.see_friendly_invisibles === false || u.see_friendly_invisibles === 0 ? 0 : 1,
             nametag_visibility: VISIBILITIES.includes(u.nametag_visibility) ? u.nametag_visibility : 'always',
