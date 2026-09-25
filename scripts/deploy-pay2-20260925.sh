@@ -32,15 +32,26 @@ node --check server.js
 [ -f "$STAGE/qqbot.js" ] && node --check routes/qqbot.js
 echo "    通过"
 
-echo "[4/7] 替换前端产物（原子切换）..."
+echo "[4/7] 替换前端产物（原子切换，带国庆主题保护）..."
+THEME_WAS_ON=0
+[ -f frontend/dist/.national-day ] && THEME_WAS_ON=1
 if [ -f "$STAGE/dist.tar.gz" ]; then
   rm -rf frontend/dist.new && mkdir -p frontend/dist.new
   tar -xzf "$STAGE/dist.tar.gz" -C frontend/dist.new
-  [ -f frontend/dist/index.html ] || { echo "    新产物缺少 index.html，中止"; exit 1; }
+  [ -f frontend/dist.new/index.html ] || { echo "    新产物缺少 index.html，中止"; exit 1; }
   rm -rf "frontend/dist.bak-$TAG"
   mv frontend/dist "frontend/dist.bak-$TAG"
   mv frontend/dist.new frontend/dist
   ls frontend/dist | head -5
+  if [ "$THEME_WAS_ON" = "1" ]; then
+    if [ -d themes/national-day/dist ]; then
+      cp -a themes/national-day/dist/. frontend/dist/
+      touch frontend/dist/.national-day
+      echo "    （检测到国庆主题生效中，已自动重新套用主题产物）"
+    else
+      echo "    (!) 原为国庆主题但 themes/national-day/dist 缺失，已回退为普通前端"
+    fi
+  fi
 else
   echo "    （未提供 dist.tar.gz，跳过前端更新）"
 fi
