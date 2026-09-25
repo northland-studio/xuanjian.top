@@ -407,7 +407,10 @@ Aug 15 与 Aug 22 两次批量提交合并记录：
 - 付款码反扫：`GET /api/pay/payer-code/current`（60 秒刷新）、`POST /api/pay/scan`（收款方扫付款码发起收款；
   扫到收款码/缴费单码则返回 `mode:'direct'` 直达付款页）、`GET /api/pay/payer-code/pending`（付款方轮询待确认）。
 - 缴费单：`POST /api/pay/charge`（管理员或认证成员）、`GET /api/pay/charge/:token`、`POST /api/pay/charge/:token/pay`、
-  `POST /api/pay/charge/:token/close`、`GET /api/pay/charges`。
+  `POST /api/pay/charge/:token/close`、`GET /api/pay/charges`；官网也可开单：`/pay/charge-new` 支持
+  **搜索成员逐个加入名单**（`GET /api/pay/members?q=`，按昵称/用户名/QQ 号搜索，不返回 QQ 号本体）、
+  按名称添加未绑定玩家、按人设定金额；开单后在缴费单页仍可 `POST /api/pay/charge/:token/targets` 继续加人、
+  `DELETE /api/pay/charge/:token/targets/:id` 移出未缴费成员（被加入者会收到站内待缴通知）。
 - 审批与对账：`GET /api/pay/admin/approvals`、`POST /api/pay/admin/approve/:id`（`action=approve|reject`）、
   `GET /api/pay/admin/records`（筛选 + `format=csv`）、`GET /api/pay/admin/summary`。
 - 二维码图片：`GET /api/pay/qr.png?text=`（公开只读，仅接受本站 `/pay/<token>` 链接或纯 token，≤512 字符）。
@@ -433,7 +436,8 @@ Aug 15 与 Aug 22 两次批量提交合并记录：
 - 所有二维码/缴费单的倒计时**必须以服务端下发的 `remainSeconds` 为准**：服务器（HK=UTC）与浏览器时区不一致时，
   前端自行解析 `expiresAt` 字符串会把「未过期」误判成「已过期」（`routes/pay.js` 的 `remainSecOf()` 与
   `PayIntent.jsx` / `PayCharge.jsx` / `PayRecords.jsx` 的 `serverRemain()` 即为此约定）。
-- 前端页面：`/pay`（支付中心：收款码 / 付款码 / 扫一扫）、`/pay/:token`（付款落地页）、`/pay/charge/:token`（缴费单）、
+- 前端页面：`/pay`（支付中心：收款码 / 付款码 / 扫一扫）、`/pay/:token`（付款落地页）、`/pay/charge/:token`（缴费单，
+  创建者/管理员可继续搜索加人、移出未缴成员）、`/pay/charge-new`（官网开缴费单：搜索成员逐个加入）、
   `/pay/records`（我的记录）、`/pay/admin`（审批 + 对账 + 阈值，仅管理员；同一份面板也已接入站点管理后台
   的「支付管理」分页 `/admin#pay`，两处共用 `components/PayAdminPanel.jsx`）。
 

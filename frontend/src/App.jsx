@@ -35,6 +35,7 @@ import PayConfirm from './pages/PayConfirm';
 import Pay from './pages/Pay';
 import PayIntent from './pages/PayIntent';
 import PayCharge from './pages/PayCharge';
+import PayChargeNew from './pages/PayChargeNew';
 import PayRecords from './pages/PayRecords';
 import PayAdmin from './pages/PayAdmin';
 import ChatPage from './pages/ChatPage';
@@ -81,6 +82,7 @@ function MainSite() {
         <Route path="/pay" element={<Pay />} />
         <Route path="/pay/records" element={<PayRecords />} />
         <Route path="/pay/admin" element={<PayAdmin />} />
+        <Route path="/pay/charge-new" element={<PayChargeNew />} />
         <Route path="/pay/charge/:token" element={<PayCharge />} />
         <Route path="/pay/:token" element={<PayIntent />} />
         <Route path="*" element={<Home />} />

@@ -709,10 +709,39 @@ async function createCharge({
     });
 
     // 名单
-    const targets = Array.isArray(rawTargets) ? rawTargets.slice(0, 500) : [];
+    const { added, unmatchedQq } = await addChargeTargets(intent.id, rawTargets, amount);
+    if (added === 0 && amount === null && !openAll) {
+        return { status: 400, error: '请填写统一金额，或提供名单/开放缴纳' };
+    }
+    let total = added;
+    if (openAll) {
+        await db.run(
+            `INSERT INTO pay_charges (intent_id, user_id, player_name, amount, status, updated_at)
+             VALUES (?, NULL, NULL, ?, 'unpaid', ?)`,
+            [intent.id, amount, getLocalTimestamp()]
+        );
+        total++;
+    }
+
+    return {
+        ok: true, intentId: intent.id, token: intent.token, url: `/pay/charge/${intent.token}`,
+        title, amount, deadline, expiresAt: deadline, targetCount: total,
+        payee: { id: payee.id, type: payee.type, name: payee.display_name },
+        unmatchedQq, message: '缴费单已创建'
+    };
+}
+
+/**
+ * 把名单写入缴费单（创建时与后续「逐个添加/移除」共用）
+ * 支持 userId / qq / username / playerName 四种定位方式，并允许按人覆盖金额；
+ * 已在名单中的用户自动跳过，避免重复行。
+ */
+async function addChargeTargets(intentId, rawTargets, defaultAmount) {
+    const list = Array.isArray(rawTargets) ? rawTargets.slice(0, 500) : [];
     const unmatchedQq = [];
+    const addedUserIds = [];
     let added = 0;
-    for (const tg of targets) {
+    for (const tg of list) {
         let userId = tg.userId ? parseInt(tg.userId) : null;
         // QQ 机器人场景：按 QQ 号定位绑定用户（未绑定则记入 player_name 备查）
         if (!userId && tg.qq) {
@@ -724,34 +753,22 @@ async function createCharge({
             const u = await db.get('SELECT id FROM users WHERE username = ? OR nickname = ?', [String(tg.username), String(tg.username)]);
             if (u) userId = u.id;
         }
+        if (userId) {
+            const dup = await db.get('SELECT id FROM pay_charges WHERE intent_id = ? AND user_id = ?', [intentId, userId]);
+            if (dup) continue;
+        }
         const rowAmount = tg.amount !== undefined && tg.amount !== null && tg.amount !== ''
-            ? parseAmount(tg.amount) : amount;
+            ? parseAmount(tg.amount) : defaultAmount;
         if (rowAmount === null) continue;
         await db.run(
             `INSERT INTO pay_charges (intent_id, user_id, player_name, amount, status, updated_at)
              VALUES (?, ?, ?, ?, 'unpaid', ?)`,
-            [intent.id, userId, userId ? null : (tg.playerName || tg.username || '未绑定玩家'), rowAmount, getLocalTimestamp()]
+            [intentId, userId, userId ? null : (tg.playerName || tg.username || '未绑定玩家'), rowAmount, getLocalTimestamp()]
         );
         added++;
+        if (userId) addedUserIds.push(userId);
     }
-    if (openAll) {
-        await db.run(
-            `INSERT INTO pay_charges (intent_id, user_id, player_name, amount, status, updated_at)
-             VALUES (?, NULL, NULL, ?, 'unpaid', ?)`,
-            [intent.id, amount, getLocalTimestamp()]
-        );
-        added++;
-    }
-    if (added === 0 && amount === null) {
-        return { status: 400, error: '请填写统一金额，或提供名单/开放缴纳' };
-    }
-
-    return {
-        ok: true, intentId: intent.id, token: intent.token, url: `/pay/charge/${intent.token}`,
-        title, amount, deadline, expiresAt: deadline, targetCount: added,
-        payee: { id: payee.id, type: payee.type, name: payee.display_name },
-        unmatchedQq, message: '缴费单已创建'
-    };
+    return { added, unmatchedQq, addedUserIds };
 }
 
 /**
@@ -990,6 +1007,155 @@ router.get('/records', authMiddleware, async (req, res) => {
     } catch (error) {
         logger.error('获取支付记录错误:', error);
         res.status(500).json({ error: '获取支付记录失败' });
+    }
+});
+
+/* -------------------------------------------- 缴费单名单：搜索 / 逐个添加 / 移除 */
+
+/** 是否有开单权限（管理员或认证成员） */
+async function canCreateCharge(userId) {
+    const me = await db.get('SELECT id, level, email_verified FROM users WHERE id = ?', [userId]);
+    if (!me) return { ok: false, status: 404, error: '用户不存在' };
+    const level = await fetchLatestLevel(userId);
+    if (level < 1 && !me.email_verified) {
+        return { ok: false, status: 403, error: '只有管理员或认证成员可以创建缴费单' };
+    }
+    return { ok: true, me, level };
+}
+
+/**
+ * 成员搜索（开缴费单时「搜索人员逐个加入」用；仅对可开单的人开放）
+ * GET /api/pay/members?q=关键词&exclude=<intentToken>
+ * 支持按 昵称/用户名 模糊匹配，也支持精确 QQ 号；不返回 QQ 号本身，只标记是否已绑定。
+ */
+router.get('/members', authMiddleware, async (req, res) => {
+    try {
+        const perm = await canCreateCharge(req.userId);
+        if (!perm.ok) return res.status(perm.status).json({ error: perm.error });
+
+        const q = String(req.query.q || '').trim();
+        if (!q) return res.json({ members: [] });
+        if (q.length > 40) return res.status(400).json({ error: '搜索关键词过长' });
+        const like = `%${q}%`;
+
+        let rows = [];
+        try {
+            rows = await db.all(
+                `SELECT id, username, nickname, avatar,
+                        CASE WHEN COALESCE(qq,'') <> '' THEN 1 ELSE 0 END AS qq_bound
+                 FROM users
+                 WHERE username <> 'guild_treasury' AND (username LIKE ? OR nickname LIKE ? OR qq = ?)
+                 ORDER BY (nickname = ? OR username = ?) DESC, id ASC LIMIT 20`,
+                [like, like, q, q, q]
+            );
+        } catch (e) {
+            // 某些环境 users 表可能还没有 qq 列，退化为只按昵称/用户名搜索
+            logger.warn('pay: 成员搜索回退（users.qq 不可用）:', e.message);
+            rows = await db.all(
+                `SELECT id, username, nickname, avatar, 0 AS qq_bound
+                 FROM users WHERE username <> 'guild_treasury' AND (username LIKE ? OR nickname LIKE ?)
+                 ORDER BY (nickname = ? OR username = ?) DESC, id ASC LIMIT 20`,
+                [like, like, q, q]
+            );
+        }
+
+        // 已在该缴费单名单中的人标记出来，前端显示「已在名单」
+        const inRoster = new Set();
+        const token = String(req.query.exclude || '');
+        if (token) {
+            const found = await loadIntent(token);
+            if (found && found.intent.kind === 'charge') {
+                const list = await db.all('SELECT user_id FROM pay_charges WHERE intent_id = ? AND user_id IS NOT NULL', [found.intent.id]);
+                list.forEach(r => inRoster.add(r.user_id));
+            }
+        }
+
+        res.json({
+            members: rows.map(r => ({
+                id: r.id, username: r.username, name: r.nickname || r.username,
+                avatar: r.avatar || '', qqBound: !!r.qq_bound, inRoster: inRoster.has(r.id)
+            }))
+        });
+    } catch (error) {
+        logger.error('成员搜索错误:', error);
+        res.status(500).json({ error: '搜索成员失败' });
+    }
+});
+
+/**
+ * 向已创建的缴费单逐个添加成员（创建者或管理员）
+ * POST /api/pay/charge/:token/targets
+ * body: { targets: [{ userId? | qq? | username? | playerName?, amount? }] }
+ */
+router.post('/charge/:token/targets', authMiddleware, async (req, res) => {
+    try {
+        const found = await loadIntent(req.params.token);
+        if (!found) return res.status(404).json({ error: '缴费单不存在' });
+        const { intent } = found;
+        if (intent.kind !== 'charge') return res.status(400).json({ error: '这不是缴费单码' });
+        const level = await fetchLatestLevel(req.userId);
+        if (intent.created_by !== req.userId && level < 1) {
+            return res.status(403).json({ error: '只有创建者或管理员可以修改缴费单名单' });
+        }
+        if (intent.status === 'closed') return res.status(409).json({ error: '缴费单已关闭，无法添加成员' });
+        if (intent.expires_at < getLocalTimestamp()) return res.status(410).json({ error: '缴费单已过截止时间，无法添加成员' });
+
+        const defaultAmount = intent.amount === null || intent.amount === undefined ? null : round2(intent.amount);
+        const { added, unmatchedQq, addedUserIds } = await addChargeTargets(intent.id, req.body.targets, defaultAmount);
+        if (added === 0) {
+            return res.status(400).json({ error: '没有新增成员：可能已在名单中，或未提供金额（该单未设统一金额）' });
+        }
+
+        const title = intent.meta ? safeTitle(intent.meta, intent.note) : (intent.note || '缴费单');
+        for (const uid of addedUserIds) {
+            try {
+                const row = await db.get('SELECT amount FROM pay_charges WHERE intent_id = ? AND user_id = ?', [intent.id, uid]);
+                await createNotification({
+                    userId: uid, type: 'pay', title: '有一笔待缴费用',
+                    content: `你被加入缴费单「${title}」，需缴纳 ${round2(row ? row.amount : 0)} 贡献点，截止 ${intent.expires_at}`,
+                    actorId: req.userId, url: `/pay/charge/${intent.token}`
+                });
+            } catch (e) { logger.warn('pay: 缴费单加人通知失败:', e.message); }
+        }
+
+        const stat = await db.get(
+            `SELECT COUNT(*) AS total, SUM(CASE WHEN status = 'paid' THEN 1 ELSE 0 END) AS paid
+             FROM pay_charges WHERE intent_id = ?`, [intent.id]
+        );
+        logger.info(`pay: 缴费单 #${intent.id}「${title}」新增成员 ${added} 人 by ${req.userId}`);
+        res.json({
+            ok: true, added, unmatchedQq, title,
+            stats: { count: stat ? stat.total : added, paidCount: stat ? (stat.paid || 0) : 0 },
+            message: `已添加 ${added} 人`
+        });
+    } catch (error) {
+        logger.error('缴费单添加成员错误:', error);
+        res.status(500).json({ error: '添加成员失败' });
+    }
+});
+
+/** 从缴费单名单中移除某人（创建者或管理员；已缴费的不可移除） */
+router.delete('/charge/:token/targets/:id', authMiddleware, async (req, res) => {
+    try {
+        const found = await loadIntent(req.params.token);
+        if (!found) return res.status(404).json({ error: '缴费单不存在' });
+        const { intent } = found;
+        if (intent.kind !== 'charge') return res.status(400).json({ error: '这不是缴费单码' });
+        const level = await fetchLatestLevel(req.userId);
+        if (intent.created_by !== req.userId && level < 1) {
+            return res.status(403).json({ error: '只有创建者或管理员可以修改缴费单名单' });
+        }
+        const row = await db.get('SELECT * FROM pay_charges WHERE id = ? AND intent_id = ?', [parseInt(req.params.id), intent.id]);
+        if (!row) return res.status(404).json({ error: '名单中没有该成员' });
+        if (row.status === 'paid') return res.status(409).json({ error: '该成员已完成缴费，不能移出名单' });
+        if (row.status === 'pending_approval') return res.status(409).json({ error: '该成员正在审批中，暂不能移出名单' });
+
+        await db.run('DELETE FROM pay_charges WHERE id = ?', [row.id]);
+        logger.info(`pay: 缴费单 #${intent.id} 移除名单行 ${row.id} by ${req.userId}`);
+        res.json({ ok: true, message: '已移出名单' });
+    } catch (error) {
+        logger.error('缴费单移除成员错误:', error);
+        res.status(500).json({ error: '移除成员失败' });
     }
 });
 

@@ -200,6 +200,9 @@ created ──扫开──▶ scanned ──付款方确认──▶ [amount>200
 | POST | `/intents/:token/confirm` | 登录 | 本人确认支付（幂等、事务、风控、>200 转审批） |
 | POST | `/intents/:token/reject` | 登录 | 本人取消（仅限已锁定到本人的码） |
 | POST | `/charge` | 管理员/认证成员 | 创建缴费单（标题/金额/截止/名单/开放缴纳/收款主体） |
+| GET | `/members?q=` | 管理员/认证成员 | 按 昵称/用户名/QQ 号 搜索成员（仅返回昵称、用户名、是否绑定 QQ，不返回 QQ 号本体），供「逐个加入名单」使用 |
+| POST | `/charge/:token/targets` | 创建者/管理员 | 向已创建的缴费单逐个加入成员（按 userId / QQ / 用户名 / 玩家名称），自动跳过重复并给被加入者发待缴通知 |
+| DELETE | `/charge/:token/targets/:id` | 创建者/管理员 | 把未缴费的成员移出名单（已缴/审批中不可移除） |
 | GET | `/charge/:token` | 登录 | 缴费单详情与已付未付名单 |
 | POST | `/charge/:token/pay` | 登录 | 缴纳我的份额（大额自动转审批） |
 | POST | `/charge/:token/close` | 创建者/管理员 | 关闭缴费单 |

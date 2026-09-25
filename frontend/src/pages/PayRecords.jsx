@@ -25,6 +25,8 @@ export default function PayRecords() {
   const [charges, setCharges] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
+  /** 管理员或认证成员才能开缴费单（后端同样校验） */
+  const canCreateCharge = !!user && (user.level >= 1 || user.email_verified);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -144,7 +146,12 @@ export default function PayRecords() {
       </div>
 
       <div className="card" style={{ padding: 22 }}>
-        <h3 style={{ fontSize: 17, fontWeight: 700, marginBottom: 12 }}>我相关的缴费单</h3>
+        <div className="flex-between" style={{ gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
+          <h3 style={{ fontSize: 17, fontWeight: 700 }}>我相关的缴费单</h3>
+          {canCreateCharge && (
+            <Link to="/pay/charge-new" className="btn btn-secondary btn-sm">开缴费单</Link>
+          )}
+        </div>
         {charges.length === 0 ? (
           <div className="empty-state" style={{ padding: 20 }}>
             <p>暂无缴费单</p>

@@ -149,6 +149,43 @@ const bal = async (id) => (await get('SELECT ROUND(COALESCE(contribution,0),2) A
     check('关闭后不可缴费 409', (await api('POST', `/api/pay/charge/${openCharge.json.token}/pay`, payer.id, {})).status === 409);
     check('他人无法关闭缴费单', (await api('POST', `/api/pay/charge/${chargeToken}/close`, outsider.id, {})).status === 403);
 
+    /* ================= B2. 名单管理：搜索成员 / 逐个加入 / 移出 ================= */
+    console.log('\nB2. 缴费单名单管理（官网搜索成员逐个加入）');
+    const rosterCharge = await api('POST', '/api/pay/charge', admin.id, { title: '联调名单管理', amount: 3, targets: [{ userId: payer.id }] }, 5);
+    const rc2Token = rosterCharge.json.token;
+
+    const search = await api('GET', `/api/pay/members?q=${encodeURIComponent(payee.nickname || payee.username)}`, admin.id, null, 5);
+    check('搜索成员 200', search.status === 200 && Array.isArray(search.json?.members), `命中 ${search.json?.members?.length} 人`);
+    check('搜索结果含目标成员且不泄露 QQ 号', search.json?.members?.some(m => m.id === payee.id && !('qq' in m)),
+        JSON.stringify(search.json?.members?.[0] || {}).slice(0, 110));
+    check('空关键词返回空列表', (await api('GET', '/api/pay/members?q=', admin.id, null, 5)).json?.members?.length === 0);
+    check('无开单权限者搜索 403', (await api('GET', `/api/pay/members?q=${encodeURIComponent(payer.nickname)}`, outsider.id)).status === 403);
+
+    const addOne = await api('POST', `/api/pay/charge/${rc2Token}/targets`, admin.id, { targets: [{ userId: payee.id }] }, 5);
+    check('逐个加入成员 200', addOne.status === 200 && addOne.json?.added === 1, addOne.json?.message);
+    check('重复加入被拒（已在名单）', (await api('POST', `/api/pay/charge/${rc2Token}/targets`, admin.id, { targets: [{ userId: payee.id }] }, 5)).status === 400);
+    const addGuest = await api('POST', `/api/pay/charge/${rc2Token}/targets`, admin.id, { targets: [{ playerName: '未绑定玩家乙' }] }, 5);
+    check('按名称加入未绑定玩家 200', addGuest.status === 200 && addGuest.json?.added === 1);
+    const addByQq = await api('POST', `/api/pay/charge/${rc2Token}/targets`, admin.id, { targets: [{ qq: '10000099' }] }, 5);
+    check('按 QQ 加入未绑定者记入名单', addByQq.status === 200 && addByQq.json?.unmatchedQq?.length === 1, JSON.stringify(addByQq.json?.unmatchedQq || []));
+
+    const rc2Detail = await api('GET', `/api/pay/charge/${rc2Token}`, payer.id);
+    check('名单统计更新为 4 人', rc2Detail.json?.stats?.count === 4, `共 ${rc2Detail.json?.stats?.count} 人`);
+    const addedRow = rc2Detail.json?.roster?.find(r => r.userId === payee.id);
+    check('名单含被加入的成员', !!addedRow && addedRow.status === 'unpaid');
+    check('被加入者收到待缴通知', (await all(`SELECT title FROM notifications WHERE user_id = ? AND id > ? AND type='pay'`, [payee.id, marks.notifications])).some(n => /待缴/.test(n.title)));
+    check('搜索接口标记已在名单', (await api('GET', `/api/pay/members?q=${encodeURIComponent(payee.nickname || payee.username)}&exclude=${rc2Token}`, admin.id, null, 5)).json?.members?.find(m => m.id === payee.id)?.inRoster === true);
+
+    check('非创建者非管理员加入成员 403', (await api('POST', `/api/pay/charge/${rc2Token}/targets`, outsider.id, { targets: [{ userId: outsider.id }] })).status === 403);
+    const removeRow = await api('DELETE', `/api/pay/charge/${rc2Token}/targets/${addedRow.id}`, admin.id, null, 5);
+    check('移出未缴成员 200', removeRow.status === 200 && removeRow.json?.ok, removeRow.json?.message);
+    const afterRemove = await api('GET', `/api/pay/charge/${rc2Token}`, payer.id);
+    check('移出后名单为 3 人', afterRemove.json?.stats?.count === 3, `共 ${afterRemove.json?.stats?.count} 人`);
+    check('移出不存在/已移出的行 404', (await api('DELETE', `/api/pay/charge/${rc2Token}/targets/${addedRow.id}`, admin.id, null, 5)).status === 404);
+    // 关闭后不可再加人
+    await api('POST', `/api/pay/charge/${rc2Token}/close`, admin.id, {}, 5);
+    check('已关闭缴费单不可加人 409', (await api('POST', `/api/pay/charge/${rc2Token}/targets`, admin.id, { targets: [{ userId: outsider.id }] }, 5)).status === 409);
+
     /* ================= C. 大额审批 ================= */
     console.log('\nC. 大额审批');
     const bigRc = await api('POST', '/api/pay/receive-code', payee.id, { amount: 300, note: '大额审批用例' });

@@ -244,6 +244,9 @@ export default function Pay() {
           <p>玄剑版「扫码支付」：出码收款、付款码被扫、扫一扫付款，全部用贡献点结算</p>
           <div className="flex" style={{ gap: 10, flexWrap: 'wrap' }}>
             <Link to="/pay/records" className="btn btn-primary">我的收付款记录</Link>
+            {(user?.level >= 1 || user?.email_verified) && (
+              <Link to="/pay/charge-new" className="btn btn-ghost" style={{ color: '#fff', borderColor: 'rgba(255,255,255,0.4)' }}>开缴费单</Link>
+            )}
             <Link to="/trade" className="btn btn-ghost" style={{ color: '#fff', borderColor: 'rgba(255,255,255,0.4)' }}>直接转账</Link>
           </div>
         </div>

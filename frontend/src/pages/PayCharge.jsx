@@ -28,7 +28,7 @@ function serverRemain(intent) {
 export default function PayCharge() {
   const { token } = useParams();
   const navigate = useNavigate();
-  const { refreshMe } = useAuth();
+  const { refreshMe, user } = useAuth();
   const { showToast } = useToast();
 
   const [loading, setLoading] = useState(true);
@@ -37,6 +37,10 @@ export default function PayCharge() {
   const [amount, setAmount] = useState('');
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState(null);
+  const [memberQ, setMemberQ] = useState('');
+  const [memberHits, setMemberHits] = useState([]);
+  const [searching, setSearching] = useState(false);
+  const [guestName, setGuestName] = useState('');
 
   const intent = data ? data.intent : null;
   const left = useCountdown(serverRemain(intent), token);
@@ -95,6 +99,80 @@ export default function PayCharge() {
       await load();
     } catch (e) {
       showToast(e.message || '关闭失败', 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /* ---------- 创建者/管理员：搜索成员逐个加入名单 ---------- */
+
+  const searchMembers = useCallback(async (kw) => {
+    const q = String(kw || '').trim();
+    if (!q) { setMemberHits([]); return; }
+    setSearching(true);
+    try {
+      const d = await api.get(`/api/pay/members?q=${encodeURIComponent(q)}&exclude=${encodeURIComponent(token)}`);
+      setMemberHits(d.members || []);
+    } catch (e) {
+      showToast(e.message || '搜索成员失败', 'error');
+      setMemberHits([]);
+    } finally {
+      setSearching(false);
+    }
+  }, [token, showToast]);
+
+  useEffect(() => {
+    const kw = memberQ.trim();
+    if (!kw) { setMemberHits([]); return undefined; }
+    const t = setTimeout(() => { searchMembers(kw); }, 350);
+    return () => clearTimeout(t);
+  }, [memberQ, searchMembers]);
+
+  const isManager = !!(data && (data.isCreator || (user && user.level >= 1)));
+
+  const addTarget = async (member) => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const r = await api.post(`/api/pay/charge/${token}/targets`, { targets: [{ userId: member.id }] });
+      showToast(r.message || '已加入名单', 'success');
+      setMemberQ('');
+      setMemberHits([]);
+      await load();
+    } catch (e) {
+      showToast(e.message || '加入名单失败', 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const addGuestTarget = async () => {
+    const name = guestName.trim();
+    if (!name) return showToast('请填写玩家名称', 'error');
+    if (busy) return;
+    setBusy(true);
+    try {
+      const r = await api.post(`/api/pay/charge/${token}/targets`, { targets: [{ playerName: name }] });
+      showToast(r.message || '已加入名单', 'success');
+      setGuestName('');
+      await load();
+    } catch (e) {
+      showToast(e.message || '加入名单失败', 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const removeTarget = async (row) => {
+    if (busy) return;
+    if (!window.confirm(`确定把「${row.name}」移出名单？`)) return;
+    setBusy(true);
+    try {
+      await api.delete(`/api/pay/charge/${token}/targets/${row.id}`);
+      showToast('已移出名单', 'success');
+      await load();
+    } catch (e) {
+      showToast(e.message || '移出名单失败', 'error');
     } finally {
       setBusy(false);
     }
@@ -274,10 +352,59 @@ export default function PayCharge() {
                     <span className="flex" style={{ gap: 8, alignItems: 'center', flexShrink: 0 }}>
                       <span style={{ fontSize: 13, fontWeight: 700 }}>{fmtPoints(r.amount)} 点</span>
                       <span className={`badge ${rst.cls}`}>{rst.label}</span>
+                      {isManager && r.status === 'unpaid' && (
+                        <button className="btn btn-secondary btn-sm" onClick={() => removeTarget(r)} disabled={busy}>移出</button>
+                      )}
                     </span>
                   </div>
                 );
               })}
+            </div>
+          )}
+
+          {isManager && intent.status === 'created' && !expired && (
+            <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px dashed var(--border)' }}>
+              <h4 style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>搜索成员逐个加入名单</h4>
+              <p className="text-secondary" style={{ fontSize: 12, marginBottom: 10 }}>
+                按 昵称 / 用户名 / QQ 号 搜索；也可按名称添加未绑定官网账号的玩家（创建者与管理员可用）。
+              </p>
+              <input
+                className="form-input"
+                value={memberQ}
+                onChange={e => setMemberQ(e.target.value)}
+                placeholder="输入昵称 / 用户名 / QQ 号搜索"
+              />
+              {searching && <div className="text-secondary" style={{ fontSize: 12, marginTop: 8 }}>搜索中…</div>}
+              {!searching && memberQ.trim() && memberHits.length === 0 && (
+                <div className="text-secondary" style={{ fontSize: 12, marginTop: 8 }}>没有匹配的成员</div>
+              )}
+              {memberHits.length > 0 && (
+                <div className="flex-col" style={{ gap: 6, marginTop: 8, maxHeight: 220, overflowY: 'auto' }}>
+                  {memberHits.map(m => (
+                    <div key={m.id} className="flex-between" style={{ padding: '8px 10px', background: 'var(--input-bg)', borderRadius: 8, gap: 8 }}>
+                      <span style={{ fontSize: 13, minWidth: 0, wordBreak: 'break-all' }}>
+                        {m.name}
+                        <span className="text-secondary" style={{ fontSize: 11, marginLeft: 6 }}>
+                          @{m.username}{m.qqBound ? ' · 已绑定 QQ' : ''}
+                        </span>
+                      </span>
+                      <button className="btn btn-secondary btn-sm" disabled={busy || m.inRoster} onClick={() => addTarget(m)}>
+                        {m.inRoster ? '已在名单' : '加入'}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="flex" style={{ gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+                <input
+                  className="form-input"
+                  style={{ flex: '1 1 140px' }}
+                  value={guestName}
+                  onChange={e => setGuestName(e.target.value)}
+                  placeholder="未绑定玩家名称，例如：张三"
+                />
+                <button className="btn btn-secondary" onClick={addGuestTarget} disabled={busy}>按名称加入</button>
+              </div>
             </div>
           )}
 
