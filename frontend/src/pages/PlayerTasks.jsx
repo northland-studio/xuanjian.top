@@ -196,7 +196,7 @@ export default function PlayerTasks() {
             </div>
             <div className="form-group">
               <label className="form-label">悬赏贡献点（从你的账户扣除，完成后转账给接取者）</label>
-              <input className="form-input" type="number" min={1} value={reward} onChange={e => setReward(e.target.value)} placeholder="例如 10" />
+              <input className="form-input" type="number" min={1} value={reward} onChange={e => setReward(e.target.value)} placeholder="例如 10"  step="0.01"/>
             </div>
             <div className="form-group">
               <label className="form-label">可接取人数（-1 无限 / 1及以上限量）</label>

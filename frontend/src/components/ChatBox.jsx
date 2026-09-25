@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { api, getToken, getCurrentUser, wsUrlWithToken } from '../api';
 import { ChatIcon, CollapseIcon, ImageIcon, SmileIcon, MicIcon } from './ChatIcons';
+import VoiceBubble from './VoiceBubble';
 
 /**
  * 左下角公屏聊天窗（透明背景风格）
@@ -300,7 +301,7 @@ export default function ChatBox() {
                 ) : m.stickerUrl ? (
                   <img src={m.stickerUrl} alt="" style={{ maxWidth: 96, display: 'block' }} />
                 ) : m.voiceUrl ? (
-                  <audio controls src={m.voiceUrl} style={{ height: 32, maxWidth: 180 }} />
+                  <VoiceBubble url={m.voiceUrl} duration={m.voiceDuration} mine={mine} className="chat-box-voice" />
                 ) : (
                   m.content
                 )}

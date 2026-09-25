@@ -60,6 +60,7 @@ router.get('/overview', async (req, res) => {
         // ---- 贡献点流水（累计） ----
         const flows = await db.get(
             `SELECT COALESCE(SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END), 0) AS total_gain,
+                    COALESCE(SUM(CASE WHEN amount > 0 AND type = 'donation' THEN amount ELSE 0 END), 0) AS total_donation,
                     COALESCE(-SUM(CASE WHEN amount < 0 AND type = 'purchase' THEN amount ELSE 0 END), 0) AS total_purchase,
                     COALESCE(-SUM(CASE WHEN amount < 0 AND type = 'exchange' THEN amount ELSE 0 END), 0) AS total_exchange,
                     COALESCE(-SUM(CASE WHEN amount < 0 AND type = 'payment' THEN amount ELSE 0 END), 0) AS total_payment,
@@ -67,6 +68,9 @@ router.get('/overview', async (req, res) => {
              FROM contribution_logs`
         );
         const totalGain = flows?.total_gain || 0;
+        // 捐赠发放的贡献点：计入流入总量，同时单独给出，便于「含/不含捐赠」两种口径切换
+        const totalDonation = flows?.total_donation || 0;
+        const totalGainExDonation = totalGain - totalDonation;
         const totalPurchase = flows?.total_purchase || 0;
         const totalExchange = flows?.total_exchange || 0;
         const totalPayment = flows?.total_payment || 0;
@@ -94,10 +98,11 @@ router.get('/overview', async (req, res) => {
         const balances = await db.all('SELECT COALESCE(contribution, 0) AS contribution FROM users');
         const gini = calcGini(balances.map(b => b.contribution));
 
-        // ---- 近7天每日流入/流出 ----
+        // ---- 近7天每日流入/流出（含捐赠单列，便于前端切换口径） ----
         const dailyFlows = await db.all(
             `SELECT date(created_at) AS d,
                     COALESCE(SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END), 0) AS inflow,
+                    COALESCE(SUM(CASE WHEN amount > 0 AND type = 'donation' THEN amount ELSE 0 END), 0) AS donation,
                     COALESCE(-SUM(CASE WHEN amount < 0 THEN amount ELSE 0 END), 0) AS outflow
              FROM contribution_logs
              WHERE created_at >= datetime('now','localtime','-6 day')
@@ -225,6 +230,8 @@ router.get('/overview', async (req, res) => {
                 holders: supply?.holders || 0,
                 totalSupply: endSupply,
                 totalGain,
+                totalDonation,
+                totalGainExDonation,
                 totalPurchase,
                 totalExchange,
                 totalPayment,

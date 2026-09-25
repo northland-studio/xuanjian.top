@@ -12,12 +12,13 @@ import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 
 // 贡献点流水类型在档案中的分组顺序（与后端 GROUP_ORDER 对齐）
-const GROUP_ORDER = ['task', 'player_task', 'claim', 'transfer_in', 'transfer_out', 'purchase', 'exchange', 'payment', 'title', 'reward', 'discipline', 'post', 'admin'];
+const GROUP_ORDER = ['task', 'player_task', 'claim', 'transfer_in', 'transfer_out', 'purchase', 'exchange', 'payment', 'donation', 'title', 'bubble', 'reward', 'discipline', 'post', 'admin'];
 const TYPE_LABELS = {
   claim: '贡献点申报', task: '官方任务', player_task: '玩家任务',
   transfer_in: '贡献点转入', transfer_out: '贡献点转出',
   purchase: '贡献点消费', title: '称号购买', reward: '签到奖励',
-  admin: '管理调整', discipline: '处分扣点', post: '发帖奖励', exchange: '外站兑换', payment: '缴费单'
+  admin: '管理调整', discipline: '处分扣点', post: '发帖奖励', exchange: '外站兑换', payment: '缴费单',
+  donation: '捐赠奖励', bubble: '聊天气泡'
 };
 
 // ===== 通用工具 =====
@@ -67,38 +68,9 @@ function groupColumns(type) {
   ];
 }
 
-// ===== 中文字体加载与注册（jsPDF 默认字体不含中文，需嵌入 CJK 字体） =====
-const CJK_FONT_FILE = 'cjk.ttf';
-const CJK_FONT_NAME = 'DengXian';
-let cjkFontBase64Promise = null;
-
-function arrayBufferToBase64(buffer) {
-  const bytes = new Uint8Array(buffer);
-  let binary = '';
-  const chunk = 0x8000;
-  for (let i = 0; i < bytes.length; i += chunk) {
-    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
-  }
-  return btoa(binary);
-}
-
-// 缓存字体 Base64，避免重复请求与编码
-function getCjkFontBase64() {
-  if (!cjkFontBase64Promise) {
-    cjkFontBase64Promise = fetch(`/fonts/${CJK_FONT_FILE}?v=20260822b`)
-      .then(res => { if (!res.ok) throw new Error('中文字体加载失败'); return res.arrayBuffer(); })
-      .then(buf => arrayBufferToBase64(buf));
-  }
-  return cjkFontBase64Promise;
-}
-
-// 为单个 jsPDF 实例注册并启用中文字体（VFS 按文档实例存储）
-async function registerCjkFont(doc) {
-  const base64 = await getCjkFontBase64();
-  doc.addFileToVFS(CJK_FONT_FILE, base64);
-  doc.addFont(CJK_FONT_FILE, CJK_FONT_NAME, 'normal');
-  doc.setFont(CJK_FONT_NAME, 'normal');
-}
+// ===== 中文字体加载与注册（复用共用模块 lib/pdf-font.js，与捐赠墙导出统一） =====
+// jsPDF 默认字体不含中文，不注册会输出乱码；字体文件 public/fonts/cjk.ttf（等线）
+import { CJK_FONT_NAME, registerCjkFont } from './pdf-font';
 
 // 远程头像 → 圆形 PNG dataURL（用 canvas 裁剪为圆形，透明圆角，直接嵌入即可保证圆形显示）
 async function loadCircularAvatarDataURL(url, size = 256) {

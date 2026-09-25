@@ -376,6 +376,116 @@ router.post('/tasks/:id/complete', playerAuth, async (req, res) => {
 
 /* ============ 功能6：贡献点余额 / 转账 ============ */
 
+/**
+ * 模组 GUI 聚合档案（一次拿全，避免模组发多个请求）
+ * 返回内容全部是该玩家自己的数据或站内本就公开的信息：
+ *   昵称/头像/贡献点/等级/排名/称号/代系/今日签到/连续天数/未读通知/待审申报/任务统计/在线人数
+ */
+router.get('/profile', playerAuth, async (req, res) => {
+    try {
+        const user = req.modUser;
+        const uid = user.id;
+
+        // 排名（按贡献点倒序）
+        const rankRow = await db.get(
+            'SELECT COUNT(*) + 1 AS rank FROM users WHERE COALESCE(contribution,0) > COALESCE(?,0)',
+            [user.contribution || 0]
+        );
+        const totalRow = await db.get('SELECT COUNT(*) AS c FROM users WHERE is_frozen = 0');
+
+        // 今日签到 + 连续天数
+        const today = (await db.get(`SELECT DATE('now','localtime') AS d`)).d;
+        const todayCheckin = await db.get(
+            'SELECT continuous_days, reward_points FROM checkins WHERE user_id = ? AND checkin_date = ?',
+            [uid, today]
+        );
+
+        // 称号
+        let title = null;
+        try {
+            const t = await db.get(
+                `SELECT t.name, t.color FROM users u
+                 LEFT JOIN titles t ON t.id = u.equipped_title
+                 WHERE u.id = ? AND u.equipped_title IS NOT NULL`,
+                [uid]
+            );
+            if (t && t.name) title = { name: t.name, color: t.color || '#6366f1' };
+        } catch (e) { /* 无称号表或字段时忽略 */ }
+
+        // 代系
+        let generation = null;
+        try {
+            const { resolveGeneration } = require('../lib/generation');
+            const g = await resolveGeneration(user);
+            if (g) generation = { name: g.name, color: g.color || '' };
+        } catch (e) { /* 忽略 */ }
+
+        // 未读通知
+        let unread = 0;
+        try {
+            const n = await db.get('SELECT COUNT(*) AS c FROM notifications WHERE user_id = ? AND is_read = 0', [uid]);
+            unread = n ? n.c : 0;
+        } catch (e) { /* 忽略 */ }
+
+        // 申报：待审核数
+        let pendingClaims = 0;
+        try {
+            const c = await db.get(`SELECT COUNT(*) AS c FROM contribution_claims WHERE user_id = ? AND status = 'pending'`, [uid]);
+            pendingClaims = c ? c.c : 0;
+        } catch (e) { /* 忽略 */ }
+
+        // 任务统计
+        let taskStats = { available: 0, mine: 0, completed: 0 };
+        try {
+            const avail = await db.get(
+                `SELECT COUNT(*) AS c FROM tasks t
+                 WHERE t.is_active = 1
+                   AND NOT EXISTS (SELECT 1 FROM task_claims tc WHERE tc.task_id = t.id AND tc.user_id = ?)`,
+                [uid]
+            );
+            const mine = await db.get(`SELECT COUNT(*) AS c FROM task_claims WHERE user_id = ? AND status = 'pending'`, [uid]);
+            const done = await db.get(`SELECT COUNT(*) AS c FROM task_claims WHERE user_id = ? AND status = 'completed'`, [uid]);
+            taskStats = { available: avail ? avail.c : 0, mine: mine ? mine.c : 0, completed: done ? done.c : 0 };
+        } catch (e) { /* 忽略 */ }
+
+        // 在线人数
+        let onlineCount = 0;
+        try {
+            const o = await db.get('SELECT COUNT(*) AS c FROM mod_online');
+            onlineCount = o ? o.c : 0;
+        } catch (e) { /* 忽略 */ }
+
+        res.json({
+            bound: true,
+            serverTime: getLocalTimestamp(),
+            user: {
+                id: uid,
+                username: user.username || '',
+                nickname: user.nickname || user.username || '成员',
+                avatar: user.avatar || '',
+                gameId: user.game_id || '',
+                level: user.level || 0,
+                contribution: user.contribution || 0,
+            },
+            rank: rankRow ? rankRow.rank : null,
+            totalMembers: totalRow ? totalRow.c : null,
+            title,
+            generation,
+            checkedInToday: !!todayCheckin,
+            continuousDays: todayCheckin ? (todayCheckin.continuous_days || 0) : 0,
+            todayReward: todayCheckin ? (todayCheckin.reward_points || 0) : 0,
+            unreadNotifications: unread,
+            pendingClaims,
+            taskStats,
+            onlineCount,
+            siteUrl: SITE_URL,
+        });
+    } catch (e) {
+        logger.error('模组档案聚合查询错误:', e);
+        res.status(500).json({ error: '查询失败' });
+    }
+});
+
 // 余额查询
 router.get('/balance', playerAuth, async (req, res) => {
     try {
@@ -575,6 +685,54 @@ router.post('/online/leave', playerAuth, async (req, res) => {
         res.json({ message: '已下线' });
     } catch (e) {
         logger.error('客户端下线上报错误:', e);
+        res.status(500).json({ error: '上报失败' });
+    }
+});
+
+/**
+ * 服务端「整表上报」在线名单（mod 心跳定时调用）。
+ *
+ * 与玩家级 join/leave 的区别：这是**快照语义** —— 一次上报即代表该服务器当前的完整在线名单，
+ * 因此先清空该服务器的在线记录再按 players 重建，避免玩家异常退出（没发 leave）导致幽灵在线。
+ * 需要 serverIp 命中管理后台的白名单（与 join/leave 同一套 matchWhiteList）。
+ *
+ * body: { serverIp: "1.2.3.4", players: [{ uuid, name }] }
+ */
+router.post('/online/report', async (req, res) => {
+    try {
+        const { serverIp, players } = req.body || {};
+        if (!serverIp || typeof serverIp !== 'string') {
+            return res.status(400).json({ error: '缺少服务器地址' });
+        }
+        const matched = await matchWhiteList(serverIp);
+        if (!matched) {
+            return res.json({ ignored: true, message: '服务器不在白名单，未记录在线' });
+        }
+        const list = Array.isArray(players) ? players : [];
+        if (list.length > 200) {
+            return res.status(400).json({ error: '单次上报玩家数过多（上限 200）' });
+        }
+        const now = getLocalTimestamp();
+        await db.transaction(async () => {
+            await db.run('DELETE FROM mod_online WHERE server_ip = ?', [matched]);
+            for (const p of list) {
+                const uuid = String((p && p.uuid) || '').trim();
+                const name = String((p && p.name) || '').trim();
+                if (!uuid) continue;
+                await db.run(
+                    'INSERT OR REPLACE INTO mod_online (server_ip, uuid, player_name, updated_at) VALUES (?, ?, ?, ?)',
+                    [matched, uuid, name, now]
+                );
+            }
+        });
+        // 顺带累计时长（user 传 null：只累加时间差，不依赖官网账号信息）
+        for (const p of list) {
+            const uuid = String((p && p.uuid) || '').trim();
+            if (uuid) await accumulateOnlineTime(uuid, null);
+        }
+        res.json({ message: '在线名单已同步', server: matched, count: list.filter(p => p && p.uuid).length });
+    } catch (e) {
+        logger.error('服务端在线名单上报错误:', e);
         res.status(500).json({ error: '上报失败' });
     }
 });

@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, NavLink, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { api, wsUrlWithToken } from '../api';
 import { AdminIcon } from './Icons';
+import { QQ_GROUP_URL } from '../config/social';
 import SkinWidget from './SkinWidget';
 import ChatBox from './ChatBox';
 
@@ -11,11 +12,14 @@ export default function Layout({ children }) {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [openGroup, setOpenGroup] = useState(null);
   const [hidden, setHidden] = useState(false);
   const [unread, setUnread] = useState(0);
   const userMenuRef = useRef(null);
+  const navRef = useRef(null);
 
   // 轮询未读通知数（登录用户）
   useEffect(() => {
@@ -81,20 +85,77 @@ export default function Layout({ children }) {
     navigate('/');
   };
 
-  const navLinks = [
-    { to: '/daily', label: '日报' },
-    { to: '/decision', label: '决策' },
-    { to: '/forum', label: '贴吧' },
-    { to: '/tasks', label: '任务' },
-    { to: '/trade', label: '交易' },
-    { to: '/following', label: '动态' },
-    { to: '/shop', label: '商城' },
-    { to: '/rankings', label: '排行榜' },
-    { to: '/economics', label: '经济' },
-    { to: '/mods', label: '模组' },
-    { to: '/projections', label: '投影' },
-    { to: '/social', label: '社交媒体' }
+  /*
+   * 导航改造（已确认的分组方案）：一级 6 组 + 下拉，每个页面保留独立入口，不做任何页面合并。
+   * 说明：原扁平列表里的「任务 /tasks」在分组表里未列出，为不丢入口，归入「经济」组（任务奖励为贡献点）。
+   */
+  const navGroups = [
+    {
+      key: 'content', label: '内容', items: [
+        { to: '/daily', label: '公会日报' },
+        { to: '/decision', label: '决策公示' },
+        { to: '/forum', label: '公会贴吧' }
+      ]
+    },
+    {
+      key: 'interact', label: '互动', items: [
+        { to: '/following', label: '关注动态' },
+        { to: '/chat', label: '聊天' },
+        { to: '/social', label: '社交媒体' }
+      ]
+    },
+    {
+      key: 'member', label: '成员', items: [
+        { to: '/gmirs', label: '成员档案 GMIRS' },
+        { to: '/gdars', label: '处分查询 GDARS' },
+        { to: '/rankings', label: '成员排行榜' },
+        { to: '/team', label: '队伍公示' }
+      ]
+    },
+    {
+      key: 'economy', label: '经济', items: [
+        { to: '/economics', label: '经济看板' },
+        { to: '/pay', label: '支付中心' },
+        { to: '/pay/records', label: '我的收付款' },
+        { to: '/trade', label: '贡献点交易' },
+        { to: '/claims', label: '贡献点申报' },
+        { to: '/shop', label: '贡献点商城' },
+        { to: '/inventory', label: '我的库存' },
+        { to: '/tasks', label: '任务' }
+      ]
+    },
+    {
+      key: 'welfare', label: '福利', items: [
+        { to: '/checkin', label: '每日签到' },
+        { to: '/donation', label: '捐赠墙' }
+      ]
+    },
+    {
+      key: 'tools', label: '工具', items: [
+        { to: '/mods', label: '游戏模组' },
+        { to: '/projections', label: '投影仓库' }
+      ]
+    }
   ];
+
+  // 父项高亮：NavLink 的 isActive 只认自己的 to，这里用 pathname 前缀匹配（兼容 /profile 与 /profile/:username 这类）
+  const isItemActive = (to) => pathname === to || pathname.startsWith(`${to}/`);
+  const isGroupActive = (items) => items.some(it => isItemActive(it.to));
+
+  // 路由变化后收起下拉与移动端抽屉
+  useEffect(() => {
+    setOpenGroup(null);
+    setMenuOpen(false);
+  }, [pathname]);
+
+  // 点击导航区域外收起下拉
+  useEffect(() => {
+    const onClickOutside = (e) => {
+      if (navRef.current && !navRef.current.contains(e.target)) setOpenGroup(null);
+    };
+    document.addEventListener('click', onClickOutside);
+    return () => document.removeEventListener('click', onClickOutside);
+  }, []);
 
   return (
     <>
@@ -128,12 +189,56 @@ export default function Layout({ children }) {
             </svg>
           </button>
 
-          <div className={`navbar-nav ${menuOpen ? 'active' : ''}`} onClick={() => setMenuOpen(false)}>
-            {navLinks.map(l => (
-              <NavLink key={l.to} to={l.to} className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
-                {l.label}
-              </NavLink>
-            ))}
+          <div className={`navbar-nav ${menuOpen ? 'active' : ''}`} ref={navRef} onClick={() => setMenuOpen(false)}>
+            {navGroups.map(g => {
+              const groupOpen = openGroup === g.key;
+              return (
+                <div
+                  key={g.key}
+                  className={`nav-group ${groupOpen ? 'open' : ''}`}
+                  onKeyDown={e => {
+                    // Esc 关闭：在分组按钮或组内菜单项上按 Esc 都生效
+                    if (e.key !== 'Escape') return;
+                    setOpenGroup(null);
+                    const btn = e.currentTarget.querySelector('.nav-group-btn');
+                    if (btn && document.activeElement === btn) btn.blur();
+                  }}
+                >
+                  <button
+                    type="button"
+                    className={`nav-group-btn ${isGroupActive(g.items) ? 'active' : ''}`}
+                    aria-expanded={groupOpen}
+                    aria-haspopup="true"
+                    onClick={e => {
+                      // 阻止冒泡：移动端点击分组标题只展开分组，不关闭整个抽屉
+                      e.stopPropagation();
+                      setOpenGroup(cur => (cur === g.key ? null : g.key));
+                    }}
+                  >
+                    {g.label}
+                    <svg className="nav-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 9l6 6 6-6" />
+                    </svg>
+                  </button>
+                  <div className="nav-dropdown">
+                    {g.items.map(it => {
+                      const active = isItemActive(it.to);
+                      return (
+                        <Link
+                          key={it.to}
+                          to={it.to}
+                          className={`nav-dropdown-item ${active ? 'active' : ''}`}
+                          aria-current={active ? 'page' : undefined}
+                          onClick={() => { setOpenGroup(null); setMenuOpen(false); }}
+                        >
+                          {it.label}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
             <div className="nav-user">
               <button className="theme-toggle" onClick={toggleTheme} title="切换主题">
                 <svg className="moon-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -187,6 +292,12 @@ export default function Layout({ children }) {
                           管理后台
                         </Link>
                       )}
+                      {user.level >= 1 && (
+                        <Link to="/admin#pay" className="user-menu-item" onClick={() => setUserMenuOpen(false)}>
+                          <AdminIcon size={16} />
+                          支付管理
+                        </Link>
+                      )}
                       <div className="user-menu-sep" />
                       <button className="user-menu-item danger" onClick={handleLogout}>
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -227,7 +338,7 @@ export default function Layout({ children }) {
           <span>© 2026 我的世界玄剑公会</span>
           <span style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
             <a href="https://xuanjian.top" target="_blank" rel="noreferrer">官网</a>
-            <a href="https://qm.qq.com/cgi-bin/qm/qr?k=xuanjian" target="_blank" rel="noreferrer">QQ群</a>
+            <a href={QQ_GROUP_URL} target="_blank" rel="noreferrer">QQ群</a>
           </span>
         </div>
       </footer>

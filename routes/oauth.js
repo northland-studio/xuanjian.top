@@ -398,16 +398,15 @@ router.get('/verify', async (req, res) => {
             return res.status(401).json({ valid: false, error: 'invalid_token' });
         }
 
-        // 获取最新用户信息
+        // 获取最新用户信息（称号字段真实列名为 equipped_title，旧库无该列时回退）
         let user;
         try {
-            // 尝试查询包含title_id的schema
             user = await database.get(
-                'SELECT id, username, avatar, level, title_id, contribution FROM users WHERE id = ?',
+                'SELECT id, username, avatar, level, equipped_title, contribution FROM users WHERE id = ?',
                 [decoded.userId]
             );
         } catch (e) {
-            // 如果title_id列不存在，使用备用查询
+            // 旧 schema 没有 equipped_title 列时退回不带称号的查询
             if (e.code === 'SQLITE_ERROR') {
                 user = await database.get(
                     'SELECT id, username, avatar, level, contribution FROM users WHERE id = ?',
@@ -422,11 +421,11 @@ router.get('/verify', async (req, res) => {
             return res.status(404).json({ valid: false, error: 'user_not_found' });
         }
 
-        // 获取称号名称（如果title_id存在）
+        // 获取称号名称
         let titleName = null;
-        if (user.title_id) {
+        if (user.equipped_title) {
             try {
-                const title = await database.get('SELECT name FROM titles WHERE id = ?', [user.title_id]);
+                const title = await database.get('SELECT name FROM titles WHERE id = ?', [user.equipped_title]);
                 titleName = title?.name;
             } catch (e) {
                 // titles表可能不存在，忽略错误
@@ -473,9 +472,9 @@ router.get('/userinfo', async (req, res) => {
             return res.status(401).json({ error: 'invalid_token' });
         }
 
-        // 获取用户详细信息
+        // 获取用户详细信息（称号字段真实列名为 equipped_title）
         const user = await database.get(
-            'SELECT id, username, email, level, title_id, contribution, created_at FROM users WHERE id = ?',
+            'SELECT id, username, email, level, equipped_title, contribution, created_at FROM users WHERE id = ?',
             [decoded.userId]
         );
 
@@ -485,16 +484,32 @@ router.get('/userinfo', async (req, res) => {
 
         // 获取称号
         let title = null;
-        if (user.title_id) {
-            const titleData = await database.get('SELECT name, color FROM titles WHERE id = ?', [user.title_id]);
-            title = titleData;
+        if (user.equipped_title) {
+            const titleData = await database.get('SELECT name, color FROM titles WHERE id = ?', [user.equipped_title]);
+            title = titleData || null;
         }
 
-        // 获取签到信息
-        const checkin = await database.get(
-            'SELECT total_days, current_streak FROM checkin_records WHERE user_id = ?',
+        // 获取签到信息：由 checkins 表实时计算（累计次数 + 当前连续天数）
+        //   历史上这里查的是 checkin_records 表（该表从未存在），会整条接口 500
+        const totalRow = await database.get(
+            'SELECT COUNT(*) AS total FROM checkins WHERE user_id = ?',
             [decoded.userId]
         );
+        const totalDays = totalRow ? (totalRow.total || 0) : 0;
+        const utcToday = new Date().toISOString().split('T')[0];
+        const utcYesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+        const todayCheckin = await database.get(
+            'SELECT continuous_days FROM checkins WHERE user_id = ? AND checkin_date = ?',
+            [decoded.userId, utcToday]
+        );
+        const yesterdayCheckin = await database.get(
+            'SELECT continuous_days FROM checkins WHERE user_id = ? AND checkin_date = ?',
+            [decoded.userId, utcYesterday]
+        );
+        const streak = todayCheckin
+            ? todayCheckin.continuous_days
+            : (yesterdayCheckin ? yesterdayCheckin.continuous_days : 0);
+        const checkin = totalDays > 0 ? { total_days: totalDays, streak } : null;
 
         res.json({
             id: user.id,
@@ -503,7 +518,7 @@ router.get('/userinfo', async (req, res) => {
             level: user.level,
             title: title,
             contribution: user.contribution,
-            checkin: checkin ? { total_days: checkin.total_days, streak: checkin.current_streak } : null,
+            checkin: checkin,
             created_at: user.created_at
         });
     } catch (err) {

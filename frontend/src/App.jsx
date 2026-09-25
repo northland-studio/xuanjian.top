@@ -12,6 +12,7 @@ import PostDetail from './pages/PostDetail';
 import Editor from './pages/Editor';
 import Shop from './pages/Shop';
 import Rankings from './pages/Rankings';
+import Team from './pages/Team';
 import Social from './pages/Social';
 import Notifications from './pages/Notifications';
 import Checkin from './pages/Checkin';
@@ -24,12 +25,19 @@ import Tasks from './pages/Tasks';
 import Following from './pages/Following';
 import Trade from './pages/Trade';
 import Economics from './pages/Economics';
+import Donation from './pages/Donation';
 import Mods from './pages/Mods';
 import Projections from './pages/Projections';
 import Freeze from './pages/Freeze';
 import Gdars from './pages/Gdars';
 import Gmirs from './pages/Gmirs';
 import PayConfirm from './pages/PayConfirm';
+import Pay from './pages/Pay';
+import PayIntent from './pages/PayIntent';
+import PayCharge from './pages/PayCharge';
+import PayChargeNew from './pages/PayChargeNew';
+import PayRecords from './pages/PayRecords';
+import PayAdmin from './pages/PayAdmin';
 import ChatPage from './pages/ChatPage';
 
 // 主站路由：统一包裹在 Layout（含主站导航/页脚）内
@@ -52,6 +60,7 @@ function MainSite() {
         <Route path="/editor/:id" element={<Editor />} />
         <Route path="/shop" element={<Shop />} />
         <Route path="/rankings" element={<Rankings />} />
+        <Route path="/team" element={<Team />} />
         <Route path="/social" element={<Social />} />
         <Route path="/notifications" element={<Notifications />} />
         <Route path="/checkin" element={<Checkin />} />
@@ -64,10 +73,18 @@ function MainSite() {
         <Route path="/following" element={<Following />} />
         <Route path="/trade" element={<Trade />} />
         <Route path="/economics" element={<Economics />} />
+        <Route path="/donation" element={<Donation />} />
         <Route path="/mods" element={<Mods />} />
         <Route path="/chat" element={<ChatPage />} />
         <Route path="/chat/:userId" element={<ChatPage />} />
         <Route path="/projections" element={<Projections />} />
+        {/* 贡献点扫码支付（支付中心 / 落地页 / 缴费单 / 记录 / 管理） */}
+        <Route path="/pay" element={<Pay />} />
+        <Route path="/pay/records" element={<PayRecords />} />
+        <Route path="/pay/admin" element={<PayAdmin />} />
+        <Route path="/pay/charge-new" element={<PayChargeNew />} />
+        <Route path="/pay/charge/:token" element={<PayCharge />} />
+        <Route path="/pay/:token" element={<PayIntent />} />
         <Route path="*" element={<Home />} />
       </Routes>
     </Layout>

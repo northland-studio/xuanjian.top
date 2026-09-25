@@ -14,7 +14,9 @@ const LOG_TYPE_META = {
   reward: { label: '签到奖励', color: 'var(--success)' },
   admin: { label: '管理员调整', color: 'var(--warning)' },
   exchange: { label: '外站兑换', color: 'var(--danger)' },
-  payment: { label: '缴费单', color: 'var(--danger)' }
+  payment: { label: '缴费单', color: 'var(--danger)' },
+  donation: { label: '捐赠奖励', color: 'var(--success)' },
+  bubble: { label: '聊天气泡', color: 'var(--danger)' }
 };
 
 export default function Trade() {
@@ -102,7 +104,7 @@ export default function Trade() {
           </div>
           <div className="form-group">
             <label className="form-label">转账数量</label>
-            <input type="number" className="form-input" value={amount} onChange={e => setAmount(e.target.value)} placeholder="例如：50" min="1" />
+            <input type="number" className="form-input" value={amount} onChange={e => setAmount(e.target.value)} placeholder="例如：50" min="1"  step="0.01"/>
           </div>
           <div className="form-group">
             <label className="form-label">备注（可选）</label>

@@ -33,13 +33,18 @@ const gmirsRoutes = require('./routes/gmirs');
 const economicsRoutes = require('./routes/economics');
 const modRoutes = require('./routes/mod');
 const projectionRoutes = require('./routes/projections');
+const teamRoutes = require('./routes/team');
 const launcherRoutes = require('./routes/launcher');
 const pushRoutes = require('./routes/push');
 const generationRoutes = require('./routes/generations');
 const qqbotRoutes = require('./routes/qqbot');
+const qqbotPayRoutes = require('./routes/qqbot-pay');
 const paygateRoutes = require('./routes/paygate');
 const chatRoutes = require('./routes/chat');
 const payConfirmRoutes = require('./routes/pay-confirm');
+const payRoutes = require('./routes/pay');
+const mcRoutes = require('./routes/mc');
+const donationRoutes = require('./routes/donation');
 const db = require('./database');
 
 const app = express();
@@ -159,13 +164,21 @@ app.use('/api/gmirs', gmirsRoutes);
 app.use('/api/economics', economicsRoutes);
 app.use('/api/mod', modRoutes);
 app.use('/api/projections', projectionRoutes);
+app.use('/api/team', teamRoutes);
 app.use('/launcher', launcherRoutes);
 app.use('/api/push', pushRoutes);
 app.use('/api/generations', generationRoutes);
 app.use('/api/qqbot', qqbotRoutes);
+// QQ 机器人扫码支付（复用 qqbot.js 的 X-Bot-Token 鉴权 + pay.js 的服务层，出码不扣款）
+app.use('/api/qqbot/pay', qqbotPayRoutes);
 app.use('/api/paygate', paygateRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/pay-confirm', payConfirmRoutes);
+// 贡献点扫码支付（收款码/付款码/缴费单，设计见 docs/PAY-QR-DESIGN.md）
+app.use('/api/pay', payRoutes);
+// Minecraft 服务器只读对接（115 状态查询，115 侧不部署任何进程）
+app.use('/api/mc', mcRoutes);
+app.use('/api/donation', donationRoutes);
 
 // ============ React前端（frontend/dist）托管 ============
 const frontendDist = path.join(__dirname, 'frontend', 'dist');
@@ -206,13 +219,21 @@ const server = app.listen(PORT, () => {
 const { initRealtime } = require('./lib/realtime');
 initRealtime(server);
 
-// 聊天过期内容清理（私聊图片3天过期），每小时执行一次
+// 聊天媒体清理（数据库 + 对象存储双删），每小时执行一次
+//  - 私聊图片/语音：CHAT_DM_MEDIA_RETENTION_DAYS（默认 3 天）到期整条删除
+//  - 公屏图片/语音：CHAT_PUBLIC_MEDIA_RETENTION_DAYS（默认 30 天）到期只回收文件、消息保留
 try {
     const chatLib = require('./lib/chat');
     const runChatCleanup = () => {
         chatLib.cleanupExpired()
-            .then(n => { if (n) logger.info(`聊天过期内容已清理 ${n} 条`); })
-            .catch(e => logger.error('聊天过期清理失败:', e.message));
+            .then(r => {
+                if (chatLib.cleanupIsEmpty(r)) return;
+                logger.info(
+                    `聊天媒体清理完成: 私聊删除 ${r.dmDeleted} 条 / 公屏回收 ${r.mediaStripped} 条 / ` +
+                    `对象存储删除 ${r.objectsDeleted} 个（不存在 ${r.objectsMissing}，失败 ${r.objectsFailed}）`
+                );
+            })
+            .catch(e => logger.error('聊天清理失败:', e.message));
     };
     setTimeout(runChatCleanup, 60 * 1000);
     setInterval(runChatCleanup, 60 * 60 * 1000);

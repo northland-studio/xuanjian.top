@@ -1811,6 +1811,762 @@ html[data-native="true"] body {
   }
 }
 
+/* ==================== 私聊：回复引用 + 已读回执 ==================== */
+
+/* 消息行：气泡 + 悬停出现的「回复」按钮 */
+.dm-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+}
+
+.dm-reply-btn {
+  flex-shrink: 0;
+  order: 2;
+  font-size: 11px;
+  line-height: 1;
+  padding: 3px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--text-secondary);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.dm-reply-btn:hover {
+  color: var(--primary);
+  border-color: var(--primary);
+}
+
+.dm-row:hover .dm-reply-btn {
+  opacity: 1;
+}
+
+/* 触摸端没有 hover：常显回复按钮 */
+[data-touch="true"] .dm-reply-btn {
+  opacity: 1;
+}
+
+/* 被引用消息块（嵌在原消息气泡顶部） */
+.dm-quote {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin-bottom: 5px;
+  padding: 4px 8px;
+  border-left: 3px solid currentColor;
+  border-radius: 6px;
+  background: rgba(127, 127, 127, 0.16);
+  cursor: pointer;
+  max-width: 100%;
+}
+
+.dm-quote-name {
+  font-size: 10px;
+  font-weight: 700;
+  opacity: 0.85;
+}
+
+.dm-quote-text {
+  font-size: 11px;
+  opacity: 0.72;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 220px;
+}
+
+/* 点击引用后原消息短暂高亮 */
+.dm-bubble-flash {
+  animation: dm-flash 1.2s ease-out;
+  border-radius: 12px;
+}
+
+@keyframes dm-flash {
+  0%, 100% { box-shadow: none; }
+  15% { box-shadow: 0 0 0 3px var(--primary); }
+}
+
+/* 回复输入条 */
+.dm-reply-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-top: 1px solid var(--border);
+  background: var(--bg);
+}
+
+.dm-reply-cancel {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: none;
+  background: var(--border);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 会话列表未读角标 */
+.dm-unread-badge {
+  flex-shrink: 0;
+  min-width: 16px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--danger, #ef4444);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+}
+
+/* ==================== 自写语音播放框（QQ 风格语音条） ==================== */
+
+/* 颜色一律用 currentColor：气泡文字是白的（自己的蓝色气泡）就是白的，
+   是深灰（对方气泡）就是深灰，换气泡配色不用改这里 */
+.vb {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 22px;
+  padding: 0 0 5px;
+  color: inherit;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+  outline: none;
+}
+
+.vb:focus-visible {
+  box-shadow: 0 0 0 2px var(--primary);
+  border-radius: 6px;
+}
+
+/* 自己发的语音左右镜像：秒数在左、波形在右 */
+.vb--mine {
+  flex-direction: row-reverse;
+}
+
+.vb-waves {
+  display: inline-flex;
+  align-items: center;
+  gap: 2.5px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.vb-bar {
+  display: block;
+  width: 3px;
+  height: 8px;
+  border-radius: 2px;
+  background: currentColor;
+  opacity: 0.55;
+  transform-origin: center;
+  transition: opacity 0.15s ease;
+}
+
+.vb-bar:nth-child(1) { height: 7px; }
+.vb-bar:nth-child(2) { height: 13px; }
+.vb-bar:nth-child(3) { height: 10px; }
+.vb-bar:nth-child(4) { height: 15px; }
+
+.vb.is-playing .vb-bar {
+  opacity: 0.95;
+  animation: vb-wave 900ms ease-in-out infinite;
+}
+
+.vb.is-playing .vb-bar:nth-child(2) { animation-delay: 0.13s; }
+.vb.is-playing .vb-bar:nth-child(3) { animation-delay: 0.26s; }
+.vb.is-playing .vb-bar:nth-child(4) { animation-delay: 0.39s; }
+
+@keyframes vb-wave {
+  0%, 100% { transform: scaleY(0.4); }
+  50% { transform: scaleY(1.25); }
+}
+
+.vb-secs {
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.2px;
+  opacity: 0.85;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.vb.is-failed .vb-secs {
+  color: var(--danger, #ef4444);
+  opacity: 1;
+}
+
+/* 未播放的红点（只出现在别人发来的语音上，播放过就消失） */
+.vb-dot {
+  width: 7px;
+  height: 7px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--danger, #ef4444);
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.18);
+}
+
+/* 播放进度：一条贴在底部的细线，未播放时透明，避免布局跳动 */
+.vb-track {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  border-radius: 2px;
+  background: currentColor;
+  opacity: 0.18;
+  overflow: hidden;
+}
+
+.vb-fill {
+  display: block;
+  height: 100%;
+  background: currentColor;
+  opacity: 0.9;
+  transition: width 0.12s linear;
+}
+
+/* 倍速：仅播放中出现，避免空闲时干扰 */
+.vb-speed {
+  flex-shrink: 0;
+  padding: 0 4px;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 13px;
+  opacity: 0.75;
+  transition: opacity 0.15s ease;
+}
+
+.vb-speed:hover {
+  opacity: 1;
+}
+
+/* 深色背景（悬浮公屏窗口）下红点加深描边，保证可见 */
+.chat-box-voice .vb-dot {
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.28);
+}
+
+/* ==================== 管理后台：分组侧边栏 ==================== */
+
+.admin-layout {
+  display: flex;
+  gap: 18px;
+  align-items: flex-start;
+}
+
+.admin-side {
+  flex: none;
+  width: 208px;
+  position: sticky;
+  top: calc(var(--sat) + var(--navbar-h, 64px) + 12px);
+  max-height: calc(var(--app-vh, 1vh) * 100 - var(--sat) - var(--navbar-h, 64px) - 32px);
+  display: flex;
+  flex-direction: column;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.admin-side-search {
+  padding: 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.admin-side-search .input {
+  width: 100%;
+  font-size: 13px;
+  padding: 7px 10px;
+}
+
+.admin-side-nav {
+  overflow-y: auto;
+  padding: 8px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.admin-side-group + .admin-side-group {
+  margin-top: 10px;
+}
+
+.admin-side-group-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--text-secondary);
+  padding: 6px 10px 4px;
+}
+
+.admin-side-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  font-size: 13.5px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.admin-side-item:hover {
+  background: rgba(0, 74, 173, 0.08);
+  color: var(--primary);
+}
+
+.admin-side-item.active {
+  background: var(--primary);
+  color: #fff;
+  font-weight: 600;
+}
+
+.admin-side-empty {
+  font-size: 12px;
+  color: var(--text-secondary);
+  padding: 12px;
+  text-align: center;
+}
+
+.admin-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.admin-side-toggle {
+  display: none;
+  margin-bottom: 12px;
+}
+
+@media (max-width: 900px) {
+  .admin-layout {
+    flex-direction: column;
+    gap: 0;
+  }
+  .admin-side {
+    position: static;
+    width: 100%;
+    max-height: none;
+    display: none;
+  }
+  .admin-side.open {
+    display: flex;
+    margin-bottom: 14px;
+  }
+  .admin-side-toggle {
+    display: inline-flex;
+  }
+  .admin-side-nav {
+    max-height: 52vh;
+  }
+}
+
+/* ==================== 统一表单控件外观 ==================== */
+
+/*
+ * .input —— 管理后台工具栏输入框的类名。
+ * 注意：这个类此前**从未在样式表里定义过**，导致管理页 20 处 <input className="input">
+ * 一直是浏览器原生裸样式（高度约 21px），与旁边已被统一样式的 <select>/<input type="date">
+ * （约 38px）高低不齐。这里补齐定义，与站内配色/圆角/focus 环保持一致，尺寸按工具栏场景取紧凑值。
+ */
+.input {
+  font-family: inherit;
+  color: var(--text);
+  background-color: var(--input-bg, var(--bg));
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 14px;
+  line-height: 1.4;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(0, 74, 173, 0.12);
+}
+
+.input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/*
+ * 原生控件兜底：没有写 class 的 input / select / textarea 也跟随站内风格。
+ * 用 :not() 排除：
+ *  - 非文本类控件（checkbox/radio/file/color/range/按钮）
+ *  - 已有专门样式的 .form-input / .form-select / .form-textarea / .input
+ *    （否则这里的属性选择器优先级会盖掉 .form-* 的 12px 内边距）
+ */
+select,
+textarea,
+input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="color"]):not([type="range"]):not([type="submit"]):not([type="button"]):not([type="reset"]):not([type="image"]):not([type="hidden"]):not(.input):not(.input-inline):not(.form-input):not(.form-select):not(.form-textarea) {
+  font-family: inherit;
+  color: var(--text);
+  background-color: var(--input-bg, var(--bg));
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 14px;
+  line-height: 1.4;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+select:focus,
+textarea:focus,
+input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="color"]):not([type="range"]):not([type="submit"]):not([type="button"]):not([type="reset"]):not([type="image"]):not([type="hidden"]):not(.input):not(.input-inline):not(.form-input):not(.form-select):not(.form-textarea):focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(0, 74, 173, 0.12);
+}
+
+select:disabled,
+textarea:disabled,
+input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* 非文本类控件保持浏览器原样，不要被上面的规则影响 */
+input[type="checkbox"],
+input[type="radio"],
+input[type="range"],
+input[type="color"],
+input[type="file"] {
+  -webkit-appearance: auto;
+  appearance: auto;
+  background: none;
+  border: none;
+  padding: 0;
+  width: auto;
+  box-shadow: none;
+}
+
+input[type="checkbox"],
+input[type="radio"] {
+  cursor: pointer;
+  accent-color: var(--primary);
+  vertical-align: middle;
+  margin-right: 2px;
+}
+
+/* 自定义下拉箭头（appearance:none 会去掉原生箭头），.form-select 一并覆盖 */
+select {
+  background-image: url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 30px;
+  cursor: pointer;
+}
+
+/* 日期类控件的日历图标可点区域 */
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="datetime-local"]::-webkit-calendar-picker-indicator,
+input[type="month"]::-webkit-calendar-picker-indicator,
+input[type="time"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.6;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator:hover,
+input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover,
+input[type="month"]::-webkit-calendar-picker-indicator:hover,
+input[type="time"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+}
+
+/* 数字输入框去掉原生上下箭头（与站内风格不符） */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+/* 深色模式下拉选项背景（部分浏览器沿用系统色导致看不清） */
+[data-theme="dark"] select option {
+  background: var(--card);
+  color: var(--text);
+}
+
+/*
+ * 后台工具栏：把同一行里的 .input / select / input[type=date] / .btn 高度对齐。
+ * 这些控件的 box-sizing 已全局设为 border-box，这里只需统一 min-height。
+ */
+.admin-content .input,
+.admin-content select,
+.admin-content input[type="date"],
+.admin-content input[type="number"],
+.admin-content input:not(.input-inline):not(.form-input) {
+  min-height: 38px;
+}
+
+/*
+ * .input-inline —— 嵌在文字行里的小输入框（如「服务器IP：____」）。
+ * 之前用 form-input + 内联 padding:3px 8px / fontSize:12 硬压成 26px，与站内尺寸脱节；
+ * 这里给出统一的行内尺寸（约 32px 高，可与 12-13px 文字同行对齐）。
+ */
+.input-inline {
+  display: inline-block;
+  width: auto;
+  min-width: 140px;
+  padding: 6px 10px;
+  font-size: 13px;
+  line-height: 1.4;
+  vertical-align: middle;
+  margin-left: 6px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--input-bg, var(--bg));
+  color: var(--text);
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.input-inline:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(0, 74, 173, 0.12);
+}
+
+/* ============================================================
+ * 导航栏一级分组（内容 / 互动 / 成员 / 经济 / 福利 / 工具）
+ * 桌面：悬浮、点击、键盘聚焦都能展开下拉；移动：带分组标题的折叠列表
+ * 仅新增类，未改动 .nav-link / .navbar-nav 等已有类的语义
+ * ============================================================ */
+.nav-group {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.nav-group-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 14px;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.25s;
+}
+
+.nav-group-btn:hover {
+  color: var(--primary);
+  background: rgba(0, 74, 173, 0.08);
+}
+
+.nav-group-btn.active {
+  color: var(--primary);
+  background: rgba(0, 74, 173, 0.12);
+  font-weight: 600;
+}
+
+.nav-caret {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+  transition: transform 0.2s;
+}
+
+/* 下拉面板：默认隐藏，用 opacity/visibility 过渡，保留 ::before 作 hover 桥接（鼠标从按钮下移到面板不会丢失悬浮） */
+.nav-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  min-width: 190px;
+  padding: 8px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-lg);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(6px);
+  transition: opacity 0.18s ease, transform 0.18s ease, visibility 0.18s;
+  z-index: 1001;
+}
+
+.nav-dropdown::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -14px;
+  height: 14px;
+}
+
+.nav-dropdown-item {
+  display: block;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 14px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  transition: all 0.2s;
+}
+
+.nav-dropdown-item:hover {
+  color: var(--primary);
+  background: rgba(0, 74, 173, 0.08);
+}
+
+.nav-dropdown-item.active {
+  color: var(--primary);
+  background: rgba(0, 74, 173, 0.12);
+  font-weight: 600;
+}
+
+/* 桌面端：悬浮 / 点击展开（.open）/ 键盘聚焦展开 */
+@media (min-width: 901px) {
+  .nav-group:hover > .nav-dropdown,
+  .nav-group.open > .nav-dropdown,
+  .nav-group:focus-within > .nav-dropdown {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+  }
+
+  .nav-group:hover .nav-caret,
+  .nav-group.open .nav-caret,
+  .nav-group:focus-within .nav-caret {
+    transform: rotate(180deg);
+  }
+}
+
+/* 中等宽度：压缩分组按钮留白，避免一级导航横向溢出 */
+@media (min-width: 901px) and (max-width: 1120px) {
+  .nav-group-btn {
+    padding: 8px 8px;
+    font-size: 13px;
+  }
+
+  .nav-user {
+    margin-left: 4px;
+    gap: 6px;
+  }
+}
+
+/* 移动端：抽屉内的分组折叠列表（同一份数据渲染，无横向溢出） */
+@media (max-width: 900px) {
+  .nav-group {
+    position: static;
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+  }
+
+  .nav-group-btn {
+    width: 100%;
+    justify-content: space-between;
+    padding: 12px 14px;
+    border-radius: 10px;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .nav-group-btn:hover {
+    background: rgba(0, 74, 173, 0.08);
+  }
+
+  .nav-dropdown {
+    position: static;
+    display: none;
+    min-width: 0;
+    max-width: 100%;
+    padding: 0 0 6px;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    opacity: 1;
+    visibility: visible;
+    transform: none;
+  }
+
+  .nav-group.open .nav-dropdown {
+    display: block;
+  }
+
+  .nav-group.open .nav-caret {
+    transform: rotate(180deg);
+  }
+
+  .nav-dropdown::before {
+    display: none;
+  }
+
+  .nav-dropdown-item {
+    padding: 10px 14px 10px 28px;
+    font-size: 14px;
+    white-space: normal;
+    word-break: break-word;
+  }
+}
+
+/* 队伍配置 ID 芯片（管理页「队伍配置」列表中可点击复制，供插件 /nt apply <ID> 使用） */
+.team-id-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border: 1px dashed var(--primary);
+  border-radius: 8px;
+  background: rgba(0, 74, 173, 0.08);
+  color: var(--primary);
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.team-id-chip b {
+  font-size: 14px;
+  letter-spacing: 0.5px;
+}
+
+.team-id-chip span {
+  font-size: 11px;
+  opacity: 0.85;
+}
+
+.team-id-chip:hover {
+  background: rgba(0, 74, 173, 0.18);
+}
+
 /* ============ 国庆节主题（feature/national-day） ============ */
 /* 覆盖主色为国庆红 + 金色，仅本分支生效，不影响 master */
 :root {
