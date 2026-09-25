@@ -278,7 +278,7 @@ function BannerManager({ showToast }) {
             </div>
             <div className="form-group" style={{ marginBottom: 0 }}>
               <label className="form-label">排序（数字越小越靠前）</label>
-              <input type="number" className="form-input" value={form.sort_order} onChange={e => setForm(f => ({ ...f, sort_order: e.target.value }))}  step="0.01"/>
+              <input type="number" className="form-input" value={form.sort_order} onChange={e => setForm(f => ({ ...f, sort_order: e.target.value }))} />
             </div>
           </div>
           <div className="form-group mt-4">
