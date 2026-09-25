@@ -16,12 +16,14 @@ echo "[2/7] 同步后端文件..."
 cp "$STAGE/pay.js" routes/pay.js
 [ -f "$STAGE/qqbot.js" ] && cp "$STAGE/qqbot.js" routes/qqbot.js
 [ -f "$STAGE/qqbot-pay.js" ] && cp "$STAGE/qqbot-pay.js" routes/qqbot-pay.js
+[ -f "$STAGE/pay-render.js" ] && mkdir -p lib && cp "$STAGE/pay-render.js" lib/pay-render.js
 cp "$STAGE/server.js" server.js
 
 echo "[3/7] 语法检查..."
 node --check routes/pay.js
 node --check server.js
 [ -f routes/qqbot-pay.js ] && node --check routes/qqbot-pay.js
+[ -f lib/pay-render.js ] && node --check lib/pay-render.js
 [ -f "$STAGE/qqbot.js" ] && node --check routes/qqbot.js
 echo "    通过"
 

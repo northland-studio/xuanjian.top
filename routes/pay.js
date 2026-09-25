@@ -17,6 +17,7 @@ const { getLocalTimestamp } = require('../database');
 const { authMiddleware, adminMiddleware, fetchLatestLevel } = require('../middleware/auth');
 const { createNotification } = require('./notifications');
 const { addContributionLog } = require('../lib/contribution');
+const payRender = require('../lib/pay-render');
 const router = express.Router();
 
 /** 付款意图有效期：收款码 90 秒（决策 5） */
@@ -1159,6 +1160,102 @@ router.delete('/charge/:token/targets/:id', authMiddleware, async (req, res) => 
     }
 });
 
+/* ------------------------------- 出图（QQ 机器人直发图片） ------------------------------- */
+
+/** 缴费单海报数据（不含名单姓名，避免泄露成员信息） */
+async function chargePosterData(token) {
+    const found = await loadIntent(token);
+    if (!found || found.intent.kind !== 'charge') return null;
+    const { intent, payee } = found;
+    const rows = await db.all('SELECT amount, status FROM pay_charges WHERE intent_id = ?', [intent.id]);
+    const total = round2(rows.reduce((s, r) => s + (r.amount || 0), 0));
+    const paidSum = round2(rows.filter(r => r.status === 'paid').reduce((s, r) => s + (r.amount || 0), 0));
+    return {
+        token: intent.token,
+        title: intent.meta ? safeTitle(intent.meta, intent.note) : (intent.note || '缴费单'),
+        amount: intent.amount === null || intent.amount === undefined ? null : round2(intent.amount),
+        note: intent.note,
+        deadline: intent.expires_at,
+        payee: payee ? payee.display_name : '—',
+        expired: intent.status !== 'created' || intent.expires_at < getLocalTimestamp(),
+        stats: {
+            count: rows.length,
+            paidCount: rows.filter(r => r.status === 'paid').length,
+            total,
+            paidSum
+        },
+        generatedAt: getLocalTimestamp()
+    };
+}
+
+async function sendChargePoster(res, token) {
+    const d = await chargePosterData(token);
+    if (!d) return res.status(404).json({ error: '缴费单不存在' });
+    let QRCode;
+    try {
+        QRCode = require('qrcode');
+    } catch (e) {
+        return res.status(500).json({ error: '二维码服务未就绪' });
+    }
+    const qr = await QRCode.toBuffer(`${payRender.SITE}/pay/charge/${d.token}`, {
+        type: 'png', width: 156, margin: 1, errorCorrectionLevel: 'M'
+    });
+    const png = await payRender.renderPng(payRender.chargePosterSvg(d), [
+        payRender.qrOverlay(qr, { left: 252, top: 722, size: 156 })
+    ]);
+    res.set('Content-Type', 'image/png');
+    res.set('Cache-Control', 'no-store');
+    res.set('X-Content-Type-Options', 'nosniff');
+    res.send(png);
+}
+
+/**
+ * 缴费单海报（公开只读，供 QQ 群机器人直接发图）
+ *   GET /api/pay/render/charge/<token>.png
+ *   GET /api/pay/render/charge.png?token=<token>
+ * 只含标题/金额/截止/进度与二维码，不含名单姓名。
+ */
+router.get('/render/charge.png', async (req, res) => {
+    try {
+        const token = extractToken(req.query.token) || String(req.query.token || '');
+        if (!token) return res.status(400).json({ error: '缺少 token 参数' });
+        await sendChargePoster(res, token);
+    } catch (error) {
+        logger.error('渲染缴费单海报错误:', error);
+        res.status(500).json({ error: '生成图片失败' });
+    }
+});
+
+router.get('/render/charge/:token.png', async (req, res) => {
+    try {
+        await sendChargePoster(res, req.params.token);
+    } catch (error) {
+        logger.error('渲染缴费单海报错误:', error);
+        res.status(500).json({ error: '生成图片失败' });
+    }
+});
+
+/**
+ * 财务对账海报（管理数据，必须签名链接）
+ *   GET /api/pay/render/summary.png?exp=<epoch>&sig=<hmac>
+ * 机器人先调 GET /api/qqbot/pay/render-url?kind=summary 换短时效链接（QQ 取图不带请求头）。
+ */
+router.get('/render/summary.png', async (req, res) => {
+    try {
+        if (!payRender.verifyRender('summary', req.query.exp, req.query.sig)) {
+            return res.status(403).json({ error: '图片链接无效或已过期' });
+        }
+        const png = await payRender.renderPng(payRender.summaryPosterSvg(await summaryData()));
+        res.set('Content-Type', 'image/png');
+        res.set('Cache-Control', 'no-store');
+        res.set('X-Content-Type-Options', 'nosniff');
+        res.send(png);
+    } catch (error) {
+        logger.error('渲染对账海报错误:', error);
+        res.status(500).json({ error: '生成图片失败' });
+    }
+});
+
 /* ------------------------------------------------------ 管理员：审批与对账 */
 
 /** 待审批列表（大额支付） */
@@ -1189,66 +1286,98 @@ router.get('/admin/approvals', authMiddleware, adminMiddleware, async (req, res)
     }
 });
 
-/** 审批通过 / 驳回 */
-router.post('/admin/approve/:id', authMiddleware, adminMiddleware, async (req, res) => {
-    try {
-        const tx = await db.get('SELECT * FROM pay_transactions WHERE id = ?', [parseInt(req.params.id)]);
-        if (!tx) return res.status(404).json({ error: '流水不存在' });
-        if (tx.status !== 'pending_approval') return res.status(409).json({ error: `该笔流水当前状态为 ${tx.status}，不可审批` });
+/**
+ * 审批一笔待审批流水（网页管理端与 QQ 机器人共用同一份逻辑）
+ * @returns {{ok:boolean, status?:string, transactionId?:number, balance?:number, message?:string, error?:string, httpStatus?:number}}
+ */
+async function approveTransaction({ txId, approverId, action }) {
+    const tx = await db.get('SELECT * FROM pay_transactions WHERE id = ?', [parseInt(txId, 10)]);
+    if (!tx) return { ok: false, httpStatus: 404, error: '流水不存在' };
+    if (tx.status !== 'pending_approval') return { ok: false, httpStatus: 409, error: `该笔流水当前状态为 ${tx.status}，不可审批` };
 
-        const action = req.body.action === 'reject' ? 'reject' : 'approve';
-        const intent = tx.intent_id ? await db.get('SELECT * FROM pay_intents WHERE id = ?', [tx.intent_id]) : null;
-        const payee = await db.get('SELECT * FROM pay_payees WHERE id = ?', [tx.to_payee_id]);
-        const payer = await db.get('SELECT id, username, nickname FROM users WHERE id = ?', [tx.from_user_id]);
+    const intent = tx.intent_id ? await db.get('SELECT * FROM pay_intents WHERE id = ?', [tx.intent_id]) : null;
+    const payee = await db.get('SELECT * FROM pay_payees WHERE id = ?', [tx.to_payee_id]);
 
-        if (action === 'reject') {
-            await db.run("UPDATE pay_transactions SET status = 'rejected', approver_id = ? WHERE id = ?", [req.userId, tx.id]);
-            if (intent) await db.run("UPDATE pay_intents SET status = 'rejected' WHERE id = ?", [intent.id]);
-            // 若是缴费单，名单行回退为未缴
-            const linked = await chargeRowOfIntent(intent, tx.id, tx.from_user_id);
-            if (linked) {
-                await db.run(
-                    `UPDATE pay_charges SET status = 'unpaid', paid_tx_id = NULL, updated_at = ?
-                     WHERE intent_id = ? AND (paid_tx_id = ? OR user_id = ?)`,
-                    [getLocalTimestamp(), linked.parent.id, tx.id, tx.from_user_id]
-                );
-            }
-            try {
-                await createNotification({
-                    userId: tx.from_user_id, type: 'pay', title: '大额支付被驳回',
-                    content: `你向 ${payee ? payee.display_name : '对方'} 支付 ${round2(tx.amount)} 贡献点的申请被管理员驳回`,
-                    actorId: req.userId, url: '/pay/records'
-                });
-            } catch (e) { logger.warn('pay: 驳回通知失败:', e.message); }
-            logger.info(`pay: 审批驳回 tx=${tx.id} by ${req.userId}`);
-            return res.json({ ok: true, status: 'rejected', message: '已驳回，款项未划转' });
-        }
-
-        if (!intent) return res.status(400).json({ error: '流水缺少关联意图，无法结算' });
-        const result = await executeTransfer({
-            intent, payee, payerId: tx.from_user_id, amount: round2(tx.amount),
-            note: tx.note, ip: tx.ip, ua: tx.user_agent, forceSettle: true, existingTxId: tx.id
-        });
-        if (result.status === 'error') return res.status(result.httpStatus || 400).json({ error: result.error });
-        await db.run("UPDATE pay_transactions SET approver_id = ? WHERE id = ?", [req.userId, tx.id]);
-        // 若是缴费单，名单行改为已缴
+    if (action === 'reject') {
+        await db.run("UPDATE pay_transactions SET status = 'rejected', approver_id = ? WHERE id = ?", [approverId, tx.id]);
+        if (intent) await db.run("UPDATE pay_intents SET status = 'rejected' WHERE id = ?", [intent.id]);
+        // 若是缴费单，名单行回退为未缴
         const linked = await chargeRowOfIntent(intent, tx.id, tx.from_user_id);
         if (linked) {
             await db.run(
-                `UPDATE pay_charges SET status = 'paid', paid_tx_id = ?, updated_at = ?
+                `UPDATE pay_charges SET status = 'unpaid', paid_tx_id = NULL, updated_at = ?
                  WHERE intent_id = ? AND (paid_tx_id = ? OR user_id = ?)`,
-                [tx.id, getLocalTimestamp(), linked.parent.id, tx.id, tx.from_user_id]
+                [getLocalTimestamp(), linked.parent.id, tx.id, tx.from_user_id]
             );
         }
         try {
             await createNotification({
-                userId: tx.from_user_id, type: 'pay', title: '大额支付已通过',
-                content: `你向 ${payee ? payee.display_name : '对方'} 支付 ${round2(tx.amount)} 贡献点的申请已通过，已扣款`,
-                actorId: req.userId, url: '/pay/records'
+                userId: tx.from_user_id, type: 'pay', title: '大额支付被驳回',
+                content: `你向 ${payee ? payee.display_name : '对方'} 支付 ${round2(tx.amount)} 贡献点的申请被管理员驳回`,
+                actorId: approverId, url: '/pay/records'
             });
-        } catch (e) { logger.warn('pay: 通过通知失败:', e.message); }
-        logger.info(`pay: 审批通过 tx=${tx.id} by ${req.userId} payer=${tx.from_user_id}`);
-        res.json({ ok: true, status: 'success', transactionId: tx.id, balance: result.balance, message: '已通过并完成划转' });
+        } catch (e) { logger.warn('pay: 驳回通知失败:', e.message); }
+        logger.info(`pay: 审批驳回 tx=${tx.id} by ${approverId}`);
+        return { ok: true, status: 'rejected', message: '已驳回，款项未划转' };
+    }
+
+    if (!intent) return { ok: false, httpStatus: 400, error: '流水缺少关联意图，无法结算' };
+    const result = await executeTransfer({
+        intent, payee, payerId: tx.from_user_id, amount: round2(tx.amount),
+        note: tx.note, ip: tx.ip, ua: tx.user_agent, forceSettle: true, existingTxId: tx.id
+    });
+    if (result.status === 'error') return { ok: false, httpStatus: result.httpStatus || 400, error: result.error };
+    await db.run("UPDATE pay_transactions SET approver_id = ? WHERE id = ?", [approverId, tx.id]);
+    // 若是缴费单，名单行改为已缴
+    const linked = await chargeRowOfIntent(intent, tx.id, tx.from_user_id);
+    if (linked) {
+        await db.run(
+            `UPDATE pay_charges SET status = 'paid', paid_tx_id = ?, updated_at = ?
+             WHERE intent_id = ? AND (paid_tx_id = ? OR user_id = ?)`,
+            [tx.id, getLocalTimestamp(), linked.parent.id, tx.id, tx.from_user_id]
+        );
+    }
+    try {
+        await createNotification({
+            userId: tx.from_user_id, type: 'pay', title: '大额支付已通过',
+            content: `你向 ${payee ? payee.display_name : '对方'} 支付 ${round2(tx.amount)} 贡献点的申请已通过，已扣款`,
+            actorId: approverId, url: '/pay/records'
+        });
+    } catch (e) { logger.warn('pay: 通过通知失败:', e.message); }
+    logger.info(`pay: 审批通过 tx=${tx.id} by ${approverId} payer=${tx.from_user_id}`);
+    return { ok: true, status: 'success', transactionId: tx.id, balance: result.balance, message: '已通过并完成划转' };
+}
+
+/** 待审批列表（网页管理端与 QQ 机器人共用） */
+async function pendingApprovals(limit = 100) {
+    const rows = await db.all(
+        `SELECT t.*, p.display_name AS payee_name, p.type AS payee_type,
+                u.username AS from_username, u.nickname AS from_nickname,
+                i.token AS intent_token, i.kind AS intent_kind, i.note AS intent_note
+         FROM pay_transactions t
+         LEFT JOIN pay_payees p ON p.id = t.to_payee_id
+         LEFT JOIN users u ON u.id = t.from_user_id
+         LEFT JOIN pay_intents i ON i.id = t.intent_id
+         WHERE t.status = 'pending_approval' ORDER BY t.id ASC LIMIT ?`,
+        [limit]
+    );
+    return rows.map(r => ({
+        id: r.id, amount: round2(r.amount), note: r.note || r.intent_note,
+        payeeName: r.payee_name, payeeType: r.payee_type,
+        payerId: r.from_user_id, payerName: r.from_nickname || r.from_username,
+        kind: r.intent_kind, token: r.intent_token, createdAt: r.created_at
+    }));
+}
+
+/** 审批通过 / 驳回（网页） */
+router.post('/admin/approve/:id', authMiddleware, adminMiddleware, async (req, res) => {
+    try {
+        const r = await approveTransaction({
+            txId: req.params.id, approverId: req.userId,
+            action: req.body.action === 'reject' ? 'reject' : 'approve'
+        });
+        if (!r.ok) return res.status(r.httpStatus || 400).json({ error: r.error });
+        res.json(r);
     } catch (error) {
         logger.error('审批支付错误:', error);
         res.status(500).json({ error: '审批失败' });
@@ -1313,41 +1442,45 @@ router.get('/admin/records', authMiddleware, adminMiddleware, async (req, res) =
     }
 });
 
+/** 对账概览数据（网页管理端、机器人月报、渲染海报共用） */
+async function summaryData() {
+    const one = async (sql, args = []) => round2((await db.get(sql, args))?.s || 0);
+    const cnt = async (sql, args = []) => (await db.get(sql, args))?.c || 0;
+    const today = await one(`SELECT COALESCE(SUM(amount),0) s FROM pay_transactions WHERE status='success' AND date(created_at)=date('now','localtime')`);
+    const todayCount = await cnt(`SELECT COUNT(*) c FROM pay_transactions WHERE status='success' AND date(created_at)=date('now','localtime')`);
+    const week = await one(`SELECT COALESCE(SUM(amount),0) s FROM pay_transactions WHERE status='success' AND created_at >= datetime('now','localtime','-7 days')`);
+    const total = await one(`SELECT COALESCE(SUM(amount),0) s FROM pay_transactions WHERE status='success'`);
+    const totalCount = await cnt(`SELECT COUNT(*) c FROM pay_transactions WHERE status='success'`);
+    const pendingCount = await cnt(`SELECT COUNT(*) c FROM pay_transactions WHERE status='pending_approval'`);
+    const pendingSum = await one(`SELECT COALESCE(SUM(amount),0) s FROM pay_transactions WHERE status='pending_approval'`);
+    const vault = await db.get(`SELECT u.id, u.nickname, ROUND(COALESCE(u.contribution,0),2) AS balance FROM users u WHERE u.username = 'guild_treasury'`);
+    const activeCodes = await cnt(`SELECT COUNT(*) c FROM pay_intents WHERE status IN ('created','scanned') AND expires_at >= ?`, [getLocalTimestamp()]);
+    const topPayees = await db.all(
+        `SELECT p.display_name AS name, p.type, COUNT(*) AS c, ROUND(SUM(t.amount),2) AS s
+         FROM pay_transactions t JOIN pay_payees p ON p.id = t.to_payee_id
+         WHERE t.status = 'success' GROUP BY p.id ORDER BY s DESC LIMIT 10`
+    );
+    const charges = await db.get(
+        `SELECT COUNT(*) AS total, SUM(CASE WHEN status = 'paid' THEN 1 ELSE 0 END) AS paid FROM pay_charges`
+    );
+    return {
+        today: { sum: today, count: todayCount },
+        week: { sum: week },
+        total: { sum: total, count: totalCount },
+        pending: { count: pendingCount, sum: pendingSum },
+        vault: vault ? { id: vault.id, name: vault.nickname, balance: round2(vault.balance) } : null,
+        activeCodes,
+        topPayees: topPayees.map(t => ({ name: t.name, type: t.type, count: t.c, sum: round2(t.s) })),
+        charges: charges ? { total: charges.total || 0, paid: charges.paid || 0 } : { total: 0, paid: 0 },
+        thresholds: await thresholds(),
+        generatedAt: getLocalTimestamp()
+    };
+}
+
 /** 对账概览 */
 router.get('/admin/summary', authMiddleware, adminMiddleware, async (req, res) => {
     try {
-        const one = async (sql, args = []) => round2((await db.get(sql, args))?.s || 0);
-        const cnt = async (sql, args = []) => (await db.get(sql, args))?.c || 0;
-        const today = await one(`SELECT COALESCE(SUM(amount),0) s FROM pay_transactions WHERE status='success' AND date(created_at)=date('now','localtime')`);
-        const todayCount = await cnt(`SELECT COUNT(*) c FROM pay_transactions WHERE status='success' AND date(created_at)=date('now','localtime')`);
-        const week = await one(`SELECT COALESCE(SUM(amount),0) s FROM pay_transactions WHERE status='success' AND created_at >= datetime('now','localtime','-7 days')`);
-        const total = await one(`SELECT COALESCE(SUM(amount),0) s FROM pay_transactions WHERE status='success'`);
-        const totalCount = await cnt(`SELECT COUNT(*) c FROM pay_transactions WHERE status='success'`);
-        const pendingCount = await cnt(`SELECT COUNT(*) c FROM pay_transactions WHERE status='pending_approval'`);
-        const pendingSum = await one(`SELECT COALESCE(SUM(amount),0) s FROM pay_transactions WHERE status='pending_approval'`);
-        const vault = await db.get(`SELECT u.id, u.nickname, ROUND(COALESCE(u.contribution,0),2) AS balance FROM users u WHERE u.username = 'guild_treasury'`);
-        const activeCodes = await cnt(`SELECT COUNT(*) c FROM pay_intents WHERE status IN ('created','scanned') AND expires_at >= ?`, [getLocalTimestamp()]);
-        const topPayees = await db.all(
-            `SELECT p.display_name AS name, p.type, COUNT(*) AS c, ROUND(SUM(t.amount),2) AS s
-             FROM pay_transactions t JOIN pay_payees p ON p.id = t.to_payee_id
-             WHERE t.status = 'success' GROUP BY p.id ORDER BY s DESC LIMIT 10`
-        );
-        const charges = await db.get(
-            `SELECT COUNT(*) AS total,
-                    SUM(CASE WHEN status = 'paid' THEN 1 ELSE 0 END) AS paid
-             FROM pay_charges`
-        );
-        res.json({
-            today: { sum: today, count: todayCount },
-            week: { sum: week },
-            total: { sum: total, count: totalCount },
-            pending: { count: pendingCount, sum: pendingSum },
-            vault: vault ? { id: vault.id, name: vault.nickname, balance: round2(vault.balance) } : null,
-            activeCodes,
-            topPayees: topPayees.map(t => ({ name: t.name, type: t.type, count: t.c, sum: round2(t.s) })),
-            charges: charges ? { total: charges.total || 0, paid: charges.paid || 0 } : { total: 0, paid: 0 },
-            thresholds: await thresholds()
-        });
+        res.json(await summaryData());
     } catch (error) {
         logger.error('对账概览错误:', error);
         res.status(500).json({ error: '对账概览失败' });
@@ -1448,3 +1581,7 @@ module.exports.createReceiveCode = createReceiveCode;
 module.exports.currentPayerCode = currentPayerCode;
 module.exports.createCharge = createCharge;
 module.exports.myRecords = myRecords;
+module.exports.approveTransaction = approveTransaction;
+module.exports.pendingApprovals = pendingApprovals;
+module.exports.summaryData = summaryData;
+module.exports.chargePosterData = chargePosterData;

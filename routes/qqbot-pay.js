@@ -19,6 +19,8 @@ const express = require('express');
 const logger = require('../lib/logger');
 const db = require('../database');
 const { botTokenAuth } = require('./qqbot');
+const { fetchLatestLevel } = require('../middleware/auth');
+const payRender = require('../lib/pay-render');
 const pay = require('./pay');
 const router = express.Router();
 
@@ -200,6 +202,79 @@ router.post('/charge', botTokenAuth, async (req, res) => {
     } catch (error) {
         logger.error('[qqbot] 创建缴费单错误:', error);
         res.status(500).json({ error: '创建缴费单失败，请稍后重试' });
+    }
+});
+
+/**
+ * 渲染图片的签名短链接（QQ 取图不带请求头，所以不能直接用带鉴权的图片接口）
+ * GET /api/qqbot/pay/render-url?kind=summary
+ */
+router.get('/render-url', botTokenAuth, async (req, res) => {
+    try {
+        const kind = String(req.query.kind || 'summary');
+        const ALLOWED = { summary: () => payRender.signRender('summary', 600) };
+        if (!ALLOWED[kind]) return res.status(400).json({ error: '不支持的图片类型' });
+        res.json({ ok: true, kind, url: ALLOWED[kind](), expiresIn: 600 });
+    } catch (error) {
+        logger.error('[qqbot] 生成签名图片链接错误:', error);
+        res.status(500).json({ error: '生成图片链接失败' });
+    }
+});
+
+/**
+ * 缴费单海报图信息（机器人发图用）
+ * GET /api/qqbot/pay/charge-poster?token=<token>
+ */
+router.get('/charge-poster', botTokenAuth, async (req, res) => {
+    try {
+        const token = pay.extractToken(req.query.token) || String(req.query.token || '');
+        if (!token) return res.status(400).json({ error: '缺少 token 参数' });
+        const d = await pay.chargePosterData(token);
+        if (!d) return res.status(404).json({ error: '缴费单不存在' });
+        res.json({
+            ok: true, token: d.token, title: d.title,
+            url: `${SITE_BASE}/api/pay/render/charge/${d.token}.png`,
+            pageUrl: `${SITE_BASE}/pay/charge/${d.token}`,
+            stats: d.stats, deadline: d.deadline, expired: d.expired
+        });
+    } catch (error) {
+        logger.error('[qqbot] 获取缴费单海报错误:', error);
+        res.status(500).json({ error: '获取海报失败' });
+    }
+});
+
+/**
+ * 待审批大额支付（机器人轮询播报用，只读）
+ * GET /api/qqbot/pay/pending-approvals
+ */
+router.get('/pending-approvals', botTokenAuth, async (req, res) => {
+    try {
+        const [approvals, summary] = await Promise.all([pay.pendingApprovals(100), pay.summaryData()]);
+        res.json({ ok: true, approvals, thresholds: summary.thresholds });
+    } catch (error) {
+        logger.error('[qqbot] 查询待审批错误:', error);
+        res.status(500).json({ error: '查询待审批失败' });
+    }
+});
+
+/**
+ * 群内审批（管理员绑定账号）
+ * POST /api/qqbot/pay/approve/:id  body: { qq, action: 'approve' | 'reject' }
+ */
+router.post('/approve/:id', botTokenAuth, async (req, res) => {
+    try {
+        const found = await userByQq(req.body.qq);
+        if (found.error) return res.status(found.status).json({ error: found.error });
+        const level = Math.max(Number(found.user.level || 0), await fetchLatestLevel(found.user.id));
+        if (level < 1) return res.status(403).json({ error: '只有管理员可以审批大额支付' });
+        const action = req.body.action === 'reject' ? 'reject' : 'approve';
+        const r = await pay.approveTransaction({ txId: req.params.id, approverId: found.user.id, action });
+        if (!r.ok) return res.status(r.httpStatus || 400).json({ error: r.error });
+        logger.info(`[qqbot] 审批 ${action} tx=${req.params.id} by qq=${found.qq}`);
+        res.json({ ok: true, qq: found.qq, approver: userBrief(found.user), action, ...r });
+    } catch (error) {
+        logger.error('[qqbot] 群内审批错误:', error);
+        res.status(500).json({ error: '审批失败，请稍后重试' });
     }
 });
 
