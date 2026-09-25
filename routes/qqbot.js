@@ -303,3 +303,5 @@ router.post('/task-complete', botTokenAuth, async (req, res) => {
 });
 
 module.exports = router;
+// 供 routes/qqbot-pay.js 复用同一套 bot token 鉴权（不新增任何密钥/放权）
+module.exports.botTokenAuth = botTokenAuth;

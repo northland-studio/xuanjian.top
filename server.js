@@ -38,6 +38,7 @@ const launcherRoutes = require('./routes/launcher');
 const pushRoutes = require('./routes/push');
 const generationRoutes = require('./routes/generations');
 const qqbotRoutes = require('./routes/qqbot');
+const qqbotPayRoutes = require('./routes/qqbot-pay');
 const paygateRoutes = require('./routes/paygate');
 const chatRoutes = require('./routes/chat');
 const payConfirmRoutes = require('./routes/pay-confirm');
@@ -167,6 +168,8 @@ app.use('/launcher', launcherRoutes);
 app.use('/api/push', pushRoutes);
 app.use('/api/generations', generationRoutes);
 app.use('/api/qqbot', qqbotRoutes);
+// QQ 机器人扫码支付（复用 qqbot.js 的 X-Bot-Token 鉴权 + pay.js 的服务层，出码不扣款）
+app.use('/api/qqbot/pay', qqbotPayRoutes);
 app.use('/api/paygate', paygateRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/pay-confirm', payConfirmRoutes);

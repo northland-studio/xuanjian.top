@@ -3,7 +3,7 @@
 > 本文件由 `scripts/gen-api-docs.js` 从 `server.js` 与 `routes/*.js` 自动生成，
 > 请勿手工编辑：改完接口后在仓库根目录执行 `node scripts/gen-api-docs.js` 重新生成。
 >
-> 生成时间：2026-09-25 08:20:20 UTC ｜ 共 36 个模块、268 个端点
+> 生成时间：2026-09-25 08:39:07 UTC ｜ 共 37 个模块、286 个端点
 
 ## 通用约定
 
@@ -42,12 +42,13 @@
 | `/api/oauth` | `routes/oauth.js` | 5 | — |
 | `/api/password` | `routes/password.js` | 3 | — |
 | `/api/pay-confirm` | `routes/pay-confirm.js` | 5 | — |
-| `/api/pay` | `routes/pay.js` | 6 | — |
+| `/api/pay` | `routes/pay.js` | 20 | — |
 | `/api/paygate` | `routes/paygate.js` | 9 | — |
 | `/api/player-tasks` | `routes/player-tasks.js` | 6 | — |
 | `/api/posts` | `routes/posts.js` | 9 | — |
 | `/api/projections` | `routes/projections.js` | 5 | — |
 | `/api/push` | `routes/push.js` | 4 | — |
+| `/api/qqbot/pay` | `routes/qqbot-pay.js` | 4 | — |
 | `/api/qqbot` | `routes/qqbot.js` | 7 | — |
 | `/api/rankings` | `routes/rankings.js` | 6 | — |
 | `/api/shop` | `routes/shop.js` | 13 | — |
@@ -352,16 +353,30 @@
 
 ## /api/pay
 
-文件：`routes/pay.js`（6 个端点）
+文件：`routes/pay.js`（20 个端点）
 
 | 方法 | 路径 | 鉴权 | 说明 |
 |---|---|---|---|
+| `GET` | `/api/pay/admin/approvals` | 管理员（需 JWT） | — |
+| `POST` | `/api/pay/admin/approve/:id` | 管理员（需 JWT） | — |
+| `GET` | `/api/pay/admin/records` | 管理员（需 JWT） | — |
 | `GET` | `/api/pay/admin/settings` | 管理员（需 JWT） | — |
 | `PUT` | `/api/pay/admin/settings` | 管理员（需 JWT） | — |
-| `GET` | `/api/pay/intents/:token` | JWT 登录 | 扫码后读取付款信息（主扫第二步） / 不暴露付款方隐私；付款人需登录（决策：必须本人登录确认） |
-| `POST` | `/api/pay/intents/:token/confirm` | JWT 登录 | 付款人本人确认支付（主扫第三步） / body: { amount?: number, note?: string }  —— 收款码未定金额时由付款方填写 |
-| `POST` | `/api/pay/receive-code` | JWT 登录 | 生成我的收款码（主扫第一步：收款方出示，付款方扫码） / body: { amount?: number, note?: string } |
+| `GET` | `/api/pay/admin/summary` | 管理员（需 JWT） | — |
+| `POST` | `/api/pay/charge` | JWT 登录 | 创建缴费单（管理员 / 认证成员，决策 1 + 2） / body: { title, amount?, deadline?, note?, targets?: [{userId?\|playerName?\|amount?}], openAll?: boolean, payeeType?: 'event'\|'system' } |
+| `GET` | `/api/pay/charge/:token` | JWT 登录 | — |
+| `POST` | `/api/pay/charge/:token/close` | JWT 登录 | — |
+| `POST` | `/api/pay/charge/:token/pay` | JWT 登录 | — |
+| `GET` | `/api/pay/charges` | JWT 登录 | — |
+| `GET` | `/api/pay/intents/:token` | JWT 登录 | 扫码后读取付款信息（扫码 ≠ 授权，此处只读） / kind: receive / charge / payer_code 三类码统一入口，前端据此分流 |
+| `POST` | `/api/pay/intents/:token/confirm` | JWT 登录 | 付款人本人确认支付（收款码主扫闭环） / body: { amount?: number, note?: string } —— 收款码未定金额时由付款方填写 |
+| `POST` | `/api/pay/intents/:token/reject` | JWT 登录 | — |
+| `GET` | `/api/pay/payer-code/current` | JWT 登录 | 我的付款码（60 秒刷新，决策 2） / 剩余不足 10 秒时自动续期；返回 token + 剩余秒数 |
+| `GET` | `/api/pay/payer-code/pending` | JWT 登录 | — |
+| `GET` | `/api/pay/qr.png` | 公开 | 二维码图片（供网页与 QQ 机器人直接发图） / GET /api/pay/qr.png?text=<链接或 token>&size=320 / 公开只读、无鉴权：内容不含敏感信息（token 本身即需付款方本人登录确认才可能扣款）， / 但**只允许**编码本站 `/pay/...` 支付链接或纯 token，其它内容一律拒绝。 |
+| `POST` | `/api/pay/receive-code` | JWT 登录 | 生成我的收款码（收款方出示，付款方扫码） / body: { amount?: number, note?: string } |
 | `GET` | `/api/pay/records` | JWT 登录 | — |
+| `POST` | `/api/pay/scan` | JWT 登录 | 收款方扫付款码并输入金额 → 生成「待付款方确认」的收款意图（反扫） / body: { code: '<token \| 链接 \| 整段二维码文本>', amount: number, note?: string } |
 
 ## /api/paygate
 
@@ -430,6 +445,17 @@
 | `POST` | `/api/push/subscribe` | JWT 登录 | 保存订阅 |
 | `POST` | `/api/push/unsubscribe` | JWT 登录 | 取消订阅 |
 | `GET` | `/api/push/vapid-public-key` | 公开 | VAPID 公钥 |
+
+## /api/qqbot/pay
+
+文件：`routes/qqbot-pay.js`（4 个端点）
+
+| 方法 | 路径 | 鉴权 | 说明 |
+|---|---|---|---|
+| `POST` | `/api/qqbot/pay/charge` | 公开 | 创建缴费单（仅管理员或认证成员；权限校验在 pay.createCharge 内统一实现） / body: { qq, title, amount?, targets?: (string\|{qq,playerName?})[], openAll?, deadline?, note?, payeeType? } |
+| `POST` | `/api/qqbot/pay/payer-code` | 公开 | 机器人代已绑定用户生成付款码（60 秒刷新） / body: { qq } |
+| `POST` | `/api/qqbot/pay/receive-code` | 公开 | 机器人代已绑定用户生成收款码 / body: { qq, amount?, note? } |
+| `GET` | `/api/qqbot/pay/records` | 公开 | 查询某 QQ 的支付记录（仅限本人，只读） / GET /records?qq=...&limit=20 |
 
 ## /api/qqbot
 

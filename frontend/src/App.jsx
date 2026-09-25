@@ -32,6 +32,11 @@ import Freeze from './pages/Freeze';
 import Gdars from './pages/Gdars';
 import Gmirs from './pages/Gmirs';
 import PayConfirm from './pages/PayConfirm';
+import Pay from './pages/Pay';
+import PayIntent from './pages/PayIntent';
+import PayCharge from './pages/PayCharge';
+import PayRecords from './pages/PayRecords';
+import PayAdmin from './pages/PayAdmin';
 import ChatPage from './pages/ChatPage';
 
 // 主站路由：统一包裹在 Layout（含主站导航/页脚）内
@@ -72,6 +77,12 @@ function MainSite() {
         <Route path="/chat" element={<ChatPage />} />
         <Route path="/chat/:userId" element={<ChatPage />} />
         <Route path="/projections" element={<Projections />} />
+        {/* 贡献点扫码支付（支付中心 / 落地页 / 缴费单 / 记录 / 管理） */}
+        <Route path="/pay" element={<Pay />} />
+        <Route path="/pay/records" element={<PayRecords />} />
+        <Route path="/pay/admin" element={<PayAdmin />} />
+        <Route path="/pay/charge/:token" element={<PayCharge />} />
+        <Route path="/pay/:token" element={<PayIntent />} />
         <Route path="*" element={<Home />} />
       </Routes>
     </Layout>

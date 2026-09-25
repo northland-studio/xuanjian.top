@@ -162,11 +162,59 @@ created ──扫开──▶ scanned ──付款方确认──▶ [amount>200
    `scripts/migrate-pay.js` 建表并扩展 `contribution_logs.type` / `notifications.type` 白名单，
    `routes/pay.js` 提供 `receive-code` / `intents/:token` / `confirm` / `records` / `admin/settings`，
    联调 `scripts/test-pay-e2e.js` 31 项断言全通过，生产已用临时账号跑通并清理）
-3. 付款码（反扫）+ 站内相机 + 三级降级
-4. 缴费单码（多人各付各的、名单与截止）
-5. 风控与审批、管理员对账页
-6. QQ 机器人指令
-7. 可视化验收（官网截图 + 机器人出码截图）→ 部署 HK 与 115
+3. ✅ **付款码（反扫）+ 站内相机扫码 + 三级降级**（付款码 60 秒刷新 `GET /api/pay/payer-code/current`；
+   收款方 `POST /api/pay/scan` 扫付款码并发起收款，付款方在 `/pay` 轮询 `GET /api/pay/payer-code/pending` 确认；
+   扫到收款码/缴费单码时同一接口返回 `mode:'direct'` 直达付款页；前端相机 → 上传图片解码（jsQR）→ 手动粘码三级降级）
+4. ✅ **缴费单码（一码多人）**（`POST /api/pay/charge` 开单（管理员或认证成员）、`GET /api/pay/charge/:token` 详情与名单、
+   `POST /api/pay/charge/:token/pay` 各自缴纳自己的份额、`POST /api/pay/charge/:token/close` 关闭；
+   名单支持指定用户 / 未绑定玩家姓名 / 开放缴纳（openAll）；收款方可为活动摊位或系统金库）
+5. ✅ **风控与审批、管理员对账页**（`GET /api/pay/admin/approvals`、`POST /api/pay/admin/approve/:id`
+   （action=approve/reject，通过时才真正扣款并同步缴费单名单）、`GET /api/pay/admin/records`（筛选 + CSV 导出）、
+   `GET /api/pay/admin/summary`（今日/近 7 天/累计、待审批、金库余额、Top 收款方）、阈值 `GET|PUT /api/pay/admin/settings`）
+6. ✅ **QQ 机器人指令**（`/收款码`、`/付款码`、`/缴费单`、`/转分`；机器人只出码与播报，扣款一律回官网确认；
+   官网侧接口 `routes/qqbot-pay.js` 挂载 `/api/qqbot/pay`，鉴权沿用 `X-Bot-Token`、绑定沿用 `users.qq`，
+   业务复用 `routes/pay.js` 导出的服务层，机器人源码为独立仓库 `northland-studio/xuanjian-group-bot`）
+7. ✅ 可视化验收（支付中心 / 付款落地页 / 缴费单 / 对账页截图）→ 已部署 HK（官网）与 NapCat 主机（机器人）
+
+## 7.2 时区与倒计时（重要实现约定）
+
+库内时间统一为服务端本地时间（HK 为 UTC），而用户浏览器可能在任何时区：**前端不得把 `expiresAt` 字符串
+按本地时区解析后与本地时钟比较**，否则 UTC+8 的浏览器会把刚生成的收款码判定为「已过期」。
+
+约定：服务端在 intent / charge / charges 列表里返回 `remainSeconds`（`remainSecOf()` 计算），
+前端 `PayIntent.jsx` / `PayCharge.jsx` / `PayRecords.jsx` 一律以它为准做倒计时（`serverRemain()` 兜底旧接口）。
+该问题已在生产实测复现并修复（修复前扫码落地页恒显示「已过期」）。
+
+部署踩坑：官网 `.env` 的 `QQBOT_TOKEN` 必须独占一行，注释与赋值同行会让 dotenv 读不到，
+导致所有 `/api/qqbot/*`（含既有绑定/核销/任务码指令）恒 401。
+
+## 7.1 接口总览（实现现状，全部挂载于 `/api/pay`）
+
+| 方法 | 路径 | 权限 | 说明 |
+|---|---|---|---|
+| POST | `/receive-code` | 登录 | 收款码（90 秒、一次性 token） |
+| GET | `/payer-code/current` | 登录 | 付款码（60 秒刷新，返回 `pendingToken` 供确认） |
+| GET | `/payer-code/pending` | 登录 | 我的付款码被扫后的待确认收款 |
+| POST | `/scan` | 登录 | 扫任意码：付款码→发起收款；收款码/缴费单码→`direct` 直达付款 |
+| GET | `/intents/:token` | 登录 | 只读展示付款信息（含我的份额、额度、`isSelf`） |
+| POST | `/intents/:token/confirm` | 登录 | 本人确认支付（幂等、事务、风控、>200 转审批） |
+| POST | `/intents/:token/reject` | 登录 | 本人取消（仅限已锁定到本人的码） |
+| POST | `/charge` | 管理员/认证成员 | 创建缴费单（标题/金额/截止/名单/开放缴纳/收款主体） |
+| GET | `/charge/:token` | 登录 | 缴费单详情与已付未付名单 |
+| POST | `/charge/:token/pay` | 登录 | 缴纳我的份额（大额自动转审批） |
+| POST | `/charge/:token/close` | 创建者/管理员 | 关闭缴费单 |
+| GET | `/charges` | 登录 | 我创建或需缴纳的缴费单 |
+| GET | `/records` | 登录 | 我的收付款记录 + 今日已付额度 |
+| GET | `/admin/approvals` | 管理员 | 待审批大额支付 |
+| POST | `/admin/approve/:id` | 管理员 | 审批通过（真正划转）/ 驳回（回退名单状态） |
+| GET | `/admin/records` | 管理员 | 全量流水（筛选 + `format=csv` 导出，带 BOM 便于 Excel 打开） |
+| GET | `/admin/summary` | 管理员 | 对账概览（含金库余额与最终对账口径） |
+| GET/PUT | `/admin/settings` | 管理员 | 风控阈值（`pay_single_limit` / `pay_daily_limit` / `pay_approval_threshold`） |
+| GET | `/qr.png?text=` | 公开只读 | 二维码图片（仅允许 `https://xuanjian.top/pay/<token>` 或纯 token，≤512 字符） |
+| POST/GET | `/api/qqbot/pay/*` | 机器人 token | 机器人代绑定 QQ 用户出码 / 查记录 / 开单（复用同一套函数与权限） |
+
+联调脚本：`scripts/test-pay-e2e.js`（阶段 2，31 项断言）、`scripts/test-pay-e2e2.js`（阶段 3-5，57 项断言），
+两者都会在结束时回滚余额、恢复阈值、清理测试数据；生产联调见 `scripts/deploy-pay-verify.sh` / `deploy-pay-verify2.sh`（用临时账号）。
 
 ## 8. 已知取舍
 

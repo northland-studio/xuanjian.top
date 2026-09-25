@@ -115,6 +115,8 @@ export default function Layout({ children }) {
     {
       key: 'economy', label: '经济', items: [
         { to: '/economics', label: '经济看板' },
+        { to: '/pay', label: '支付中心' },
+        { to: '/pay/records', label: '我的收付款' },
         { to: '/trade', label: '贡献点交易' },
         { to: '/claims', label: '贡献点申报' },
         { to: '/shop', label: '贡献点商城' },
@@ -278,6 +280,12 @@ export default function Layout({ children }) {
                         <Link to="/admin" className="user-menu-item" onClick={() => setUserMenuOpen(false)}>
                           <AdminIcon size={16} />
                           管理后台
+                        </Link>
+                      )}
+                      {user.level >= 1 && (
+                        <Link to="/pay/admin" className="user-menu-item" onClick={() => setUserMenuOpen(false)}>
+                          <AdminIcon size={16} />
+                          支付管理
                         </Link>
                       )}
                       <div className="user-menu-sep" />

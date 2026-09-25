@@ -52,6 +52,11 @@ const api = async (method, url, userId, body) => {
     console.log(`付款人: #${payer.id} ${payer.nickname} (${payer.contribution} 点) | 收款人: #${payee.id} ${payee.nickname} (${payee.contribution} 点) | 金库 #${vault.id}\n`);
 
     const before = { payer: payer.contribution, payee: payee.contribution, vault: vault.contribution };
+    // 阈值快照：用例期间用默认阈值，结束后原样恢复
+    const SETTING_KEYS = ['pay_single_limit', 'pay_daily_limit', 'pay_approval_threshold'];
+    const phKeys = SETTING_KEYS.map(() => '?').join(',');
+    const settingsBefore = await all(`SELECT key, value FROM settings WHERE key IN (${phKeys})`, SETTING_KEYS);
+    await run(`DELETE FROM settings WHERE key IN (${phKeys})`, SETTING_KEYS);
     const startTxId = (await get('SELECT COALESCE(MAX(id),0) AS m FROM pay_transactions')).m;
     const startLogId = (await get('SELECT COALESCE(MAX(id),0) AS m FROM contribution_logs')).m;
     const startNotifId = (await get('SELECT COALESCE(MAX(id),0) AS m FROM notifications')).m;
@@ -168,6 +173,8 @@ const api = async (method, url, userId, body) => {
     await run('DELETE FROM pay_intents WHERE created_at >= datetime(\'now\',\'localtime\',\'-10 minutes\')');
     await run('DELETE FROM contribution_logs WHERE id > ?', [startLogId]);
     await run('DELETE FROM notifications WHERE id > ?', [startNotifId]);
+    await run(`DELETE FROM settings WHERE key IN (${phKeys})`, SETTING_KEYS);
+    for (const s of settingsBefore) await run('INSERT INTO settings (key, value) VALUES (?, ?)', [s.key, s.value]);
     const restored = { payer: (await get('SELECT contribution FROM users WHERE id=?', [payer.id])).contribution, payee: (await get('SELECT contribution FROM users WHERE id=?', [payee.id])).contribution };
     console.log(`\n  清理完成：余额已回滚 ${restored.payer} / ${restored.payee}，测试流水与通知已删除`);
     console.log(`\n=== 结果：通过 ${pass} / 失败 ${fail} ===\n`);

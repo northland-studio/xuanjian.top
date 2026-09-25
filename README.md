@@ -388,10 +388,10 @@ Aug 15 与 Aug 22 两次批量提交合并记录：
 | --- | --- | --- |
 | 1 | 表结构（`pay_payees` / `pay_intents` / `pay_transactions` / `pay_charges`）+ 系统金库账户 | ✅ 已上线 |
 | 2 | 收款码「主扫」闭环（生成 → 扫码 → 本人确认 → 划转 / 审批 / 记录） | ✅ 已上线 |
-| 3 | 付款码「反扫」（60 秒刷新）+ 站内相机扫码 | 🚧 开发中 |
-| 4 | 缴费单码（一码多人 + 截止时间） | 🚧 开发中 |
-| 5 | 审批台 + 对账页 + 阈值管理界面 | 🚧 开发中 |
-| 6 | QQ 机器人指令入口 | 🚧 开发中 |
+| 3 | 付款码「反扫」（60 秒刷新）+ 站内相机扫码（相机 / 上传图片 / 手动输码三级降级） | ✅ 已上线 |
+| 4 | 缴费单码（一码多人 + 截止时间 + 开放缴纳 + 未绑定玩家） | ✅ 已上线 |
+| 5 | 审批台 + 对账页（CSV 导出）+ 阈值管理界面 | ✅ 已上线 |
+| 6 | QQ 机器人指令入口（`/收款码` `/付款码` `/缴费单` `/转分`） | ✅ 已上线 |
 
 **阶段 2 已提供接口**（挂载于 `server.js` → `/api/pay`，实现见 `routes/pay.js`）
 
@@ -402,13 +402,50 @@ Aug 15 与 Aug 22 两次批量提交合并记录：
 - `GET /api/pay/records`：我的收付款记录（含今日已付额度）。
 - `GET|PUT /api/pay/admin/settings`：风控阈值（管理员），落 `settings` 表：`pay_single_limit` / `pay_daily_limit` / `pay_approval_threshold`。
 
+**阶段 3-5 已提供接口**（同一路由文件 `routes/pay.js`）
+
+- 付款码反扫：`GET /api/pay/payer-code/current`（60 秒刷新）、`POST /api/pay/scan`（收款方扫付款码发起收款；
+  扫到收款码/缴费单码则返回 `mode:'direct'` 直达付款页）、`GET /api/pay/payer-code/pending`（付款方轮询待确认）。
+- 缴费单：`POST /api/pay/charge`（管理员或认证成员）、`GET /api/pay/charge/:token`、`POST /api/pay/charge/:token/pay`、
+  `POST /api/pay/charge/:token/close`、`GET /api/pay/charges`。
+- 审批与对账：`GET /api/pay/admin/approvals`、`POST /api/pay/admin/approve/:id`（`action=approve|reject`）、
+  `GET /api/pay/admin/records`（筛选 + `format=csv`）、`GET /api/pay/admin/summary`。
+- 二维码图片：`GET /api/pay/qr.png?text=`（公开只读，仅接受本站 `/pay/<token>` 链接或纯 token，≤512 字符）。
+- 机器人入口：`/api/qqbot/pay/*`（沿用机器人 token 鉴权与 QQ↔官网绑定关系，内部复用同一套出码/权限逻辑）。
+
+**QQ 机器人指令**（群内 `#` 或 `/` 前缀均可；机器人只出码与提示，**扣款一律回官网由付款方本人确认**）
+
+| 指令 | 说明 |
+| --- | --- |
+| `收款码 [金额] [备注]` | 代发指令者出 90 秒收款码图片 + 网页链接；未绑定提示先 `#绑定` |
+| `付款码` | 60 秒付款码图片，让收款方在官网「支付中心 → 扫一扫」扫码填额，再由付款方本人确认 |
+| `缴费单 <标题> <金额> [@某人…]` | 开单并回图片/链接/人数/截止；金额可留空（按人填）、写「全员」= 开放缴纳；权限由官网统一校验（管理员或认证成员） |
+| `转分 @某人 <金额> [备注]` | 只生成「付给该成员」的收款码，不做扣款；对方未绑定时提示其先绑定 |
+
+机器人源码：`xuanjian-group-bot`（TypeScript，独立仓库 `northland-studio/xuanjian-group-bot`），
+生产部署在 NapCat 主机 `/var/www/xuanjian-group-bot`（systemd `xuanjian-group-bot.service`，`node dist/index.js`），
+部署脚本 `scripts/deploy-bot-pay.sh`。
+
+**两个易踩的坑（已修，别再踩）**
+
+- `.env` 里 `QQBOT_TOKEN` 必须**独占一行赋值**：曾因注释与赋值挤在同一行导致 dotenv 读不到，线上所有
+  `/api/qqbot/*`（含既有的 `#绑定`/`#查自己`/`#核销`/`#任务码`）恒返回 401；修复见 `scripts/fix-qqbottoken-20260925.sh`。
+- 所有二维码/缴费单的倒计时**必须以服务端下发的 `remainSeconds` 为准**：服务器（HK=UTC）与浏览器时区不一致时，
+  前端自行解析 `expiresAt` 字符串会把「未过期」误判成「已过期」（`routes/pay.js` 的 `remainSecOf()` 与
+  `PayIntent.jsx` / `PayCharge.jsx` / `PayRecords.jsx` 的 `serverRemain()` 即为此约定）。
+- 前端页面：`/pay`（支付中心：收款码 / 付款码 / 扫一扫）、`/pay/:token`（付款落地页）、`/pay/charge/:token`（缴费单）、
+  `/pay/records`（我的记录）、`/pay/admin`（审批 + 对账 + 阈值，仅管理员）。
+
 运维与联调：
 
 - 迁移脚本 `scripts/migrate-pay.js`（幂等）：建表、登记金库账户、扩展
   `contribution_logs.type`（`pay_out` / `pay_in`）与 `notifications.type`（`pay`）的 CHECK 白名单。
 - 闭环联调 `scripts/test-pay-e2e.js`（31 项断言：正常支付 / 重复支付 / 过期 / 超限 / 日累计 / 大额审批 / 记录 / 权限，
   结束后回滚余额并清理数据），生产可用 `PAY_TEST_USERS=<idA>,<idB>` 指定临时账号。
-- 部署脚本 `scripts/deploy-pay-20260925.sh`、生产联调 `scripts/deploy-pay-verify.sh`。
+- 阶段 3-5 联调 `scripts/test-pay-e2e2.js`（57 项断言：付款码反扫闭环 / 扫收款码直付与占用拦截 / 缴费单名单与开放缴纳 /
+  金库入账 / 大额审批通过与驳回 / 审批后名单同步 / 对账概览与 CSV / 阈值权限），同样会回滚余额、恢复阈值并清理数据。
+- 部署脚本 `scripts/deploy-pay-20260925.sh`、`scripts/deploy-pay2-20260925.sh`（后端 + 前端 dist 原子切换）；
+  生产联调 `scripts/deploy-pay-verify.sh`、`scripts/deploy-pay-verify2.sh`。
 
 新模块的通知统一走既有 `createNotification()`（`routes/notifications.js`）：
 付款成功/被拒/待审批、收到款项、缴费单开单与截止提醒，均按用户维度落一条通知，
