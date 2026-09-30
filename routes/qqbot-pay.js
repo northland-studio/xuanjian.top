@@ -205,6 +205,87 @@ router.post('/charge', botTokenAuth, async (req, res) => {
     }
 });
 
+/* ------------------------- 群指令帮助卡片（#help 图片输出） ------------------------- */
+
+const fs = require('fs');
+const path = require('path');
+const crypto = require('crypto');
+
+const HELP_DIR = path.join(__dirname, '..', 'data', 'help-cards');
+const HELP_LIMITS = { groups: 12, itemsPerGroup: 40, nameLen: 16, descLen: 40, jsonBytes: 200 * 1024 };
+
+function helpFilePath(hash) {
+    return path.join(HELP_DIR, `${String(hash).replace(/[^a-f0-9]/g, '')}.json`);
+}
+
+/**
+ * 上传/更新群指令帮助数据，返回可直接发群的图片地址
+ * POST /api/qqbot/pay/help-card
+ * body: { title, subtitle, groups:[{ name, items:[{ name, aliases?, desc }] }] }
+ * 同一份内容 hash 相同 → 地址不变，机器人可自行缓存。
+ */
+router.post('/help-card', botTokenAuth, async (req, res) => {
+    try {
+        const body = req.body || {};
+        const groups = Array.isArray(body.groups) ? body.groups : [];
+        if (!groups.length) return res.status(400).json({ error: '缺少 groups' });
+        if (groups.length > HELP_LIMITS.groups) {
+            return res.status(400).json({ error: `分组过多（上限 ${HELP_LIMITS.groups} 组）` });
+        }
+        let count = 0;
+        const clean = [];
+        for (const g of groups) {
+            const items = Array.isArray(g.items) ? g.items : [];
+            if (items.length > HELP_LIMITS.itemsPerGroup) {
+                return res.status(400).json({ error: `单组指令过多（上限 ${HELP_LIMITS.itemsPerGroup} 条）` });
+            }
+            clean.push({
+                name: String(g.name || '其他').slice(0, HELP_LIMITS.nameLen),
+                items: items.map(it => ({
+                    name: String(it.name || '').slice(0, HELP_LIMITS.nameLen),
+                    aliases: Array.isArray(it.aliases) ? it.aliases.slice(0, 6).map(a => String(a).slice(0, 16)) : [],
+                    desc: String(it.desc || '').slice(0, HELP_LIMITS.descLen)
+                })).filter(it => it.name)
+            });
+            count += clean[clean.length - 1].items.length;
+        }
+        const payload = {
+            title: String(body.title || '指令总览').slice(0, 40),
+            subtitle: String(body.subtitle || '').slice(0, 80),
+            groups: clean, count
+        };
+        const json = JSON.stringify(payload);
+        if (Buffer.byteLength(json, 'utf8') > HELP_LIMITS.jsonBytes) {
+            return res.status(400).json({ error: '指令数据过大（上限 200KB）' });
+        }
+        const hash = crypto.createHash('sha1').update(json).digest('hex').slice(0, 16);
+        fs.mkdirSync(HELP_DIR, { recursive: true });
+        fs.writeFileSync(helpFilePath(hash), json, 'utf8');
+        logger.info(`[qqbot] 帮助卡片已生成 hash=${hash} 指令数=${count} 分组=${clean.length}`);
+        res.json({ ok: true, hash, count, groups: clean.length, url: `${SITE_BASE}/api/qqbot/pay/help-card/${hash}.png`, expiresIn: null });
+    } catch (error) {
+        logger.error('[qqbot] 生成帮助卡片错误:', error);
+        res.status(500).json({ error: '生成帮助卡片失败' });
+    }
+});
+
+/** 帮助卡片图片（公开只读：内容就是指令帮助，无敏感信息，QQ 取图不带请求头） */
+router.get('/help-card/:hash.png', async (req, res) => {
+    try {
+        const file = helpFilePath(req.params.hash);
+        if (!fs.existsSync(file)) return res.status(404).json({ error: '帮助卡片不存在，请让机器人重新生成' });
+        const data = JSON.parse(fs.readFileSync(file, 'utf8'));
+        const png = await payRender.renderPng(payRender.helpPosterSvg(data));
+        res.set('Content-Type', 'image/png');
+        res.set('Cache-Control', 'public, max-age=86400');
+        res.set('X-Content-Type-Options', 'nosniff');
+        res.send(png);
+    } catch (error) {
+        logger.error('[qqbot] 渲染帮助卡片错误:', error);
+        res.status(500).json({ error: '生成图片失败' });
+    }
+});
+
 /**
  * 渲染图片的签名短链接（QQ 取图不带请求头，所以不能直接用带鉴权的图片接口）
  * GET /api/qqbot/pay/render-url?kind=summary
