@@ -3,7 +3,7 @@
 > 本文件由 `scripts/gen-api-docs.js` 从 `server.js` 与 `routes/*.js` 自动生成，
 > 请勿手工编辑：改完接口后在仓库根目录执行 `node scripts/gen-api-docs.js` 重新生成。
 >
-> 生成时间：2026-09-25 09:25:27 UTC ｜ 共 38 个模块、299 个端点
+> 生成时间：2026-10-02 15:37:12 UTC ｜ 共 39 个模块、327 个端点
 
 ## 通用约定
 
@@ -49,7 +49,7 @@
 | `/api/posts` | `routes/posts.js` | 9 | — |
 | `/api/projections` | `routes/projections.js` | 5 | — |
 | `/api/push` | `routes/push.js` | 4 | — |
-| `/api/qqbot/pay` | `routes/qqbot-pay.js` | 8 | — |
+| `/api/qqbot/pay` | `routes/qqbot-pay.js` | 10 | — |
 | `/api/qqbot` | `routes/qqbot.js` | 7 | — |
 | `/api/rankings` | `routes/rankings.js` | 6 | — |
 | `/api/shop` | `routes/shop.js` | 13 | — |
@@ -57,9 +57,10 @@
 | `/api/stock` | `routes/stock.js` | 14 | （未挂载） |
 | `/api/tasks` | `routes/tasks.js` | 9 | — |
 | `/api/team` | `routes/team.js` | 10 | — |
-| `/api/titles` | `routes/titles.js` | 8 | — |
+| `/api/titles` | `routes/titles.js` | 10 | — |
 | `/api/updates` | `routes/updates.js` | 4 | — |
 | `/api/upload` | `routes/upload.js` | 4 | — |
+| `/api/wiki` | `routes/wiki.js` | 24 | — |
 
 ## /api/admin
 
@@ -465,13 +466,15 @@
 
 ## /api/qqbot/pay
 
-文件：`routes/qqbot-pay.js`（8 个端点）
+文件：`routes/qqbot-pay.js`（10 个端点）
 
 | 方法 | 路径 | 鉴权 | 说明 |
 |---|---|---|---|
 | `POST` | `/api/qqbot/pay/approve/:id` | 公开 | 群内审批（管理员绑定账号） / POST /api/qqbot/pay/approve/:id  body: { qq, action: 'approve' \| 'reject' } |
 | `POST` | `/api/qqbot/pay/charge` | 公开 | 创建缴费单（仅管理员或认证成员；权限校验在 pay.createCharge 内统一实现） / body: { qq, title, amount?, targets?: (string\|{qq,playerName?})[], openAll?, deadline?, note?, payeeType? } |
 | `GET` | `/api/qqbot/pay/charge-poster` | 公开 | 缴费单海报图信息（机器人发图用） / GET /api/qqbot/pay/charge-poster?token=<token> |
+| `POST` | `/api/qqbot/pay/help-card` | 公开 | 上传/更新群指令帮助数据，返回可直接发群的图片地址 / POST /api/qqbot/pay/help-card / body: { title, subtitle, groups:[{ name, items:[{ name, aliases?, desc }] }] } / 同一份内容 hash 相同 → 地址不变，机器人可自行缓存。 |
+| `GET` | `/api/qqbot/pay/help-card/:hash.png` | 公开 | — |
 | `POST` | `/api/qqbot/pay/payer-code` | 公开 | 机器人代已绑定用户生成付款码（60 秒刷新） / body: { qq } |
 | `GET` | `/api/qqbot/pay/pending-approvals` | 公开 | 待审批大额支付（机器人轮询播报用，只读） / GET /api/qqbot/pay/pending-approvals |
 | `POST` | `/api/qqbot/pay/receive-code` | 公开 | 机器人代已绑定用户生成收款码 / body: { qq, amount?, note? } |
@@ -591,7 +594,7 @@
 
 ## /api/titles
 
-文件：`routes/titles.js`（8 个端点）
+文件：`routes/titles.js`（10 个端点）
 
 | 方法 | 路径 | 鉴权 | 说明 |
 |---|---|---|---|
@@ -602,7 +605,9 @@
 | `POST` | `/api/titles/:id/buy` | JWT 登录 | — |
 | `GET` | `/api/titles/all` | 管理员（需 JWT） | — |
 | `PUT` | `/api/titles/equip` | JWT 登录 | — |
+| `POST` | `/api/titles/grant` | 管理员（需 JWT） | 管理员：头衔给予 —— 把指定头衔直接放进该玩家的仓库（我的库存 → 我的称号） / POST /api/titles/grant   body: { userId, titleId } / 与购买的差别：不扣贡献点、不需要玩家已拥有；发完给玩家一条站内通知。 |
 | `GET` | `/api/titles/my` | JWT 登录 | — |
+| `GET` | `/api/titles/user/:userId` | 管理员（需 JWT） | 管理员：查看某个玩家已拥有的头衔（头衔给予面板用，避免重复发放） / GET /api/titles/user/:userId |
 
 ## /api/updates
 
@@ -625,3 +630,34 @@
 | `POST` | `/api/upload/images` | JWT 登录 | 上传多张图片 |
 | `POST` | `/api/upload/projection-token` | JWT 登录 | 生成投影文件（.litematic）上传凭证（前端 XHR 直传，最大 20MB） |
 | `POST` | `/api/upload/token` | JWT 登录 | 生成七牛云上传凭证（前端 XHR 直传，带进度回调） |
+
+## /api/wiki
+
+文件：`routes/wiki.js`（24 个端点）
+
+| 方法 | 路径 | 鉴权 | 说明 |
+|---|---|---|---|
+| `GET` | `/api/wiki/` | 登录可选 | — |
+| `POST` | `/api/wiki/` | 管理员（需 JWT） | — |
+| `DELETE` | `/api/wiki/:id` | 超级管理员（需 JWT） | — |
+| `PUT` | `/api/wiki/:id` | 管理员（需 JWT） | — |
+| `POST` | `/api/wiki/:id/archive` | 管理员（需 JWT） | — |
+| `POST` | `/api/wiki/:id/publish` | 管理员（需 JWT） | — |
+| `POST` | `/api/wiki/:id/restore` | 管理员（需 JWT） | — |
+| `POST` | `/api/wiki/:id/revisions/:revisionId/restore` | 管理员（需 JWT） | — |
+| `GET` | `/api/wiki/:slug` | 登录可选 | — |
+| `GET` | `/api/wiki/:slug/history` | 登录可选 | — |
+| `GET` | `/api/wiki/:slug/history/:revisionId` | 登录可选 | — |
+| `GET` | `/api/wiki/:slug/related` | 登录可选 | — |
+| `GET` | `/api/wiki/admin/pages` | 管理员（需 JWT） | — |
+| `GET` | `/api/wiki/admin/revisions` | 管理员（需 JWT） | — |
+| `GET` | `/api/wiki/categories` | 登录可选 | — |
+| `POST` | `/api/wiki/categories` | 管理员（需 JWT） | — |
+| `DELETE` | `/api/wiki/categories/:id` | 超级管理员（需 JWT） | — |
+| `PUT` | `/api/wiki/categories/:id` | 管理员（需 JWT） | — |
+| `GET` | `/api/wiki/categories/:slug` | 登录可选 | — |
+| `GET` | `/api/wiki/id/:id` | 管理员（需 JWT） | — |
+| `POST` | `/api/wiki/preview` | 管理员（需 JWT） | — |
+| `GET` | `/api/wiki/search` | 登录可选 | — |
+| `GET` | `/api/wiki/slug-suggest` | 管理员（需 JWT） | — |
+| `GET` | `/api/wiki/stats` | 管理员（需 JWT） | — |

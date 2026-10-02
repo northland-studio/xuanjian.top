@@ -92,6 +92,7 @@ export default function Layout({ children }) {
   const navGroups = [
     {
       key: 'content', label: '内容', items: [
+        { to: '/wiki', label: 'Wiki 知识库' },
         { to: '/daily', label: '公会日报' },
         { to: '/decision', label: '决策公示' },
         { to: '/forum', label: '公会贴吧' }

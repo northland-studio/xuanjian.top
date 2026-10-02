@@ -45,6 +45,7 @@ const payConfirmRoutes = require('./routes/pay-confirm');
 const payRoutes = require('./routes/pay');
 const mcRoutes = require('./routes/mc');
 const donationRoutes = require('./routes/donation');
+const wikiRoutes = require('./routes/wiki');
 const db = require('./database');
 
 const app = express();
@@ -179,6 +180,7 @@ app.use('/api/pay', payRoutes);
 // Minecraft 服务器只读对接（115 状态查询，115 侧不部署任何进程）
 app.use('/api/mc', mcRoutes);
 app.use('/api/donation', donationRoutes);
+app.use('/api/wiki', wikiRoutes);
 
 // ============ React前端（frontend/dist）托管 ============
 const frontendDist = path.join(__dirname, 'frontend', 'dist');

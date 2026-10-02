@@ -37,6 +37,14 @@ xuanjian.top 2.0 - React 重构版
 - 图片查看器（Lightbox）：多图切换、键盘 / 滚轮操作、移动端手势
 - 一键分享：复制帖子标题与链接
 
+### Wiki 知识库
+
+- 定位：公会的长期知识库（制度 / 通史档案 / Minecraft 资料 / 项目文档），与日报、决策、贴吧明确区分
+- 无限级分类树 + 文章 + 自动目录（TOC）+ 全文搜索 + 版本历史 + 相关文章 + 内链
+- Tiptap 进阶编辑器：表格、任务清单、代码高亮、图集与粘贴上传、成员/代系卡片
+- 权限沿用现有体系：游客与普通成员只读，管理员（level≥1）可编辑，彻底删除需要超级管理员
+- 种子数据：《玄剑公会通史0517》真实史料（14 章时期 + 序与跋 + 结语），配图压缩后存七牛
+
 ### 用户体系
 
 - 三级等级体系：成员（0）/ 管理员（1）/ 超级管理员（2）
@@ -293,6 +301,18 @@ XUANJIAN_REDIRECT_URI=https://nork.xuanjian.top/api/auth/oauth/xuanjian/callback
 
 ## 更新日志
 
+### v2.5.0（2026-10-02）
+
+- **Wiki 知识库**：新增 wiki_categories / wiki_pages / wiki_revisions / wiki_page_links 四张表与 FTS5 全文索引（trigram 分词，中文可搜）；`lib/wiki.js` + `routes/wiki.js`，前端 `/wiki`、`/wiki/category/:slug`、`/wiki/:slug`、`/wiki/:slug/history`、`/wiki/editor`、`/wiki/search` 六个页面，主导航「内容 → Wiki 知识库」
+- **版本历史**：每次正式保存留 revision，可查看/对比（行级 diff）/恢复；恢复同样生成新 revision，不覆盖历史
+- **内链与卡片**：`[[页面名]]` 内链（编辑器输入 `[[` 自动补全，保存时解析进 wiki_page_links），`{{member:123}}` / `{{generation:第五期}}` 读取时渲染成卡片
+- **权限**：游客/普通成员只读；管理员（level≥1）建改删归档恢复；超级管理员彻底删除与分类维护；写入全部走 `authMiddleware/adminMiddleware/superAdminMiddleware`（实时查库，不信任 JWT 里的 level）
+- **安全**：内容经 sanitize-html 白名单消毒（脚本/事件属性/危险协议一律剥离）；slug 只能小写字母数字短横线；分类删除有子项保护；浏览量按 IP/用户 30 分钟内去重
+- **种子数据**：`scripts/seed-wiki.js` 从《玄剑公会通史0517》导入真实史料（14 章 + 序与跋 + 结语），配图压缩后上传七牛
+- **管理后台**：「Wiki 管理」分页（页面 / 草稿 / 分类 / 历史版本 / 数据统计）
+- **测试**：`scripts/test-wiki.js`（真实 HTTP + 临时库，70 项断言，覆盖 req.md §23 的 18 项）
+- 新增依赖：`pinyin-pro`（中文标题生成可读 slug）、`sanitize-html`（内容消毒）
+
 ### v2.4.0（2026-08-29）
 
 - **人员代系分化系统**：新增 generations 配置表（代系名称 / 起止日期 / 颜色 / 排序）与 users.generation 字段；按注册时间自动判定代系，管理员可手动分类；档案系统（GMIRS）、PDF 导出、个人主页均展示代系徽章
@@ -479,4 +499,49 @@ Aug 15 与 Aug 22 两次批量提交合并记录：
 付款成功/被拒/待审批、收到款项、缴费单开单与截止提醒，均按用户维度落一条通知，
 并在 QQ 机器人侧可选播报（复用群机器人服务）。贡献点变动同时写入
 `contribution_logs`（`pay_out` / `pay_in`），保证任何余额变化都可追溯。
+
+## Wiki 知识库
+
+完整设计与操作说明见 [`docs/WIKI.md`](docs/WIKI.md)，这里只列要点。
+
+**路由与文件**
+
+| 层 | 文件 |
+| --- | --- |
+| 迁移 | `scripts/migrate-wiki.js`（幂等；建表 + 索引 + FTS5，`scripts/init-db.js` 已接入） |
+| 服务层 | `lib/wiki.js`（分类树 / 页面 / 版本 / 内链 / 短代码 / 搜索 / 消毒 / 浏览计数） |
+| 接口 | `routes/wiki.js`（24 个端点，挂在 `/api/wiki`） |
+| 前端 | `pages/Wiki.jsx`、`WikiCategory.jsx`、`WikiPage.jsx`、`WikiEditor.jsx`、`WikiHistory.jsx`、`WikiSearch.jsx`、`components/WikiRichEditor.jsx`、`WikiAdminPanel.jsx`、`WikiTree.jsx`、`WikiToc.jsx`、`WikiSearchBox.jsx`、`styles/wiki.css` |
+| 种子 | `scripts/seed-wiki.js`（消费 `scripts/seed/history.js` 从通史 docx 抽取的内容） |
+| 测试 | `scripts/test-wiki.js`（真实 HTTP + 临时库，70 项断言） |
+
+**数据表**：`wiki_categories`（无限级 `parent_id`）、`wiki_pages`（`status` = draft/published/archived、`is_featured`、`is_pinned`、`views`、预留 `project_id`）、`wiki_revisions`（每次保存留档）、`wiki_page_links`（内链关系）、`wiki_search`（FTS5 虚拟表，`tokenize='trigram'`）。
+
+**关键设计**
+
+- **slug 稳定**：中文标题用 `pinyin-pro` 生成拼音 slug（`紫雪镇时期` → `zi-xue-zhen-shi-qi`），重名加 `-2/-3`；改标题不会自动改 slug，历史链接不失效。
+- **版本不可变**：恢复旧版本会写入一条新的 revision（备注 `恢复自版本 #N`），历史永远保留。
+- **搜索**：≥3 字走 FTS5（trigram，中文子串可命中），<3 字自动退回 LIKE；结果支持分类过滤与分页，空查询返回最近更新。
+- **浏览计数**：进程内 30 分钟去重（同用户/IP 重复刷新不涨）。
+- **消毒**：`sanitize-html` 白名单（允许 Tiptap 产出的表格/任务清单/代码块/图片等，剥掉脚本、事件属性与 `javascript:` 协议）。
+- **通知**：发布时勾选「通知全员」才发（复用 `createNotification`，type = `wiki`，已在 `scripts/migrate-notification-types.js` 白名单里）。
+
+**迁移与部署**
+
+```bash
+# 新环境：初始化即包含 Wiki 表与全文索引
+npm run init-db
+
+# 已有环境：幂等迁移（可重复执行）
+node scripts/migrate-wiki.js
+
+# 若通知白名单还是旧版本（缺 wiki / title_grant 等），一并执行
+node scripts/migrate-notification-types.js
+
+# 测试（临时库 + 临时进程，跑完自动清理）
+node scripts/test-wiki.js
+```
+
+生产依赖新增 `pinyin-pro` 与 `sanitize-html`，部署时需要 `npm install`（或 `npm ci`）。
+
 

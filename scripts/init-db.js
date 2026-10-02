@@ -128,7 +128,7 @@ const initTables = () => {
                 CREATE TABLE IF NOT EXISTS notifications (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     user_id INTEGER NOT NULL,
-                    type TEXT NOT NULL CHECK(type IN ('post_daily', 'post_decision', 'comment', 'like')),
+                    type TEXT NOT NULL CHECK(type IN ('post_daily', 'post_decision', 'comment', 'like', 'claim_result', 'task_reward', 'transfer', 'favorite', 'follow', 'purchase', 'discipline', 'player_task', 'chat', 'chat_mention', 'pay', 'system', 'title_grant', 'wiki')),
                     title TEXT NOT NULL,
                     content TEXT,
                     post_id INTEGER,
@@ -225,6 +225,16 @@ const initDefaultAvatar = () => {
     }
 };
 
+// Wiki 表 + 全文索引：直接复用生产同一份迁移脚本，避免两处定义漂移
+const initWiki = () => {
+    const { execFileSync } = require('child_process');
+    console.log('初始化 Wiki 表与全文索引...');
+    execFileSync(process.execPath, [path.join(__dirname, 'migrate-wiki.js')], {
+        stdio: 'inherit',
+        env: process.env
+    });
+};
+
 // 执行初始化
 const init = async () => {
     try {
@@ -232,11 +242,12 @@ const init = async () => {
         await createDefaultAdmin();
         await initSettings();
         initDefaultAvatar();
-        console.log('数据库初始化完成！');
         db.close();
+        initWiki();
+        console.log('数据库初始化完成！');
     } catch (error) {
         console.error('数据库初始化失败:', error);
-        db.close();
+        try { db.close(); } catch (e) { /* 已关闭 */ }
         process.exit(1);
     }
 };
