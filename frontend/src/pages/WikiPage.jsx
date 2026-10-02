@@ -104,7 +104,7 @@ export default function WikiPage() {
   const canEdit = data.can_edit;
 
   return (
-    <div className="fade-in-up">
+    <div className="fade-in-up wiki-page">
       <div className="wiki-breadcrumb">
         <Link to="/wiki">Wiki</Link>
         {breadcrumb.map(b => (

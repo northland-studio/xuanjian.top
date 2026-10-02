@@ -62,17 +62,59 @@ export default function Wiki() {
   const { featured = [], recent = [], popular = [], contributors = [], categories = [], totalPages = 0 } = data;
 
   return (
-    <div className="fade-in-up">
-      <div className="wiki-hero">
-        <h1>玄剑 Wiki</h1>
-        <p>
-          公会的长期知识库：制度、历史档案、Minecraft 资料与项目文档。
-          与日报/决策/贴吧不同，这里的每一页都是可以长期维护、随时查阅的稳定内容。
-        </p>
+    <div className="fade-in-up wiki-page">
+      <div className="wiki-hero wiki-hero-home">
+        {/* 装饰层：网格 + 星轨（内联 SVG，currentColor / 低透明度，pointer-events 由 CSS 关闭） */}
+        <div className="wiki-hero-deco" aria-hidden="true">
+          <svg className="wh-grid" fill="none" focusable="false">
+            <defs>
+              <pattern id="wikiHeroGrid" width="34" height="34" patternUnits="userSpaceOnUse">
+                <path d="M34 0H0v34" stroke="currentColor" strokeWidth="1" />
+              </pattern>
+              <linearGradient id="wikiHeroGridFade" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0" stopColor="#fff" stopOpacity="0" />
+                <stop offset="0.45" stopColor="#fff" stopOpacity="0.7" />
+                <stop offset="1" stopColor="#fff" stopOpacity="0.12" />
+              </linearGradient>
+              <mask id="wikiHeroGridMask">
+                <rect width="100%" height="100%" fill="url(#wikiHeroGridFade)" />
+              </mask>
+            </defs>
+            <rect width="100%" height="100%" fill="url(#wikiHeroGrid)" mask="url(#wikiHeroGridMask)" />
+          </svg>
+
+          <svg className="wh-orbit" viewBox="0 0 340 340" fill="none" focusable="false">
+            <circle cx="170" cy="170" r="150" stroke="currentColor" strokeOpacity="0.42" strokeWidth="1" strokeDasharray="3 9" />
+            <circle cx="170" cy="170" r="112" stroke="currentColor" strokeOpacity="0.26" strokeWidth="1" />
+            <ellipse cx="170" cy="170" rx="150" ry="56" stroke="currentColor" strokeOpacity="0.34" strokeWidth="1" transform="rotate(-18 170 170)" />
+            <path d="M22 268c50 14 100-6 138-48" stroke="currentColor" strokeOpacity="0.4" strokeWidth="1.2" strokeLinecap="round" />
+            {/* 书本 / 翻页符号 */}
+            <g stroke="currentColor" strokeOpacity="0.45" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M64 186c22-9 44-9 66 0v72c-22-9-44-9-66 0z" />
+              <path d="M196 186c-22-9-44-9-66 0v72c22-9 44-9 66 0z" />
+              <path d="M130 186v72" />
+            </g>
+            {/* 星点 */}
+            <circle cx="256" cy="66" r="2.6" fill="currentColor" fillOpacity="0.8" />
+            <circle cx="292" cy="118" r="1.8" fill="currentColor" fillOpacity="0.55" />
+            <circle cx="214" cy="256" r="2.1" fill="currentColor" fillOpacity="0.45" />
+            <circle cx="88" cy="82" r="1.6" fill="currentColor" fillOpacity="0.4" />
+          </svg>
+        </div>
+
+        <div className="wiki-hero-inner">
+          <span className="wiki-hero-kicker">玄剑公会 · 长期知识库</span>
+          <h1>玄剑 Wiki</h1>
+          <p>
+            公会的长期知识库：制度、历史档案、Minecraft 资料与项目文档。
+            与日报/决策/贴吧不同，这里的每一页都是可以长期维护、随时查阅的稳定内容。
+          </p>
+        </div>
+
         <div className="wiki-hero-stats">
-          <div><b>{totalPages}</b>篇已发布</div>
-          <div><b>{categories.length}</b>个一级分类</div>
-          <div><b>{contributors.length}</b>位近期编辑者</div>
+          <div className="wiki-hero-stat"><b>{totalPages}</b><span>篇已发布</span></div>
+          <div className="wiki-hero-stat"><b>{categories.length}</b><span>个一级分类</span></div>
+          <div className="wiki-hero-stat"><b>{contributors.length}</b><span>位近期编辑者</span></div>
         </div>
       </div>
 

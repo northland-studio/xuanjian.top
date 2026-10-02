@@ -123,7 +123,7 @@ export default function WikiHistory() {
     : [];
 
   return (
-    <div className="fade-in-up">
+    <div className="fade-in-up wiki-page">
       <div className="wiki-breadcrumb">
         <Link to="/wiki">Wiki</Link><span>/</span>
         <Link to={`/wiki/${page.slug}`}>{page.title}</Link><span>/ 历史版本</span>

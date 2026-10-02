@@ -50,7 +50,7 @@ export default function WikiCategory() {
   const { category, children = [], breadcrumb = [], pages = [], total = 0, totalPages = 1 } = data;
 
   return (
-    <div className="fade-in-up">
+    <div className="fade-in-up wiki-page">
       <div className="wiki-breadcrumb">
         <Link to="/wiki">Wiki</Link>
         {breadcrumb.map(b => (

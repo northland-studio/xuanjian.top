@@ -45,7 +45,7 @@ export default function WikiSearch() {
   const mode = data?.mode;
 
   return (
-    <div className="fade-in-up">
+    <div className="fade-in-up wiki-page">
       <div className="wiki-breadcrumb">
         <Link to="/wiki">Wiki</Link><span>/ 搜索</span>
       </div>
