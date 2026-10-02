@@ -5,6 +5,7 @@
 #   dist.tgz            前端客户端产物（**国庆主题分支构建**，含 Rocket Loader 自举补丁）
 #   normal-dist.tgz     前端客户端产物（master 构建，作为 dist-normal 回滚留档）
 #   dist-ssr.tgz        SSR 产物（frontend/dist-ssr）
+#   dist-ssr-normal.tgz 普通主题 SSR 产物（回滚留档，与 dist-normal 配对，否则 10-08 自动回滚会 CSS/SSR 混搭）
 #   backend/            需要覆盖到站点根的文件（lib/ssr.js、lib/prefetch/、server.js、scripts/*.js）
 #
 # 做四件事：① 备份并覆盖后端文件 ② 前端 dist 原子切换（保持国庆主题标记）
@@ -44,6 +45,19 @@ rm -rf "$SITE/frontend/dist-ssr"
 mkdir -p "$SITE/frontend/dist-ssr"
 tar -xzf "$STAGE/dist-ssr.tgz" -C "$SITE/frontend/dist-ssr"
 ls -lh "$SITE/frontend/dist-ssr/entry-server.js" | awk '{print "  " $NF, $5}'
+
+# 普通主题 SSR 产物留档：10-08 自动回滚是 dist-normal + dist-ssr-normal 成对恢复的，
+# 只留客户端产物会让回滚后的 SSR/SSG HTML 引用上一代 CSS hash（页面丢样式）。
+echo "  SSR 回滚留档 dist-ssr-normal（供 10-08 自动回滚）"
+if [ -f "$STAGE/dist-ssr-normal.tgz" ]; then
+  rm -rf "$SITE/frontend/dist-ssr-normal.new"
+  mkdir -p "$SITE/frontend/dist-ssr-normal.new"
+  tar -xzf "$STAGE/dist-ssr-normal.tgz" -C "$SITE/frontend/dist-ssr-normal.new"
+  rm -rf "$SITE/frontend/dist-ssr-normal"
+  mv "$SITE/frontend/dist-ssr-normal.new" "$SITE/frontend/dist-ssr-normal"
+else
+  echo "  (!) 缺少 dist-ssr-normal.tgz：回滚后将恢复旧 SSR 产物，与新 dist-normal 不匹配"
+fi
 
 # 若本次部署的就是国庆主题产物，同步刷新常驻主题产物（否则切主题时会用到旧构建）
 if [ -f "$SITE/frontend/dist/.national-day" ]; then
