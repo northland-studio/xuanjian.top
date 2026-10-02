@@ -1,19 +1,27 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api';
 import PostCard from '../components/PostCard';
+import { useServerData } from '../context/ServerDataContext';
 import { requireLogin } from '../utils';
 
 // 通用内容列表页（日报/决策/贴吧）
 export default function ContentList({ type, title }) {
   const navigate = useNavigate();
-  const [posts, setPosts] = useState([]);
+
+  // SSR/SSG：服务端预取了「无参数第一页」的列表，首屏直接渲染同一份数据（避免 hydrate 前后闪烁）。
+  // 预取数据是按 type 区分的，只有 type 对得上才使用（例如从日报跳到决策时不能复用）。
+  const seeded = useServerData('contentList');
+  const seededOk = !!seeded && seeded.type === type;
+  const seededUsed = useRef(seededOk);          // 只在首次渲染消费预取数据
+
+  const [posts, setPosts] = useState(seededOk ? (seeded.posts || []) : []);
   const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
+  const [totalPages, setTotalPages] = useState(seededOk ? (seeded.totalPages || 1) : 1);
   const [search, setSearch] = useState('');
   const [keyword, setKeyword] = useState('');
   const [sort, setSort] = useState('latest');
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!seededOk);
   const limit = 10;
 
   const fetchPosts = useCallback(async (p, kw, srt) => {
@@ -32,6 +40,8 @@ export default function ContentList({ type, title }) {
   }, [type, sort]);
 
   useEffect(() => {
+    // 首屏已由服务端预取：跳过这一次请求，之后搜索/排序变化照常拉取
+    if (seededUsed.current) { seededUsed.current = false; return; }
     fetchPosts(1, keyword, sort);
     setPage(1);
   }, [fetchPosts, keyword, sort]);

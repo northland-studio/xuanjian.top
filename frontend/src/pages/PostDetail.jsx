@@ -2,9 +2,11 @@ import { useEffect, useState, useCallback } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
+import { useServerData } from '../context/ServerDataContext';
 import { useToast } from '../components/UI';
 import Lightbox from '../components/Lightbox';
 import LitematicViewer from '../components/LitematicViewer';
+import { setPageSeo, plainText } from '../lib/seo';
 import { formatDate, TYPE_META, parseTags, requireLogin, normalizeRichContent } from '../utils';
 
 function CommentItem({ comment, depth, onReply, onDelete, me }) {
@@ -90,12 +92,18 @@ export default function PostDetail() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { showToast } = useToast();
-  const [post, setPost] = useState(null);
-  const [comments, setComments] = useState([]);
+
+  // SSR：服务端已预取这篇帖子（key = postDetail = { post, comments }）。
+  // 预取数据只对「当前 URL 的那一篇」有效：SPA 内部切到别的帖子时必须丢弃它，否则不会重新请求。
+  const seededRaw = useServerData('postDetail');
+  const seeded = seededRaw && seededRaw.post && String(seededRaw.post.id) === String(id) ? seededRaw : null;
+
+  const [post, setPost] = useState(seeded ? seeded.post : null);
+  const [comments, setComments] = useState(seeded ? seeded.comments || [] : []);
   const [liked, setLiked] = useState(false);
   const [favorited, setFavorited] = useState(false);
   const [commentText, setCommentText] = useState('');
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!seeded);
   const [notFound, setNotFound] = useState(false);
   const [lightbox, setLightbox] = useState(null); // { images: [], index }
 
@@ -117,7 +125,31 @@ export default function PostDetail() {
     }
   }, [id, user]);
 
-  useEffect(() => { fetchDetail(); }, [fetchDetail]);
+  useEffect(() => {
+    if (seeded) return;                     // 服务端已给数据，不再重复请求
+    fetchDetail();
+  }, [fetchDetail, seeded]);
+
+  // 收藏状态取决于登录态（服务端渲染按游客），预取命中时在客户端补查一次
+  useEffect(() => {
+    if (!seeded || !user || !id) return;
+    api.get(`/api/favorites/posts/${id}/check`)
+      .then(d => setFavorited(!!d.favorited))
+      .catch(() => {});
+  }, [seeded, user, id]);
+
+  // SPA 内部跳转时同步 head（SSR 首屏的 head 由 lib/ssr.js 注入）
+  useEffect(() => {
+    if (!post) return;
+    const typeMeta = TYPE_META[post.type] || TYPE_META.forum;
+    setPageSeo({
+      title: `${post.title} · 玄剑公会`,
+      description: plainText(post.content, 130) || `${typeMeta.label}内容`,
+      image: (post.images && post.images[0]) || undefined,
+      url: `https://xuanjian.top/post/${post.id}`
+    });
+    // 只在「换了一篇帖子」时重算（点赞/收藏会更新 post 对象，不必重跑摘要）
+  }, [post && post.id, post && post.title]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (loading) {
     return <div className="loading"><div className="spinner" />加载中...</div>;

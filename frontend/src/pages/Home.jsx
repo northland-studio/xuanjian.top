@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import Carousel from '../components/Carousel';
 import AnnouncementMarquee from '../components/AnnouncementMarquee';
 import { api } from '../api';
+import { useServerData } from '../context/ServerDataContext';
+import { setPageSeo } from '../lib/seo';
 
 const features = [
   {
@@ -78,12 +80,25 @@ const features = [
 ];
 
 export default function Home() {
-  const [stats, setStats] = useState({ users: 0, posts: 0, comments: 0 });
+  // SSR：服务端已预取首页统计（key = homeStats），首屏直接用它渲染，避免 hydrate 前后数字跳变
+  const seeded = useServerData('homeStats');
+  const [stats, setStats] = useState(seeded || { users: 0, posts: 0, comments: 0 });
 
   useEffect(() => {
+    if (seeded) return;                     // 服务端已给数据，不再重复请求
     api.get('/api/posts/public-stats')
       .then(setStats)
       .catch(() => {});
+  }, [seeded]);
+
+  // SPA 内部跳转回来时同步 head（SSR 首屏的 head 由 lib/ssr.js 注入）
+  useEffect(() => {
+    setPageSeo({
+      title: '我的世界玄剑公会 · 官网',
+      description: '玄剑公会官网：公会日报、决策公示、成员档案、贡献点经济与 Minecraft 服务器资料。',
+      url: 'https://xuanjian.top/',
+      type: 'website'
+    });
   }, []);
 
   return (

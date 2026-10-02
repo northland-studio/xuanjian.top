@@ -68,7 +68,8 @@
 .wiki-contributor i { font-size: 11px; color: var(--text-secondary); font-style: normal; }
 
 /* ---------- 三栏布局（文章页/分类页） ---------- */
-.wiki-layout { display: grid; grid-template-columns: 250px minmax(0, 1fr) 230px; gap: 20px; align-items: start; }
+/* 三栏：左右栏收窄、间距压到 16px，把宽度让给正文（1155px 视口下正文列约 678px，原先约 595px） */
+.wiki-layout { display: grid; grid-template-columns: 210px minmax(0, 1fr) 195px; gap: 16px; align-items: start; }
 .wiki-col-side, .wiki-col-toc { position: sticky; top: 84px; max-height: calc(100vh - 110px); overflow-y: auto; }
 .wiki-panel { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px; margin-bottom: 14px; }
 .wiki-panel h4 { font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: var(--text-secondary); margin-bottom: 10px; }
@@ -94,7 +95,7 @@
 .wiki-breadcrumb a:hover { color: var(--primary); }
 
 .wiki-article {
-  background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 26px;
+  background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 30px 34px;
 }
 .wiki-article-head h1 { font-size: 26px; font-weight: 800; line-height: 1.35; margin-bottom: 8px; }
 .wiki-article-summary { font-size: 14px; color: var(--text-secondary); line-height: 1.7; margin-bottom: 14px; }
@@ -102,7 +103,7 @@
 .wiki-article-meta b { color: var(--text); font-weight: 600; }
 
 /* 正文排版 */
-.wiki-content { font-size: 15px; line-height: 1.85; color: var(--text); word-break: break-word; }
+.wiki-content { font-size: 15.5px; line-height: 1.9; color: var(--text); word-break: break-word; }
 .wiki-content h1, .wiki-content h2, .wiki-content h3, .wiki-content h4 { font-weight: 800; line-height: 1.4; margin: 26px 0 12px; scroll-margin-top: 90px; }
 .wiki-content h2 { font-size: 21px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
 .wiki-content h3 { font-size: 17px; }
@@ -171,7 +172,10 @@
 .wiki-editor-toolbar button {
   min-width: 32px; height: 30px; padding: 0 8px; border-radius: 7px; border: 1px solid transparent;
   background: transparent; color: var(--text); font-size: 13px; cursor: pointer;
+  /* SVG 图标与文字按钮统一居中 */
+  display: inline-flex; align-items: center; justify-content: center; line-height: 1;
 }
+.wiki-editor-toolbar button svg { display: block; }
 .wiki-editor-toolbar button:hover { background: var(--card); border-color: var(--border); }
 .wiki-editor-toolbar button.active { background: var(--primary); color: #fff; }
 .wiki-editor-toolbar .sep { width: 1px; height: 20px; background: var(--border); margin: 5px 4px; }
@@ -208,6 +212,22 @@
 /* ---------- 两栏布局（首页/分类/搜索） ---------- */
 .wiki-layout-2 { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 20px; align-items: start; }
 
+/* ---------- 桌面宽屏：只有 Wiki 页面比站点容器更宽（不影响全局 .container） ----------
+   站点容器 1200px 居中，正文列放下左/右栏 + 2×16px 间隙后只剩不到 1000px；
+   这里让 Wiki 布局左右各外扩 100px，1920px 视口下正文列约 923px（原先约 640px）。
+   1080px / 780px 的窄屏媒体查询保持原样，仍走单/双栏。 */
+@media (min-width: 1280px) {
+  .wiki-layout, .wiki-layout-2 { width: calc(100% + 200px); margin-left: -100px; }
+}
+/* 1280–1359px 视口：站点容器已经到 1200px 上限，左右各外扩 100px 会把页面顶出横向滚动条
+   （实测 docScrollWidth 1320 > 1280）。这一段改成「视口宽 − 40px」并居中，宽屏外扩值不变。 */
+@media (min-width: 1280px) and (max-width: 1359.98px) {
+  .wiki-layout, .wiki-layout-2 {
+    width: calc(100vw - 40px);
+    margin-left: calc((100% - (100vw - 40px)) / 2);
+  }
+}
+
 /* ---------- 代码高亮（lowlight/highlight.js 的 token 类） ---------- */
 .wiki-content .hljs-keyword, .wiki-content .hljs-selector-tag, .wiki-content .hljs-built_in { color: #ff7b72; }
 .wiki-content .hljs-string, .wiki-content .hljs-attr, .wiki-content .hljs-template-variable { color: #a5d6ff; }
@@ -219,6 +239,49 @@
 /* ---------- 图注 ---------- */
 .wiki-content p.wiki-caption { font-size: 12.5px; color: var(--text-secondary); text-align: center; margin-top: -4px; }
 .wiki-editor .ProseMirror p.wiki-caption { color: var(--text-secondary); }
+
+/* ---------- 编辑器「预览」弹层 ---------- */
+.wiki-preview-mask {
+  position: fixed; inset: 0; z-index: 3000;
+  background: rgba(12, 18, 26, .55);
+  -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px);
+  display: flex; align-items: flex-start; justify-content: center;
+  padding: 56px 20px 28px;
+  overflow-y: auto;
+  animation: wikiPreviewFade .16s ease-out;
+}
+.wiki-preview-card {
+  width: min(980px, 100%);
+  max-height: calc(100vh - 90px);
+  display: flex; flex-direction: column;
+  background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+  box-shadow: var(--shadow-lg); overflow: hidden;
+}
+.wiki-preview-head {
+  flex: 0 0 auto;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 12px 16px; border-bottom: 1px solid var(--border); background: var(--input-bg);
+}
+.wiki-preview-title { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 14.5px; font-weight: 800; }
+.wiki-preview-stat { font-size: 12px; font-weight: 500; color: var(--text-secondary); }
+.wiki-preview-close {
+  min-width: 30px; height: 30px; padding: 0 8px; border-radius: 8px; cursor: pointer;
+  border: 1px solid var(--border); background: var(--card); color: var(--text);
+  font-size: 16px; line-height: 1; display: inline-flex; align-items: center; justify-content: center;
+}
+.wiki-preview-close:hover { border-color: var(--primary); color: var(--primary); }
+.wiki-preview-missing {
+  flex: 0 0 auto; margin: 0; padding: 10px 16px 0;
+  font-size: 12.5px; color: var(--text-secondary); line-height: 1.7;
+}
+.wiki-preview-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 22px 26px 30px; }
+
+@media (max-width: 780px) {
+  .wiki-preview-mask { padding: 18px 10px; }
+  .wiki-preview-card { max-height: calc(100vh - 36px); }
+  .wiki-preview-body { padding: 16px 14px 22px; }
+}
+@keyframes wikiPreviewFade { from { opacity: 0; } to { opacity: 1; } }
 
 /* ---------- 响应式 ---------- */
 @media (max-width: 1080px) {

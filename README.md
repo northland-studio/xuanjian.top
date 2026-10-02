@@ -135,6 +135,27 @@ xuanjian-guild-website/
 
 ---
 
+## 渲染架构（SSG / SSR / SPA）
+
+前端是 React SPA，首屏 SEO 与加载速度由三层渲染补齐；完整说明（含新增 Provider、重新生成 SSG、部署与自检）见 [`docs/RENDERING.md`](docs/RENDERING.md)。
+
+| 层 | 生成时机 | 覆盖路由 | Provider |
+|:---|:---|:---|:---|
+| **SSG** | 构建/发布时预渲染成静态 HTML，请求直接发文件；文件缺失时现场渲染并落盘（自愈），`Cache-Control: max-age=600` | `/wiki`、`/wiki/category/:slug`、`/wiki/:slug`、`/daily`、`/decision`、`/mods`、`/projections` | `lib/prefetch/wiki.js`、`lib/prefetch/content-list.js` |
+| **SSR** | 按请求服务端渲染，进程内缓存 60 秒，`Cache-Control: max-age=60` | `/`、`/post/:id`、`/posts/:id`、`/profile/:username`、`/gmirs`、`/gdars`、`/rankings`、`/donation` | `lib/prefetch/content.js`、`lib/prefetch/members.js` |
+| **SPA** | 纯客户端渲染（与改造前完全一致） | 其余全部路由：登录态/后台/编辑器/支付/聊天、带查询参数的形态（`/daily?page=2`、`/rankings?type=contribution`…）以及不存在的资源 | 无 |
+
+- **产物**：`frontend/dist`（客户端 SPA）、`frontend/dist-ssr/entry-server.js`（服务端渲染产物，依赖内联成单文件）、`frontend/prerender/`（SSG 静态 HTML）。
+- **中间件**：`server.js` 中挂在「静态资源 → API → SPA 回退」之间（`lib/ssr.js`）；只处理已登记的 SSG/SSR 路由，其余一律 `next()`。响应头 `X-Render-Mode` = `ssg` / `ssr` / `ssr-cache` / 空（SPA）可直接看出实际渲染模式。
+- **一键回退**：`SPA_ONLY=1 pm2 restart xuanjian-guild --update-env` → 全站立刻回纯 SPA，产物不用动（`SSR_ENABLED=0` 等价）。
+- **缓存**：SSG 10 分钟（内容变更调用 `lib/ssr.js` 的 `invalidate()/invalidatePrefix()` 删产物，再用 `bash scripts/purge-cache.sh` 清 Cloudflare）、SSR 进程内 60 秒。
+- **扩展方式**：新增一个页面的渲染模式只需要在 `lib/prefetch/` 加一个文件（`ssg`/`ssr`/`load`/`head`/`enumerate`），页面里用 `useServerData(key)` 接上预取数据，**不用改 `lib/ssr.js` 或 `server.js`**。
+- **重新生成 SSG**：`node scripts/prerender.js --clean`（还有 `--only=/wiki`、`--list`）。
+- **发布前自检**：`node scripts/test-ssr.js`（默认用只读副本 `data/guild-prod-copy.db` + 真实渲染，退出码非 0 = 有失败；未注册路由计入跳过）。
+- **部署**：`bash scripts/build-frontend.sh`（客户端产物 + Rocket Loader 补丁 + SSR 产物）→ 上传产物与 `backend/` → 服务器执行 `bash scripts/deploy-render-20261002.sh`（覆盖后端 → dist 原子切换 → 重启 → 生成 SSG → 逐路由验证）。
+
+---
+
 ## 快速开始
 
 ### 本地开发

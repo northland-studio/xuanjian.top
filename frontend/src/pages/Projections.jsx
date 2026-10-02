@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api, uploadProjection } from '../api';
 import { useAuth } from '../context/AuthContext';
+import { useServerData } from '../context/ServerDataContext';
 import { useToast } from '../components/UI';
 import LitematicViewer from '../components/LitematicViewer';
 import { formatDate, timeAgo, requireLogin } from '../utils';
@@ -23,12 +24,17 @@ export default function Projections() {
   const { showToast } = useToast();
   const fileInput = useRef(null);
 
-  const [projections, setProjections] = useState([]);
-  const [total, setTotal] = useState(0);
+  // SSR/SSG：服务端预取了「无参数第一页」的投影列表，首屏直接渲染，跳过首次请求
+  const seeded = useServerData('projections');
+  const seededOk = !!seeded;
+  const seededUsed = useRef(seededOk);
+
+  const [projections, setProjections] = useState(seededOk ? (seeded.projections || []) : []);
+  const [total, setTotal] = useState(seededOk ? (seeded.total || 0) : 0);
   const [page, setPage] = useState(1);
   const [q, setQ] = useState('');
   const [search, setSearch] = useState('');
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!seededOk);
 
   // 上传表单
   const [showForm, setShowForm] = useState(false);
@@ -56,7 +62,11 @@ export default function Projections() {
       .finally(() => setLoading(false));
   }, [showToast]);
 
-  useEffect(() => { load(1, ''); }, [load]);
+  useEffect(() => {
+    // 首屏已由服务端预取：跳过这一次请求（搜索 / 加载更多 / 发布后仍走 load）
+    if (seededUsed.current) { seededUsed.current = false; return; }
+    load(1, '');
+  }, [load]);
 
   const doSearch = () => {
     setPage(1);

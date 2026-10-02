@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { api, uploadImage } from '../api';
 import { useAuth } from '../context/AuthContext';
@@ -43,6 +44,7 @@ export default function WikiEditor() {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [preview, setPreview] = useState(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
   const [slugLocked, setSlugLocked] = useState(false);
   const [meta, setMeta] = useState(null);   // 已有页面的元信息（id/slug/status/updated_at）
   const coverRef = useMemo(() => ({ current: null }), []);
@@ -170,14 +172,35 @@ export default function WikiEditor() {
     }
   };
 
+  // 预览改为弹层：结果不再渲染在页面最底部（那里点了看不出变化，用户以为按钮失效）
   const doPreview = async () => {
+    if (previewLoading) return;
+    if (!form.content.trim()) return showToast('正文是空的，先写点内容再预览', 'error');
+    setPreviewLoading(true);
     try {
       const d = await api.post('/api/wiki/preview', { content: form.content });
-      setPreview(d);
+      setPreview({ html: d?.html || '', links: d?.links || 0, missing: d?.missing || [] });
     } catch (e) {
-      showToast(e.message || '预览失败', 'error');
+      showToast(e?.message || '预览失败：请检查登录状态或稍后重试', 'error');
+    } finally {
+      setPreviewLoading(false);
     }
   };
+
+  const closePreview = useCallback(() => setPreview(null), []);
+
+  // Esc 关闭预览；打开期间锁住页面滚动，避免背景跟着滚
+  useEffect(() => {
+    if (!preview) return undefined;
+    const onKey = (e) => { if (e.key === 'Escape') setPreview(null); };
+    window.addEventListener('keydown', onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [preview]);
 
   const uploadCover = async (file) => {
     if (!file) return;
@@ -218,7 +241,7 @@ export default function WikiEditor() {
           <h2 style={{ fontSize: 20 }}>{id ? '编辑 Wiki 页面' : '新建 Wiki 页面'}</h2>
           <div className="flex" style={{ gap: 8, flexWrap: 'wrap' }}>
             {meta && <span className={`badge ${meta.status === 'published' ? 'badge-success' : 'badge-warning'}`}>{meta.status === 'published' ? '已发布' : meta.status === 'draft' ? '草稿' : '已归档'}</span>}
-            <button className="btn btn-secondary btn-sm" onClick={doPreview} disabled={!form.content.trim()}>预览</button>
+            <button className="btn btn-secondary btn-sm" onClick={doPreview} disabled={!form.content.trim() || previewLoading}>{previewLoading ? '预览中…' : '预览'}</button>
             <button className="btn btn-secondary btn-sm" onClick={() => save()} disabled={saving}>{saving ? '保存中…' : '保存'}</button>
             <button className="btn btn-primary btn-sm" onClick={publish} disabled={saving}>发布</button>
             {id && <button className="btn btn-secondary btn-sm" onClick={archive}>归档</button>}
@@ -278,24 +301,31 @@ export default function WikiEditor() {
         </div>
 
         <WikiRichEditor value={form.content} onChange={(html) => setForm(f => ({ ...f, content: html }))} />
+      </div>
 
-        {preview && (
-          <div style={{ marginTop: 20 }}>
-            <div className="wiki-section-head">
-              <h2 style={{ fontSize: 17 }}>预览（内链 {preview.links} 个{preview.missing?.length ? `，待创建 ${preview.missing.length} 个` : ''}）</h2>
-              <button className="btn btn-secondary btn-sm" onClick={() => setPreview(null)}>关闭预览</button>
+      {/* 预览弹层：portal 到 body，避免 .fade-in-up（animation-fill-mode: both 留下 transform）
+          成为 fixed 定位的包含块，导致遮罩跟着页面内容走 */}
+      {preview && typeof document !== 'undefined' && createPortal((
+        <div className="wiki-preview-mask" role="dialog" aria-modal="true" aria-label="预览" onClick={closePreview}>
+          <div className="wiki-preview-card" onClick={e => e.stopPropagation()}>
+            <div className="wiki-preview-head">
+              <div className="wiki-preview-title">
+                预览
+                <span className="wiki-preview-stat">内链 {preview.links} 个 · 待创建 {preview.missing.length} 个</span>
+              </div>
+              <button type="button" className="wiki-preview-close" onClick={closePreview} title="关闭预览（Esc）" aria-label="关闭预览">×</button>
             </div>
-            {preview.missing?.length > 0 && (
-              <p className="text-secondary" style={{ fontSize: 12.5 }}>
+            {preview.missing.length > 0 && (
+              <p className="wiki-preview-missing">
                 以下页面还不存在，保存后会显示为「待创建」红链：{preview.missing.join('、')}
               </p>
             )}
-            <div className="wiki-article">
+            <div className="wiki-preview-body">
               <div className="wiki-content" dangerouslySetInnerHTML={{ __html: preview.html }} />
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      ), document.body)}
     </div>
   );
 }

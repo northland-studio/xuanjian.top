@@ -1,7 +1,8 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
+import { useServerData } from '../context/ServerDataContext';
 import { useToast } from '../components/UI';
 import { formatDate, fmtPoints } from '../utils';
 import PostCard from '../components/PostCard';
@@ -13,9 +14,23 @@ export default function Profile() {
   const { user: me } = useAuth();
   const { showToast } = useToast();
 
-  const [profile, setProfile] = useState(null);
-  const [posts, setPosts] = useState([]);
-  const [loading, setLoading] = useState(true);
+  // SSR：服务端已预取这个成员的资料与最近发布（lib/prefetch/content.js 的 key = profileUser / profilePosts）。
+  // 预取数据只对「当前 URL 的那个 username」有效：SPA 内部切到别人的主页时必须丢弃，
+  // 否则会跳过请求、继续显示上一个人的资料（与 PostDetail.jsx 判断 postDetail.post.id 同理）。
+  // 这里只读 context，不碰 window/document/localStorage，服务端与客户端首次渲染结果一致。
+  const seededRaw = useServerData('profileUser');
+  const seededUser = seededRaw && seededRaw.user && String(seededRaw.user.username) === String(paramUsername)
+    ? seededRaw
+    : null;
+  const seededPosts = useServerData('profilePosts');
+  const seededOk = !!seededUser;
+  const profileSeeded = useRef(seededOk);          // 预取资料只在首屏消费一次
+  // 已经拿到发帖列表的成员：预取的 username 直接记账，避免 hydrate 后再请求一次
+  const postsLoadedFor = useRef(seededOk ? String(seededUser.user.username) : null);
+
+  const [profile, setProfile] = useState(seededOk ? seededUser : null);
+  const [posts, setPosts] = useState(seededOk && Array.isArray(seededPosts) ? seededPosts : []);
+  const [loading, setLoading] = useState(!seededOk);
   const [notFound, setNotFound] = useState(false);
   const [followStatus, setFollowStatus] = useState({ following: false, followers: 0, followingCount: 0 });
   const [followBusy, setFollowBusy] = useState(false);
@@ -54,11 +69,17 @@ export default function Profile() {
     }
   }, [isSelf, paramUsername, me, navigate]);
 
-  useEffect(() => { fetchProfile(); }, [fetchProfile]);
+  useEffect(() => {
+    // 首屏已由服务端预取：跳过这一次请求；之后（切换成员 / 自身主页 / 重新进入）照常拉取
+    if (profileSeeded.current) { profileSeeded.current = false; return; }
+    fetchProfile();
+  }, [fetchProfile]);
 
   useEffect(() => {
     if (!profile) return;
-    const username = profile.user.username;
+    const username = String(profile.user.username);
+    if (postsLoadedFor.current === username) return;   // 这个成员的发帖已由预取或上次请求拿到
+    postsLoadedFor.current = username;
     api.get(`/api/posts?author=${username}&limit=5`)
       .then(data => setPosts(data.posts || []))
       .catch(() => {});
