@@ -2477,6 +2477,14 @@ input[type="number"] {
     margin-left: 4px;
     gap: 6px;
   }
+
+  /* 压缩后末尾分组的按钮宽度 < 下拉的 min-width:190px，下拉开在 left:0 会越过视口右缘
+     （面板关闭时是 opacity/visibility 隐藏，肉眼看不见，但会给整页带来 2px 横向滚动条）。
+     这一段里的末尾分组改成右对齐；>1120px 与 ≤900px 的抽屉态都不受影响。 */
+  .navbar-nav > .nav-group:not(:has(~ .nav-group)) > .nav-dropdown {
+    left: auto;
+    right: 0;
+  }
 }
 
 /* 移动端：抽屉内的分组折叠列表（同一份数据渲染，无横向溢出） */
