@@ -8,6 +8,7 @@ import Lightbox from '../components/Lightbox';
 import { useServerData } from '../context/ServerDataContext';
 import { formatDate } from '../utils';
 import { setPageSeo, plainText } from '../lib/seo';
+import { useAdSense } from '../lib/adsense';
 
 /**
  * Wiki 文章页：/wiki/:slug
@@ -27,6 +28,9 @@ export default function WikiPage() {
   const [tree, setTree] = useState(seededTree || []);
   const [loading, setLoading] = useState(!seededForThis);
   const [notFound, setNotFound] = useState(false);
+
+  // Google AdSense（Auto Ads）：仅在文章存在时注入脚本（空状态 / 404 不投放）
+  useAdSense(!!(data && data.page));
 
   const isAdmin = !!user && user.level >= 1;
 
