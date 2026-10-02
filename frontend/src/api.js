@@ -1,14 +1,15 @@
 // API 客户端
-// 网页版同源（''）；Capacitor / Electron 等原生壳使用绝对地址
-import { isCapacitor, isElectron } from './lib/platform';
+// 网页版同源（''）；Capacitor / Electron / Tauri 等原生壳使用绝对地址
+import { isCapacitor, isElectron, isTauri } from './lib/platform';
 
 const SITE_ORIGIN = 'https://xuanjian.top';
 
 function detectNative() {
-  if (typeof window === 'undefined') return { capacitor: false, electron: false };
+  if (typeof window === 'undefined') return { capacitor: false, electron: false, tauri: false };
   return {
     capacitor: isCapacitor,
-    electron: isElectron
+    electron: isElectron,
+    tauri: isTauri
   };
 }
 
@@ -16,10 +17,12 @@ function detectNative() {
  * 解析 API 基址：
  *  - 浏览器 http/https 同源 → ''
  *  - 原生壳 / file: / capacitor: / app: 等非 http(s) 协议 → 线上站点绝对地址
+ *  - Tauri 壳（tauri://localhost，Windows 上为 http://tauri.localhost）→ 线上站点绝对地址
  * 否则原生 WebView 里的相对路径会打到本地地址，导致接口全部失败。
  */
 function detectApiBase() {
   if (typeof window === 'undefined') return '';
+  if (isTauri) return SITE_ORIGIN;
   const proto = window.location.protocol;
   if (!/^https?:$/.test(proto)) return SITE_ORIGIN;
   if (isCapacitor) return SITE_ORIGIN;

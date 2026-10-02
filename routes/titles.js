@@ -53,6 +53,84 @@ router.get('/my', authMiddleware, async (req, res) => {
     }
 });
 
+/**
+ * 管理员：查看某个玩家已拥有的头衔（头衔给予面板用，避免重复发放）
+ * GET /api/titles/user/:userId
+ */
+router.get('/user/:userId', authMiddleware, adminMiddleware, async (req, res) => {
+    try {
+        const userId = parseInt(req.params.userId, 10);
+        if (!userId) return res.status(400).json({ error: '参数错误' });
+
+        const user = await db.get('SELECT id, username, nickname, equipped_title FROM users WHERE id = ?', [userId]);
+        if (!user) return res.status(404).json({ error: '玩家不存在' });
+
+        const titles = await db.all(
+            `SELECT t.id, t.name, t.color, t.description, ut.purchased_at
+             FROM user_titles ut JOIN titles t ON t.id = ut.title_id
+             WHERE ut.user_id = ?
+             ORDER BY ut.purchased_at DESC`,
+            [userId]
+        );
+        res.json({ user, titles, equippedTitle: user.equipped_title || null });
+    } catch (error) {
+        logger.error('获取玩家头衔错误:', error);
+        res.status(500).json({ error: '获取玩家头衔失败' });
+    }
+});
+
+/**
+ * 管理员：头衔给予 —— 把指定头衔直接放进该玩家的仓库（我的库存 → 我的称号）
+ * POST /api/titles/grant   body: { userId, titleId }
+ * 与购买的差别：不扣贡献点、不需要玩家已拥有；发完给玩家一条站内通知。
+ */
+router.post('/grant', authMiddleware, adminMiddleware, async (req, res) => {
+    try {
+        const userId = parseInt(req.body?.userId, 10);
+        const titleId = parseInt(req.body?.titleId, 10);
+        if (!userId || !titleId) return res.status(400).json({ error: '请选择要发放的玩家与头衔' });
+
+        const user = await db.get('SELECT id, username, nickname FROM users WHERE id = ?', [userId]);
+        if (!user) return res.status(404).json({ error: '玩家不存在' });
+        const title = await db.get('SELECT * FROM titles WHERE id = ?', [titleId]);
+        if (!title) return res.status(404).json({ error: '头衔不存在' });
+
+        const existing = await db.get(
+            'SELECT id FROM user_titles WHERE user_id = ? AND title_id = ?',
+            [userId, titleId]
+        );
+        if (existing) return res.status(400).json({ error: `该玩家已拥有头衔「${title.name}」` });
+
+        const result = await db.run(
+            'INSERT INTO user_titles (user_id, title_id) VALUES (?, ?)',
+            [userId, titleId]
+        );
+
+        // 通知玩家（站内 + Web Push）；失败不影响发放本身
+        try {
+            const { createNotification } = require('./notifications');
+            await createNotification({
+                userId,
+                type: 'system',
+                title: '获得新头衔',
+                content: `管理员向你发放了头衔「${title.name}」，可在「我的库存 → 我的称号」中装备。`,
+                actorId: req.userId,
+                url: '/inventory'
+            });
+        } catch (e) { /* 通知失败忽略 */ }
+
+        logger.info(`管理员 ${req.userId} 向玩家 ${userId}(${user.username}) 发放头衔「${title.name}」#${result.id}`);
+        res.json({
+            message: `已把「${title.name}」放进 ${user.nickname || user.username} 的仓库`,
+            id: result.id,
+            title: { id: title.id, name: title.name, color: title.color }
+        });
+    } catch (error) {
+        logger.error('头衔给予错误:', error);
+        res.status(500).json({ error: '头衔发放失败' });
+    }
+});
+
 router.post('/:id/buy', authMiddleware, async (req, res) => {
     try {
         const { id } = req.params;

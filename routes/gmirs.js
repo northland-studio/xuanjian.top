@@ -162,12 +162,21 @@ async function buildArchive(userId) {
     const contribution = await getContributionGroups(userId);
     const discipline = await getDiscipline(userId);
 
-    // 解析代系（手动优先，否则按 created_at 自动判定）
+    // 解析代系（手动优先，否则按 created_at 自动判定）；带上区间供档案页/导出显示
     let generation = null;
     try {
         const { resolveGeneration } = require('../lib/generation');
         const g = await resolveGeneration(user);
-        if (g) generation = { name: g.name, color: g.color, manual: !!g.manual };
+        if (g) {
+            generation = {
+                name: g.name,
+                color: g.color,
+                manual: !!g.manual,
+                start_date: g.start_date || null,
+                end_date: g.end_date || null,
+                range: g.range || ''
+            };
+        }
     } catch (e) { /* 代系解析失败不影响档案 */ }
 
     return {

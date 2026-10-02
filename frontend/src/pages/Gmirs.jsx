@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { api } from '../api';
 import SkinViewer from '../components/SkinViewer';
 import { formatDate, fmtPoints } from '../utils';
-import { exportArchivePdf, exportArchiveDocx, exportAllArchivesZip } from '../lib/gmirs-export';
+import { exportArchivePdf, exportArchiveDocx, exportAllArchivesZip, fmtGeneration } from '../lib/gmirs-export';
 
 // 档案展示用的类型标签（无子列时显示通用列名）
 const TYPE_LABELS = {
@@ -219,11 +219,13 @@ export default function Gmirs() {
                       : <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'var(--input-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)', fontSize: 26, fontWeight: 700 }}>{(archive.user.nickname || archive.user.username || '?').slice(0, 1)}</div>}
                     <div>
                       <div style={{ fontSize: 21, fontWeight: 800 }}>{archive.user.nickname || archive.user.username}</div>
-                      <div className="text-secondary" style={{ fontSize: 13, marginTop: 3 }}>用户ID：{archive.user.id}</div>
+                      <div className="text-secondary" style={{ fontSize: 13, marginTop: 3 }}>
+                        账号ID：{archive.user.id} · 用户ID：{archive.user.username || '—'}
+                      </div>
                       <div style={{ marginTop: 6, display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
                         {archive.user.generation && (
                           <span className="badge" style={{ background: `${archive.user.generation.color || 'var(--primary)'}22`, color: archive.user.generation.color || 'var(--primary)', border: `1px solid ${archive.user.generation.color || 'var(--primary)'}44` }}>
-                            代系 · {archive.user.generation.name}
+                            代系 · {fmtGeneration(archive.user.generation)}
                           </span>
                         )}
                         {archive.user.is_frozen ? <span className="badge" style={{ background: 'rgba(220,53,69,0.15)', color: 'var(--danger)' }}>账号冻结</span> : null}
@@ -248,9 +250,11 @@ export default function Gmirs() {
                 <div className="grid grid-2" style={{ gap: 8, marginTop: 20 }}>
                   {[
                     ['游戏ID', archive.user.game_id || '—'],
-                    ['注册时间', formatDate(archive.user.created_at, false)],
+                    ['用户ID', archive.user.username || '—'],
                     ['绑定邮箱', archive.user.email || '未绑定'],
-                    ['贡献点余额', `${fmtPoints(archive.user.contribution)} 点`]
+                    ['贡献点余额', `${fmtPoints(archive.user.contribution)} 点`],
+                    ['代系', fmtGeneration(archive.user.generation)],
+                    ['注册时间', formatDate(archive.user.created_at, false)]
                   ].map(([k, v]) => (
                     <div key={k} className="flex" style={{ justifyContent: 'space-between', padding: '9px 12px', background: 'var(--input-bg)', borderRadius: 8, fontSize: 13 }}>
                       <span className="text-secondary">{k}</span>

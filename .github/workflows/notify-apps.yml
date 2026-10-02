@@ -1,0 +1,53 @@
+# 网站前端产物变更 → 通知两个 App 仓库重新构建（打包模式需要跟版）
+#
+# 触发方式：
+#   1) 自动：master 上 frontend/ 或前端相关依赖有变更时（避免只改后端也触发）
+#   2) 手动：Actions 页面 workflow_dispatch，可勾选是否强制通知
+#
+# 需要在仓库 Secrets 里配置 APP_DISPATCH_TOKEN：
+#   一个能对 northland-studio/xuanjian-desktop 与 xuanjian-android 发 repository_dispatch 的令牌
+#   （classic PAT 的 repo 权限，或 fine-grained token 的 Contents: read + Actions/仓库写权限）
+name: 通知 App 仓库重构
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'frontend/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/notify-apps.yml'
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 强制通知（忽略是否有前端变更）
+        type: boolean
+        default: true
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检查令牌
+        run: |
+          if [ -z "${{ secrets.APP_DISPATCH_TOKEN }}" ]; then
+            echo "::error::缺少 Secrets.APP_DISPATCH_TOKEN，无法通知 App 仓库"; exit 1
+          fi
+
+      - name: 通知 Windows 桌面版仓库
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.APP_DISPATCH_TOKEN }}
+          repository: northland-studio/xuanjian-desktop
+          event-type: website-updated
+          client-payload: |
+            {"source":"${{ github.repository }}","sha":"${{ github.sha }}","ref":"${{ github.ref_name }}","trigger":"${{ github.event_name }}"}
+
+      - name: 通知 Android 版仓库
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.APP_DISPATCH_TOKEN }}
+          repository: northland-studio/xuanjian-android
+          event-type: website-updated
+          client-payload: |
+            {"source":"${{ github.repository }}","sha":"${{ github.sha }}","ref":"${{ github.ref_name }}","trigger":"${{ github.event_name }}"}
