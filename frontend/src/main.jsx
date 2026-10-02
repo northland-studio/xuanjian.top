@@ -1,5 +1,5 @@
 import { createRoot } from 'react-dom/client';
-import { BrowserRouter } from 'react-router-dom';
+import { BrowserRouter, HashRouter } from 'react-router-dom';
 import './styles/global.css';
 import App from './App.jsx';
 import { ThemeProvider } from './context/ThemeContext';
@@ -26,8 +26,12 @@ if ('serviceWorker' in navigator && !isNative) {
   });
 }
 
+// 壳环境（Electron / Capacitor / Tauri）用 HashRouter：
+// 打包后的本地加载没有 SPA 回退，BrowserRouter 的深链/刷新会 404。网页版行为不变。
+const Router = isNative ? HashRouter : BrowserRouter;
+
 createRoot(document.getElementById('root')).render(
-  <BrowserRouter>
+  <Router>
     <ThemeProvider>
       <AuthProvider>
         <ToastProvider>
@@ -35,5 +39,5 @@ createRoot(document.getElementById('root')).render(
         </ToastProvider>
       </AuthProvider>
     </ThemeProvider>
-  </BrowserRouter>
+  </Router>
 );

@@ -6,7 +6,7 @@ import { useToast } from '../components/UI';
 import { AlertIcon, CheckCircleIcon, CardIcon } from '../components/ChatIcons';
 import { requireLogin, fmtPoints, formatDate } from '../utils';
 import { qrImageUrl, shareLink, copyText, useCountdown, fmtSeconds } from '../lib/pay';
-import { decodeImageFile, startScanner, hasCamera } from '../lib/qrScan';
+import { decodeImageFile, startScanner, hasCamera, hasNativeScan, nativeScan } from '../lib/qrScan';
 const TABS = [
   { key: 'receive', label: '我的收款码' },
   { key: 'payer', label: '我的付款码' },
@@ -200,6 +200,20 @@ export default function Pay() {
   const startCamera = async () => {
     setScanErr('');
     setScanResult(null);
+    // 原生壳（Android/iOS/Tauri 注入 window.XuanjianNative.scanQr）优先走宿主扫码
+    if (hasNativeScan()) {
+      setScanBusy(true);
+      try {
+        const text = await nativeScan();
+        if (text) {
+          await handleCode(text);
+          return;
+        }
+      } finally {
+        setScanBusy(false);
+      }
+      // 用户取消或原生失败：继续走「相机 → 上传图片 → 手动输入」降级链
+    }
     if (!hasCamera()) {
       setScanErr('当前浏览器不支持调用摄像头，请用「上传二维码图片」或「手动输入」');
       return;

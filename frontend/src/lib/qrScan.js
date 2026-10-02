@@ -1,13 +1,40 @@
 import jsQR from 'jsqr';
 
 /**
- * 扫码工具（三级降级）
+ * 扫码工具（三级降级 + 原生挂点）
+ *  0) 原生挂点 window.XuanjianNative.scanQr()（Capacitor/Tauri 宿主注入；网页版不存在）
  *  1) 浏览器原生 BarcodeDetector（Chrome / Edge / 部分安卓 WebView）
  *  2) jsQR 本地解码（图片上传 / 摄像头逐帧）
  *  3) 手动粘贴码或链接（由页面实现，不在此文件）
  * 微信内置浏览器通常拿不到摄像头（getUserMedia 被拒或不存在），
  * 这里只负责「尝试」，失败一律交给调用方降级，不抛未捕获异常。
  */
+
+/** 原生宿主是否提供扫码能力（Android/iOS 壳注入，Windows 壳当前为空实现） */
+export function hasNativeScan() {
+  return safeBool(() => typeof window.XuanjianNative?.scanQr === 'function');
+}
+
+/**
+ * 调用原生扫码，拿到的内容归一化为文本（token / 链接 / 二维码内容）
+ * @returns {Promise<string|null>} 无原生能力、用户取消或失败时返回 null，调用方继续走原有降级链
+ */
+export async function nativeScan() {
+  if (!hasNativeScan()) return null;
+  try {
+    const r = await window.XuanjianNative.scanQr();
+    if (!r) return null;
+    if (typeof r === 'string') return r;
+    const text = r.text ?? r.token ?? r.code ?? r.url ?? r.data ?? null;
+    return typeof text === 'string' && text ? text : null;
+  } catch {
+    return null;
+  }
+}
+
+function safeBool(fn) {
+  try { return !!fn(); } catch { return false; }
+}
 
 /** 是否具备摄像头能力（仅探测 API 是否存在，不代表已授权） */
 export function hasCamera() {
@@ -105,6 +132,17 @@ export async function startScanner(video, onResult, onError) {
       try { video.srcObject = null; } catch { /* 忽略 */ }
     }
   };
+
+  // 0) 原生挂点优先：宿主（Capacitor/Tauri）提供了扫码能力就直接用，
+  //    用户取消或失败则继续走原有「相机 → 图片 → 手动」降级链。
+  if (hasNativeScan()) {
+    const text = await nativeScan();
+    if (text) {
+      stop();
+      onResult?.(text);
+      return { stop, usingNative: true };
+    }
+  }
 
   if (!hasCamera() || !video) {
     onError?.(new Error('当前浏览器不支持调用摄像头'));

@@ -22,8 +22,19 @@ export const isElectron = safe(() => !!window.electronAPI);
 /** Capacitor 原生壳（Android / iOS） */
 export const isCapacitor = safe(() => !!window.Capacitor?.isNativePlatform?.());
 
-/** 是否运行在原生壳内（Electron 或 Capacitor） */
-export const isNative = isElectron || isCapacitor;
+/**
+ * Tauri 2 桌面壳（Windows / macOS / Linux）
+ * 打包后前端由 tauri://localhost（Windows 上为 http://tauri.localhost）加载，
+ * 全局对象与协议三种判据取或，兼容开了 / 未开 withGlobalTauri 的构建。
+ */
+export const isTauri = safe(() => !!(
+  window.__TAURI__ ||
+  window.__TAURI_INTERNALS__ ||
+  window.location?.protocol === 'tauri:'
+));
+
+/** 是否运行在原生壳内（Electron / Capacitor / Tauri） */
+export const isNative = isElectron || isCapacitor || isTauri;
 
 /** 是否以「已安装应用」姿态运行（PWA standalone / iOS 主屏 / 原生壳） */
 export const isStandalone =
@@ -55,10 +66,11 @@ export function platformName() {
   return 'desktop';
 }
 
-/** 外壳标识：electron / capacitor / pwa / web */
+/** 外壳标识：electron / capacitor / tauri / pwa / web */
 export function shellName() {
   if (isElectron) return 'electron';
   if (isCapacitor) return 'capacitor';
+  if (isTauri) return 'tauri';
   if (safe(() => window.matchMedia?.('(display-mode: standalone)').matches) || safe(() => window.navigator.standalone === true)) return 'pwa';
   return 'web';
 }
@@ -73,11 +85,11 @@ export function applyPlatformAttrs(root = document.documentElement) {
   root.dataset.native = isNative ? 'true' : 'false';
   root.dataset.touch = isTouch ? 'true' : 'false';
   root.dataset.standalone = isStandalone ? 'true' : 'false';
-  return { isNative, isElectron, isCapacitor, isStandalone, isIOS, isAndroid, isTouch, isMobile };
+  return { isNative, isElectron, isCapacitor, isTauri, isStandalone, isIOS, isAndroid, isTouch, isMobile };
 }
 
 export const platform = {
-  isElectron, isCapacitor, isNative, isStandalone,
+  isElectron, isCapacitor, isTauri, isNative, isStandalone,
   isIOS, isAndroid, isTouch, isMobile,
   name: platformName(), shell: shellName()
 };
