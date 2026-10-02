@@ -9,7 +9,8 @@ const TYPE_LABELS = {
   post_daily: '日报', post_decision: '决策', claim_result: '申报结果',
   task_reward: '任务奖励', transfer: '转账', favorite: '收藏',
   purchase: '消费', discipline: '处分', player_task: '玩家任务',
-  chat: '私聊', chat_mention: '被@提及'
+  chat: '私聊', chat_mention: '被@提及',
+  title_grant: '头衔发放', system: '系统通知'
 };
 
 export default function Notifications() {
@@ -49,6 +50,9 @@ export default function Notifications() {
     } else if (n.type === 'comment' || n.type === 'post_daily' || n.type === 'post_decision') {
       // 评论/日报/决策更新 → 进入对应帖子
       if (n.post_id) navigate(`/post/${n.post_id}`);
+    } else if (n.type === 'title_grant') {
+      // 头衔发放 → 直接去「我的库存 → 我的称号」
+      navigate('/inventory');
     } else if (n.type === 'chat') {
       // 私聊 → 打开与该用户的私聊页
       if (n.actor_id) navigate(`/chat/${n.actor_id}`);
