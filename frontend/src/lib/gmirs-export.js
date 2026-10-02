@@ -35,6 +35,17 @@ function fmtPoints(n) {
   if (n === null || n === undefined) return '0.00';
   return Number(n).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
+/**
+ * 代系展示：`第五期(2026-07-01 ~ 至今)`
+ * 区间取自后端 resolveGeneration（range 字段），缺失时按 start/end 兜底拼，完全没有区间就只显示名称。
+ */
+export function fmtGeneration(g) {
+  if (!g || !g.name) return '—';
+  const start = g.start_date ? String(g.start_date).slice(0, 10) : '';
+  const end = g.end_date ? String(g.end_date).slice(0, 10) : '';
+  const range = g.range || (start ? `${start} ~ ${end || '至今'}` : '');
+  return range ? `${g.name}(${range})` : String(g.name);
+}
 function sortGroups(groups) {
   if (!groups || !groups.length) return [];
   const ordered = [];
@@ -325,7 +336,7 @@ export async function exportArchiveDocx(archive, onProgress) {
   // 头块：头像+昵称+皮肤图
   children.push(new Paragraph({ spacing: { before: 200 } }));
   if (skin) children.push(new Paragraph({ children: [new ImageRun({ type: 'png', data: dataURLToUint8(skin), transformation: { width: 120, height: 150 } })] }));
-  children.push(new Paragraph({ text: `${u.nickname || u.username}（用户ID：${u.id}）`, heading: HeadingLevel.HEADING_2 }));
+  children.push(new Paragraph({ text: `${u.nickname || u.username}（账号ID：${u.id} · 用户ID：${u.username || '—'}）`, heading: HeadingLevel.HEADING_2 }));
 
   // 基本信息表
   children.push(new DocTable({
@@ -335,14 +346,20 @@ export async function exportArchiveDocx(archive, onProgress) {
       new TableRow({ children: [
         new TableCell({ children: [new Paragraph({ text: '游戏ID' })], width: { size: 15, type: WidthType.PERCENTAGE } }),
         new TableCell({ children: [new Paragraph({ text: fmtText(u.game_id) })] }),
-        new TableCell({ children: [new Paragraph({ text: '注册时间' })], width: { size: 15, type: WidthType.PERCENTAGE } }),
-        new TableCell({ children: [new Paragraph({ text: fmtDate(u.created_at, false) })] })
+        new TableCell({ children: [new Paragraph({ text: '用户ID' })], width: { size: 15, type: WidthType.PERCENTAGE } }),
+        new TableCell({ children: [new Paragraph({ text: fmtText(u.username) })] })
       ] }),
       new TableRow({ children: [
         new TableCell({ children: [new Paragraph({ text: '绑定邮箱' })], width: { size: 15, type: WidthType.PERCENTAGE } }),
         new TableCell({ children: [new Paragraph({ text: fmtText(u.email) })] }),
         new TableCell({ children: [new Paragraph({ text: '贡献点余额' })], width: { size: 15, type: WidthType.PERCENTAGE } }),
         new TableCell({ children: [new Paragraph({ text: `${fmtPoints(u.contribution)} 点` })] })
+      ] }),
+      new TableRow({ children: [
+        new TableCell({ children: [new Paragraph({ text: '代系' })], width: { size: 15, type: WidthType.PERCENTAGE } }),
+        new TableCell({ children: [new Paragraph({ text: fmtText(fmtGeneration(u.generation)) })] }),
+        new TableCell({ children: [new Paragraph({ text: '注册时间' })], width: { size: 15, type: WidthType.PERCENTAGE } }),
+        new TableCell({ children: [new Paragraph({ text: fmtDate(u.created_at, false) })] })
       ] })
     ]
   }));
@@ -416,7 +433,7 @@ export async function exportAllArchivesZip(archives, onProgress) {
     const doc = await buildPdfBuffer(a, skin, avatar);
     const fname = `成员档案_${(u.nickname || u.username)}_${u.id}.pdf`;
     zip.file(fname, doc.output('arraybuffer'));
-    indexLines.push(`${(u.nickname || u.username)} | 用户ID:${u.id} | 验证码:${a.verify_code}`);
+    indexLines.push(`${(u.nickname || u.username)} | 账号ID:${u.id} | 用户ID:${u.username || '—'} | 代系:${fmtGeneration(u.generation)} | 验证码:${a.verify_code}`);
     onProgress?.(Math.round(((i + 1) / total) * 100));
   }
   zip.file('全部成员档案索引.txt', `玄剑公会成员档案索引（共 ${archives.length} 人）\n\n${indexLines.join('\n')}`);
@@ -441,19 +458,18 @@ async function buildPdfBuffer(archive, skin, avatar) {
   doc.setTextColor(20); doc.setFont(CJK_FONT_NAME, 'normal'); doc.setFontSize(15);
   doc.text(`${archive.user.nickname || archive.user.username}`, 52, headY + 11);
   doc.setFont(CJK_FONT_NAME, 'normal'); doc.setFontSize(10); doc.setTextColor(90);
-  doc.text(`用户ID：${archive.user.id}`, 52, headY + 18);
+  doc.text(`账号ID：${archive.user.id} · 用户ID：${archive.user.username || '—'}`, 52, headY + 18);
   if (skin) doc.addImage(skin, 'PNG', 168, headY - 4, 22, 27);
   else { doc.setFillColor(240, 244, 250); doc.roundedRect(168, headY - 4, 22, 27, 2, 2, 'FD'); doc.setTextColor(150); doc.setFontSize(7); doc.text('用户皮肤图', 179, headY + 8, { align: 'center' }); }
 
   const infoY = headY + 32;
-  const genName = archive.user.generation?.name || '—';
   autoTable(doc, {
     startY: infoY, margin: { left, right: 20 }, theme: 'grid',
     styles: { font: CJK_FONT_NAME, fontSize: 9, cellPadding: 2.5 }, headStyles: { fillColor: [238, 240, 245], textColor: [30, 30, 30], fontStyle: 'normal' },
     body: [
-      ['所属代系', fmtText(genName), '注册时间', fmtDate(archive.user.created_at, false)],
-      ['游戏ID', fmtText(archive.user.game_id), '贡献点余额', `${fmtPoints(archive.user.contribution)} 点`],
-      ['绑定邮箱', fmtText(archive.user.email), '用户ID', String(archive.user.id)]
+      ['游戏ID', fmtText(archive.user.game_id), '用户ID', fmtText(archive.user.username)],
+      ['绑定邮箱', fmtText(archive.user.email), '贡献点余额', `${fmtPoints(archive.user.contribution)} 点`],
+      ['代系', fmtText(fmtGeneration(archive.user.generation)), '注册时间', fmtDate(archive.user.created_at, false)]
     ],
     columnStyles: { 0: { cellWidth: 28, fontStyle: 'normal' }, 2: { cellWidth: 28, fontStyle: 'normal' } }
   });

@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/UI';
 import TeamAdmin from '../components/TeamAdmin';
 import PayAdminPanel from '../components/PayAdminPanel';
+import TitleGrantPanel from '../components/TitleGrantPanel';
 import { formatDate } from '../utils';
 
 const TABS = [
@@ -19,6 +20,7 @@ const TABS = [
   { key: 'logs', label: '贡献点日志' },
   { key: 'discipline', label: '处分管理' },
   { key: 'generations', label: '代系管理' },
+  { key: 'grant', label: '头衔给予' },
   { key: 'verify', label: '核销商品' },
   { key: 'donation', label: '捐赠墙/公账' },
   { key: 'paygate', label: '支付对接/兑换' },
@@ -33,7 +35,7 @@ const TABS = [
 /** 侧边栏分组：把 18 个页面按职能归类，避免一排按钮挤成一团 */
 const TAB_GROUPS = [
   { group: '概览', keys: ['dashboard'] },
-  { group: '成员', keys: ['users', 'discipline', 'generations', 'team'] },
+  { group: '成员', keys: ['users', 'discipline', 'generations', 'grant', 'team'] },
   { group: '内容', keys: ['posts', 'announcements', 'banners'] },
   { group: '经济', keys: ['shop', 'logs', 'claims', 'tasks', 'verify', 'donation'] },
   { group: '接入', keys: ['paygate', 'paylink', 'pay', 'mod'] },
@@ -163,6 +165,7 @@ export default function Admin() {
           {tab === 'logs' && <ContributionLogs showToast={showToast} />}
           {tab === 'discipline' && <DisciplineManager showToast={showToast} />}
           {tab === 'generations' && <GenerationManager showToast={showToast} />}
+          {tab === 'grant' && <TitleGrantPanel />}
           {tab === 'verify' && <VerifyManager showToast={showToast} />}
           {tab === 'donation' && <DonationManager showToast={showToast} />}
           {tab === 'paygate' && <PaygateManager showToast={showToast} />}
