@@ -229,7 +229,7 @@ export default function WikiEditor() {
   const options = flatOptions(cats);
 
   return (
-    <div className="fade-in-up">
+    <div className="fade-in-up wiki-page">
       <div className="wiki-breadcrumb">
         <Link to="/wiki">Wiki</Link><span>/</span>
         {meta ? <Link to={`/wiki/${meta.slug}`}>{meta.title}</Link> : <span>新建页面</span>}
