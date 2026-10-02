@@ -60,8 +60,28 @@ export function parseTags(tags) {
 }
 
 // HTML 转纯文本（用于列表摘要）
+// 浏览器里走 DOM（最准确）；SSR/SSG 的 Node 环境没有 document，退回「去标签 + 解实体」的等价实现，
+// 否则内容列表（日报/决策/贴吧）在服务端渲染时会直接抛 document is not defined。
+const HTML_ENTITIES = {
+  amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: '\u00a0',
+  hellip: '…', mdash: '—', ndash: '–', middot: '·',
+  ldquo: '“', rdquo: '”', lsquo: '‘', rsquo: '’'
+};
+function decodeEntities(str) {
+  return String(str).replace(/&(#x?[0-9a-fA-F]+|[a-zA-Z]+);/g, (m, body) => {
+    if (body[0] === '#') {
+      const code = body[1] === 'x' || body[1] === 'X' ? parseInt(body.slice(2), 16) : parseInt(body.slice(1), 10);
+      return Number.isFinite(code) ? String.fromCodePoint(code) : m;
+    }
+    const key = body.toLowerCase();
+    return Object.prototype.hasOwnProperty.call(HTML_ENTITIES, key) ? HTML_ENTITIES[key] : m;
+  });
+}
 export function stripHtml(html) {
   if (!html) return '';
+  if (typeof document === 'undefined') {
+    return decodeEntities(String(html).replace(/<[^>]*>/g, ' ')).replace(/\s+/g, ' ').trim();
+  }
   const div = document.createElement('div');
   div.innerHTML = html;
   return (div.textContent || div.innerText || '').replace(/\s+/g, ' ').trim();

@@ -6,6 +6,26 @@ import WikiSearchBox from '../components/WikiSearchBox';
 import { useServerData } from '../context/ServerDataContext';
 import { formatDate } from '../utils';
 
+/** 搜索图标（替代 emoji，风格对齐 ChatIcons.jsx：24 视框 / 线性描边 / currentColor） */
+function IconSearch() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ flex: '0 0 auto' }} aria-hidden="true" focusable="false">
+      <circle cx="11" cy="11" r="7" />
+      <path d="m20 20-3.8-3.8" />
+    </svg>
+  );
+}
+
+/** 撰写图标 */
+function IconPen() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ flex: '0 0 auto' }} aria-hidden="true" focusable="false">
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z" />
+    </svg>
+  );
+}
+
 /** 单张卡片：标题 + 摘要 + 分类/更新时间/浏览 */
 function WikiCard({ page }) {
   return (
@@ -64,8 +84,8 @@ export default function Wiki() {
           <div className="wiki-panel">
             <h4>快速入口</h4>
             <div className="flex-col" style={{ gap: 6, fontSize: 13.5 }}>
-              <Link to="/wiki/search" style={{ color: 'var(--primary)' }}>🔍 全站搜索</Link>
-              <Link to="/wiki/editor" style={{ color: 'var(--primary)' }}>✍️ 新建页面（管理员）</Link>
+              <Link to="/wiki/search" style={{ color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: 6 }}><IconSearch /> 全站搜索</Link>
+              <Link to="/wiki/editor" style={{ color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: 6 }}><IconPen /> 新建页面（管理员）</Link>
             </div>
           </div>
         </div>

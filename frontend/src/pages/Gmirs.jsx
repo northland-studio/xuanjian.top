@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { api } from '../api';
+import { useServerData } from '../context/ServerDataContext';
 import SkinViewer from '../components/SkinViewer';
 import { formatDate, fmtPoints } from '../utils';
 import { exportArchivePdf, exportArchiveDocx, exportAllArchivesZip, fmtGeneration } from '../lib/gmirs-export';
@@ -15,12 +16,18 @@ const TYPE_LABELS = {
 const GROUP_ORDER = ['task', 'player_task', 'claim', 'transfer_in', 'transfer_out', 'purchase', 'exchange', 'payment', 'donation', 'title', 'bubble', 'reward', 'discipline', 'post', 'admin'];
 
 export default function Gmirs() {
+  // SSR：服务端预取了「成员名册 + 名册首位成员的完整档案」（key = gmirsHome），首屏直接用同一份数据。
+  // 之后的关键词查询、点击切换成员、查伪、导出仍照常走接口，预取数据只在首次渲染生效。
+  const seeded = useServerData('gmirsHome');
+  const seededUsers = (seeded && seeded.users) || [];
+  const seededArchive = (seeded && seeded.archive) || null;
+
   const [keyword, setKeyword] = useState('');
-  const [users, setUsers] = useState([]);
+  const [users, setUsers] = useState(seededUsers);
   const [loading, setLoading] = useState(false);
-  const [searched, setSearched] = useState(false);
-  const [selectedId, setSelectedId] = useState(null);
-  const [archive, setArchive] = useState(null);
+  const [searched, setSearched] = useState(seededUsers.length > 0);
+  const [selectedId, setSelectedId] = useState(seededArchive ? seededArchive.user.id : null);
+  const [archive, setArchive] = useState(seededArchive);
   const [archiveLoading, setArchiveLoading] = useState(false);
   const [exporting, setExporting] = useState('');
   const [exportProgress, setExportProgress] = useState(0);

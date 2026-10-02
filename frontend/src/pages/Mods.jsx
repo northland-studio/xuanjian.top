@@ -1,4 +1,5 @@
 import { useAuth } from '../context/AuthContext';
+import { useServerData } from '../context/ServerDataContext';
 
 const FEATURES = [
   { icon: 'check', title: '自动签到', desc: '登录服务器后自动完成官网每日签到，贡献点直接到账' },
@@ -62,8 +63,13 @@ const COMMANDS = [
 export default function Mods() {
   const { user } = useAuth();
 
+  // SSG：/mods 由 lib/prefetch/content-list.js 预渲染（key = modsInfo），页面内容全部是常量，
+  // 没有任何首屏请求，所以不存在「没有预取才请求」的分支；这里读取预取标记只为把它显式接上，
+  // 并用 data-render 标出本次首屏是静态产物（ssg）还是客户端自己渲染（spa），便于排查。
+  const seeded = useServerData('modsInfo');
+
   return (
-    <div className="fade-in-up">
+    <div className="fade-in-up" data-render={seeded ? 'ssg' : 'spa'}>
       <div className="page-banner" style={{ backgroundImage: 'linear-gradient(rgba(0,0,0,0.45), rgba(0,0,0,0.45)), url(/1.png?v=20260806)' }}>
         <div className="page-banner-content">
           <h1>游戏模组</h1>

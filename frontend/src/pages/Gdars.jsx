@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { api } from '../api';
+import { useServerData } from '../context/ServerDataContext';
 import { formatDate, fmtPoints } from '../utils';
 
 // 处分级别标签（与后端 LEVEL_TEXT 对齐）
@@ -10,10 +11,15 @@ const LEVEL_META = {
 };
 
 export default function Gdars() {
+  // SSR：服务端预取了「处分公示名册（受处分成员 + 各自处分记录）」（key = gdarsHome），首屏直接用；
+  // 之后的关键词查询仍照常走接口，预取数据只在首次渲染生效。
+  const seeded = useServerData('gdarsHome');
+  const seededResults = (seeded && seeded.results) || [];
+
   const [keyword, setKeyword] = useState('');
-  const [results, setResults] = useState([]);
+  const [results, setResults] = useState(seededResults);
   const [loading, setLoading] = useState(false);
-  const [searched, setSearched] = useState(false);
+  const [searched, setSearched] = useState(seededResults.length > 0);
   const [error, setError] = useState('');
 
   const doQuery = useCallback(async (kw = keyword) => {

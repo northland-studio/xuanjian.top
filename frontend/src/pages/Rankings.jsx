@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api';
+import { useServerData } from '../context/ServerDataContext';
 import { fmtPoints } from '../utils';
 
 const TABS = [
@@ -23,11 +24,22 @@ function formatDuration(totalSeconds) {
 }
 
 export default function Rankings() {
+  // SSR：服务端只预取默认页签「贡献点排行」的数据（key = rankingsHome），首屏直接用、跳过首次请求；
+  // 切到其它页签时照常走接口（预取数据只在首次渲染消费一次）。
+  const seeded = useServerData('rankingsHome');
+  const seededOk = !!(seeded && Array.isArray(seeded.rankings));
+  const seededUsed = useRef(seededOk);
+
   const [tab, setTab] = useState('contribution');
-  const [rankings, setRankings] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [rankings, setRankings] = useState(seededOk ? seeded.rankings : []);
+  const [loading, setLoading] = useState(!seededOk);
 
   useEffect(() => {
+    // 首屏（默认页签）已由服务端预取：跳过这一次请求
+    if (seededUsed.current) {
+      seededUsed.current = false;
+      if (tab === 'contribution') return;
+    }
     setLoading(true);
     const isContribution = tab === 'contribution';
     const apiUrl = isContribution ? '/api/rankings/contribution' : `/api/rankings/${tab}?limit=20`;

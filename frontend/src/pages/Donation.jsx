@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { api, getToken } from '../api';
+import { useServerData } from '../context/ServerDataContext';
 import { useToast } from '../components/UI';
 import { useAuth } from '../context/AuthContext';
 import SkinViewer from '../components/SkinViewer';
@@ -19,18 +20,22 @@ export default function Donation() {
   const { showToast } = useToast();
   const { user } = useAuth();
 
-  const [summary, setSummary] = useState(null);
-  const [qrUrl, setQrUrl] = useState('');
-  const [donors, setDonors] = useState([]);
-  const [donorTotal, setDonorTotal] = useState(0);
+  // SSR：服务端按游客预取了首屏三块数据（key = donationHome：公账汇总、捐赠者第 1 页、明细第 1 页）。
+  // 游客直接用同一份数据渲染（跳过首次请求）；登录用户（管理员可见未公示材料）仍在 useEffect 里重新拉取。
+  const seeded = useServerData('donationHome');
+
+  const [summary, setSummary] = useState((seeded && seeded.summary) || null);
+  const [qrUrl, setQrUrl] = useState((seeded && seeded.qrUrl) || '');
+  const [donors, setDonors] = useState((seeded && seeded.donors) || []);
+  const [donorTotal, setDonorTotal] = useState((seeded && seeded.donorTotal) || 0);
   const [donorPage, setDonorPage] = useState(1);
 
-  const [ledger, setLedger] = useState([]);
-  const [ledgerTotal, setLedgerTotal] = useState(0);
+  const [ledger, setLedger] = useState((seeded && seeded.ledger) || []);
+  const [ledgerTotal, setLedgerTotal] = useState((seeded && seeded.ledgerTotal) || 0);
   const [ledgerPage, setLedgerPage] = useState(1);
   const [direction, setDirection] = useState('');
 
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!seeded);
   const [exporting, setExporting] = useState(false);
 
   const isAdmin = (user?.level || 0) >= 1;
@@ -56,7 +61,9 @@ export default function Donation() {
   }, []);
 
   useEffect(() => {
-    setLoading(true);
+    // 服务端已预取首屏：游客不再重复请求；带登录态（管理员能看到未公示材料）时重新拉一次，保证权限相关内容一致
+    if (seeded && !getToken()) return;
+    if (!seeded) setLoading(true);
     Promise.all([
       api.get('/api/donation/summary').then(d => { setSummary(d.summary); setQrUrl(d.qrUrl || ''); }).catch(() => {}),
       api.get(`/api/donation/donors?page=1&limit=${PAGE_SIZE}`).then(d => { setDonors(d.list || []); setDonorTotal(d.total || 0); }).catch(() => {}),

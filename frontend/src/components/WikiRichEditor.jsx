@@ -14,6 +14,73 @@ import { useToast } from './UI';
 
 const lowlight = createLowlight(common);
 
+/* ---------- 工具栏 SVG 图标（替代 emoji，风格对齐 ChatIcons.jsx：24 视框 / 线性描边 / currentColor） ---------- */
+const ICON_PROPS = {
+  width: 17, height: 17, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor',
+  strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round',
+  'aria-hidden': 'true', focusable: 'false'
+};
+
+/** 普通外链 */
+const IconLink = () => (
+  <svg {...ICON_PROPS}>
+    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+  </svg>
+);
+
+/** Wiki 内链 [[页面名]]：文档 + 双方括号 */
+const IconWikiLink = () => (
+  <svg {...ICON_PROPS}>
+    <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
+    <path d="M14 3v5h5" />
+    <path d="M9.8 12.4 8.2 14.6l1.6 2.2" />
+    <path d="M14.2 12.4l1.6 2.2-1.6 2.2" />
+  </svg>
+);
+
+/** 图片 */
+const IconImage = () => (
+  <svg {...ICON_PROPS}>
+    <rect x="3" y="4" width="18" height="16" rx="2" />
+    <circle cx="8.5" cy="9.5" r="1.5" />
+    <path d="M21 16.5 16 11.5 7 20.5" />
+  </svg>
+);
+
+/** 成员卡片 */
+const IconMember = () => (
+  <svg {...ICON_PROPS}>
+    <circle cx="12" cy="8" r="3.8" />
+    <path d="M4.5 20.5v-1a5.5 5.5 0 0 1 5.5-5.5h4a5.5 5.5 0 0 1 5.5 5.5v1" />
+  </svg>
+);
+
+/** 代系卡片：纪念建筑 */
+const IconGeneration = () => (
+  <svg {...ICON_PROPS}>
+    <path d="M2.5 10 12 4l9.5 6" />
+    <path d="M5 10.6V20" /><path d="M9.7 10.6V20" /><path d="M14.3 10.6V20" /><path d="M19 10.6V20" />
+    <path d="M3 20.5h18" />
+  </svg>
+);
+
+/** 撤销 */
+const IconUndo = () => (
+  <svg {...ICON_PROPS}>
+    <polyline points="9 14 4 9 9 4" />
+    <path d="M20 20v-7a4 4 0 0 0-4-4H4" />
+  </svg>
+);
+
+/** 重做 */
+const IconRedo = () => (
+  <svg {...ICON_PROPS}>
+    <polyline points="15 14 20 9 15 4" />
+    <path d="M4 20v-7a4 4 0 0 1 4-4h12" />
+  </svg>
+);
+
 /**
  * Wiki 富文本编辑器
  * 在现有 RichTextEditor（Tiptap）基础上扩展：表格 / 任务清单 / 代码高亮 / 图集与粘贴上传 /
@@ -160,7 +227,10 @@ export default function WikiRichEditor({ value, onChange, placeholder = '开始�
     <button key={title} type="button" title={title} className={active ? 'active' : ''}
       onMouseDown={e => { e.preventDefault(); cmd(); }}>{label}</button>
   );
-  const sep = <span className="sep" key={Math.random()} />;
+  // 分隔符必须是「每次调用生成新元素 + 稳定唯一的 key」：
+  // 旧写法把同一个元素实例（key 每次渲染都取随机数）在工具栏里复用了 4 次，
+  // key 每渲染都变 → React 每操作一次就追加一个新节点，于是 "|" 越点越多。
+  const sep = (k) => <span className="sep" key={k} />;
 
   return (
     <div className="wiki-editor" ref={wrapRef} style={{ position: 'relative' }}>
@@ -171,12 +241,12 @@ export default function WikiRichEditor({ value, onChange, placeholder = '开始�
         {btn('H1', '一级标题', () => editor.chain().focus().toggleHeading({ level: 1 }).run(), editor.isActive('heading', { level: 1 }))}
         {btn('H2', '二级标题', () => editor.chain().focus().toggleHeading({ level: 2 }).run(), editor.isActive('heading', { level: 2 }))}
         {btn('H3', '三级标题', () => editor.chain().focus().toggleHeading({ level: 3 }).run(), editor.isActive('heading', { level: 3 }))}
-        {sep}
+        {sep('s1')}
         {btn('≡', '无序列表', () => editor.chain().focus().toggleBulletList().run(), editor.isActive('bulletList'))}
         {btn('1.', '有序列表', () => editor.chain().focus().toggleOrderedList().run(), editor.isActive('orderedList'))}
         {btn('☑', '任务清单', () => editor.chain().focus().toggleTaskList().run(), editor.isActive('taskList'))}
         {btn('❝', '引用', () => editor.chain().focus().toggleBlockquote().run(), editor.isActive('blockquote'))}
-        {sep}
+        {sep('s2')}
         {btn('</>', '代码块（高亮）', () => editor.chain().focus().toggleCodeBlock().run(), editor.isActive('codeBlock'))}
         {btn('▦', '插入表格', insertTable, editor.isActive('table'))}
         {editor.isActive('table') && (
@@ -188,26 +258,26 @@ export default function WikiRichEditor({ value, onChange, placeholder = '开始�
             {btn('删表', '删除表格', () => editor.chain().focus().deleteTable().run())}
           </>
         )}
-        {sep}
-        {btn('🔗', '插入普通链接', () => {
+        {sep('s3')}
+        {btn(<IconLink />, '插入普通链接', () => {
           const prev = editor.getAttributes('link').href;
           const url = window.prompt('输入链接地址', prev || 'https://');
           if (url === null) return;
           if (url === '') { editor.chain().focus().extendMarkRange('link').unsetLink().run(); return; }
           editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
         }, editor.isActive('link'))}
-        {btn('📄', '插入 Wiki 内链 [[页面名]]', () => {
+        {btn(<IconWikiLink />, '插入 Wiki 内链 [[页面名]]', () => {
           const title = window.prompt('输入目标页面标题（不存在则显示为待创建红链）');
           if (title) editor.chain().focus().insertContent(`[[${title.trim()}]]`).run();
         })}
-        {btn('🖼', '插入图片（可多选）', () => fileRef.current?.click())}
+        {btn(<IconImage />, '插入图片（可多选）', () => fileRef.current?.click())}
         {btn('图注', '插入图注（说明文字）', () => editor.chain().focus().insertContent('<p class="wiki-caption">图注：</p>').run())}
-        {btn('👤', '插入成员卡片 {{member:id}}', openMemberPicker)}
-        {btn('🏛', '插入代系卡片 {{generation:名称}}', insertGeneration)}
-        {sep}
+        {btn(<IconMember />, '插入成员卡片 {{member:id}}', openMemberPicker)}
+        {btn(<IconGeneration />, '插入代系卡片 {{generation:名称}}', insertGeneration)}
+        {sep('s4')}
         {btn('—', '分割线', () => editor.chain().focus().setHorizontalRule().run(), false)}
-        {btn('↶', '撤销', () => editor.chain().focus().undo().run())}
-        {btn('↷', '重做', () => editor.chain().focus().redo().run())}
+        {btn(<IconUndo />, '撤销', () => editor.chain().focus().undo().run())}
+        {btn(<IconRedo />, '重做', () => editor.chain().focus().redo().run())}
       </div>
 
       <input

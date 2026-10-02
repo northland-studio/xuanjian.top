@@ -47,6 +47,8 @@ scripts/_tmp-*.js
 
 # 渲染产物（SSR/SSG 构建输出，由 scripts/build-frontend.sh 与 scripts/prerender.js 生成）
 frontend/dist-ssr/
+frontend/dist-final/
+frontend/dist-final-*/
 frontend/dist-ssr-*/
 frontend/prerender/
 
