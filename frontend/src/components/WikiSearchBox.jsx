@@ -85,6 +85,9 @@ export default function WikiSearchBox({ autoFocus = false, placeholder = '搜索
         ref={inputRef}
         value={q}
         autoFocus={autoFocus}
+        enterKeyHint="search"
+        autoComplete="off"
+        autoCorrect="off"
         onChange={e => setQ(e.target.value)}
         onKeyDown={onKeyDown}
         onFocus={() => { if (items.length) setOpen(true); }}

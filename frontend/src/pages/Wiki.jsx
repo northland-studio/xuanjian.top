@@ -126,8 +126,8 @@ export default function Wiki() {
           <div className="wiki-panel">
             <h4>快速入口</h4>
             <div className="flex-col" style={{ gap: 6, fontSize: 13.5 }}>
-              <Link to="/wiki/search" style={{ color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: 6 }}><IconSearch /> 全站搜索</Link>
-              <Link to="/wiki/editor" style={{ color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: 6 }}><IconPen /> 新建页面（管理员）</Link>
+              <Link to="/wiki/search" className="wiki-quick-link"><IconSearch /> 全站搜索</Link>
+              <Link to="/wiki/editor" className="wiki-quick-link"><IconPen /> 新建页面（管理员）</Link>
             </div>
           </div>
         </div>

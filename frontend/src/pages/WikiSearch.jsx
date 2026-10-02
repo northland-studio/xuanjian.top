@@ -92,7 +92,7 @@ export default function WikiSearch() {
                 <div className="flex-col" style={{ gap: 12 }}>
                   {pages.map(p => (
                     <div key={p.id} className="wiki-article" style={{ padding: 16 }}>
-                      <Link to={`/wiki/${p.slug}`} style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', textDecoration: 'none' }}>{p.title}</Link>
+                      <Link to={`/wiki/${p.slug}`} className="wiki-result-title" style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', textDecoration: 'none' }}>{p.title}</Link>
                       <div className="text-secondary" style={{ fontSize: 12.5, marginTop: 4 }}>
                         {p.category_name && (
                           <Link to={`/wiki/category/${p.category_slug}`} style={{ color: 'var(--primary)', marginRight: 8 }}>{p.category_name}</Link>

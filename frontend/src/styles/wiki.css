@@ -145,6 +145,10 @@
 .wiki-contributor span { font-size: 13px; }
 .wiki-contributor i { font-size: 11px; color: var(--text-secondary); font-style: normal; }
 
+/* 首页侧栏「快速入口」链接：基础样式与原先的内联样式等价（桌面端逐像素不变），
+   手机上再额外把点按高度撑到 40px+（见 ≤780px 段）。 */
+.wiki-quick-link { display: flex; align-items: center; gap: 6px; color: var(--primary); }
+
 /* ---------- 三栏布局（文章页/分类页） ---------- */
 /* 三栏：左右栏收窄、间距压到 16px，把宽度让给正文（1155px 视口下正文列约 678px，原先约 595px） */
 .wiki-layout { display: grid; grid-template-columns: 210px minmax(0, 1fr) 195px; gap: 16px; align-items: start; }
@@ -159,8 +163,27 @@
   padding: 6px 8px; border-radius: 8px; font-size: 13.5px; color: var(--text); text-decoration: none;
 }
 .wiki-tree a:hover { background: var(--input-bg); }
+/* 当前分类高亮：必须跟主题变量走。旧写法写死 rgba(0,74,173,.12)（蓝），
+   国庆红金主题下会残留一块蓝色。用 color-mix 取 --primary 的 12%，
+   与旧的蓝色值在普通主题下视觉等价（#004AAD 12% ≈ rgba(0,74,173,.12)）。 */
 .wiki-tree a.active { background: rgba(0, 74, 173, .12); color: var(--primary); font-weight: 700; }
+@supports (background: color-mix(in srgb, red 10%, transparent)) {
+  .wiki-tree a.active { background: color-mix(in srgb, var(--primary) 12%, transparent); }
+}
 .wiki-tree .wiki-count { font-size: 11px; color: var(--text-secondary); background: var(--input-bg); border-radius: 999px; padding: 1px 7px; }
+
+/* 移动端折叠面板的「标题按钮」：桌面端一律不显示，因此不参与桌面布局（三栏/两栏逐像素不变） */
+.wiki-panel-toggle { display: none; }
+.wiki-panel-toggle-label { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+.wiki-panel-chev { display: inline-flex; align-items: center; font-size: 10px; color: var(--text-secondary); flex: 0 0 auto; transition: transform .18s ease; }
+.wiki-panel-chev svg { display: block; }
+/* 展开态箭头翻转 180°：SVG 本身恒朝下，开合由父级旋转表达 */
+.wiki-panel.is-open .wiki-panel-chev { transform: rotate(180deg); }
+/* .wiki-toc-mobile 的默认隐藏规则：桌面端（>1080px）不显示可折叠目录。
+   必须放在响应式段之前：旧实现在文件末尾又写了一次 display:none，
+   顺序上盖掉了 ≤1080px 媒体查询里的 display:block，折叠目录于是永远不显示。 */
+.wiki-toc-mobile { display: none; }
+.wiki-toc-toggle { display: none; }
 
 .wiki-toc { list-style: none; margin: 0; padding: 0; }
 .wiki-toc a { display: block; padding: 5px 8px; font-size: 13px; color: var(--text-secondary); text-decoration: none; border-left: 2px solid transparent; line-height: 1.5; }
@@ -191,13 +214,17 @@
 .wiki-content li { margin: 5px 0; }
 .wiki-content blockquote { margin: 16px 0; padding: 10px 16px; border-left: 4px solid var(--primary); background: var(--input-bg); border-radius: 0 8px 8px 0; color: var(--text-secondary); }
 .wiki-content code { background: var(--input-bg); padding: 2px 6px; border-radius: 6px; font-size: 13px; }
-.wiki-content pre { background: #1e2530; color: #e6edf3; padding: 14px 16px; border-radius: 10px; overflow-x: auto; font-size: 13px; line-height: 1.6; }
+.wiki-content pre {
+  background: #1e2530; color: #e6edf3; padding: 14px 16px; border-radius: 10px;
+  overflow-x: auto; font-size: 13px; line-height: 1.6; max-width: 100%;
+  -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain;
+}
 .wiki-content pre code { background: none; color: inherit; padding: 0; }
 .wiki-content img { max-width: 100%; height: auto; border-radius: 10px; margin: 12px 0; cursor: zoom-in; }
 .wiki-content img:hover { opacity: .94; }
 .wiki-content figure { margin: 18px 0; text-align: center; }
 .wiki-content figcaption { font-size: 12.5px; color: var(--text-secondary); margin-top: 6px; }
-.wiki-content table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px; display: block; overflow-x: auto; }
+.wiki-content table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px; display: block; overflow-x: auto; max-width: 100%; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; }
 .wiki-content th, .wiki-content td { border: 1px solid var(--border); padding: 8px 10px; text-align: left; }
 .wiki-content th { background: var(--input-bg); font-weight: 700; }
 .wiki-content hr { border: none; border-top: 1px solid var(--border); margin: 24px 0; }
@@ -247,7 +274,7 @@
 .wiki-diff del { background: rgba(220, 53, 69, .16); }
 
 /* ---------- 编辑器 ---------- */
-.wiki-editor-toolbar { display: flex; flex-wrap: wrap; gap: 4px; padding: 8px; border: 1px solid var(--border); border-bottom: none; border-radius: 10px 10px 0 0; background: var(--input-bg); position: sticky; top: 70px; z-index: 20; }
+.wiki-editor-toolbar { display: flex; flex-wrap: wrap; gap: 4px; padding: 8px; border: 1px solid var(--border); border-bottom: none; border-radius: 10px 10px 0 0; background: var(--input-bg); position: sticky; top: calc(var(--sat, 0px) + 70px); z-index: 20; }
 .wiki-editor-toolbar button {
   min-width: 32px; height: 30px; padding: 0 8px; border-radius: 7px; border: 1px solid transparent;
   background: transparent; color: var(--text); font-size: 13px; cursor: pointer;
@@ -271,7 +298,7 @@
 .wiki-editor .ProseMirror ul[data-type="taskList"] { list-style: none; padding-left: 4px; }
 .wiki-editor .ProseMirror img { max-width: 100%; border-radius: 8px; }
 .wiki-link-popup {
-  position: absolute; z-index: 60; width: 320px; max-height: 260px; overflow-y: auto;
+  position: absolute; z-index: 60; width: 320px; max-width: calc(100vw - 32px); max-height: 260px; overflow-y: auto;
   background: var(--card); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow-lg);
 }
 .wiki-link-popup .wlp-item { padding: 8px 12px; cursor: pointer; font-size: 13.5px; }
@@ -366,36 +393,200 @@
 }
 @keyframes wikiPreviewFade { from { opacity: 0; } to { opacity: 1; } }
 
-/* ---------- 响应式 ---------- */
+/* ==========================================================================
+   响应式 / 移动端适配
+   断点沿用原有三档，只新增一档超窄屏（≤480px，覆盖 360/390/414）：
+     ≤1080px  平板：文章页两栏（目录树 + 正文），可折叠目录进正文列
+     ≤780px   手机：单列；目录树/目录折叠；工具栏横滑；历史行纵向
+     ≤480px   窄屏：单列卡片、更紧的内边距与更小的标题
+   ========================================================================== */
+
+/* ---------- ≤1080px：两栏 + 右栏收起，可折叠目录已挪进正文列 ---------- */
 @media (max-width: 1080px) {
   .wiki-layout-2 { grid-template-columns: 220px minmax(0, 1fr); }
-}
-@media (max-width: 780px) {
-  .wiki-layout-2 { grid-template-columns: 1fr; }
-}
-
-@media (max-width: 1080px) {
   .wiki-layout { grid-template-columns: 220px minmax(0, 1fr); }
-  .wiki-col-toc { display: none; }
-  .wiki-toc-mobile { display: block; }
-}
-@media (max-width: 780px) {
-  .wiki-layout { grid-template-columns: 1fr; }
-  .wiki-col-side { position: static; max-height: none; order: 2; }
-  .wiki-article { padding: 18px; }
-  .wiki-article-head h1 { font-size: 21px; }
-  .wiki-hero { padding: 26px 18px; }
-  .wiki-hero h1 { font-size: 23px; }
-  .wiki-diff { grid-template-columns: 1fr; }
-  .wiki-editor-toolbar { position: static; }
-}
-.wiki-toc-mobile { display: none; }
 
-/* ---------- 首页 Hero 的移动端退化（≤780px）：单列、装饰关闭、统计换行变小 ----------
-   放在文件末尾，保证与上面 .wiki-hero / .wiki-hero h1 的同权重规则按顺序生效。 */
+  /* 桌面右栏（文章信息 + 桌面版目录）整体收起。
+     注意：移动端可折叠目录不再在这里，而是在正文列内（WikiPage 里 <WikiToc variant="mobile">），
+     旧实现在这里 display:none，把折叠目录一起藏掉了 —— 手机上没有目录可看。 */
+  .wiki-col-toc { display: none; }
+
+  /* 可折叠目录：标题按钮显示，列表默认收起 */
+  .wiki-toc-mobile { display: block; }
+  .wiki-toc-toggle {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    width: 100%; min-height: 44px; padding: 10px 12px; margin: -2px 0 0;
+    border: none; background: transparent; color: var(--text); cursor: pointer;
+    font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em;
+    text-align: left; border-radius: 8px; touch-action: manipulation;
+  }
+  .wiki-toc-mobile .wiki-toc { display: none; margin-top: 8px; }
+  .wiki-toc-mobile.is-open .wiki-toc { display: block; }
+  .wiki-toc-mobile .wiki-toc a { min-height: 44px; display: flex; align-items: center; padding: 8px 10px; font-size: 13.5px; }
+  .wiki-toc-mobile .wiki-toc .lv3 a { padding-left: 24px; font-size: 13px; }
+
+  /* 目录树：平板/手机都加大点按高度 */
+  .wiki-tree a { min-height: 40px; }
+}
+
+/* ---------- ≤780px：手机单列 ---------- */
 @media (max-width: 780px) {
-  .wiki-hero-home { padding: 30px 20px 0; }
-  .wiki-hero-home h1 { font-size: 24px; margin-bottom: 10px; }
+  /* --- 布局：文章页单列，目录树留在正文上方（折叠后只占一行） --- */
+  .wiki-layout { grid-template-columns: minmax(0, 1fr); }
+  .wiki-col-side { position: static; max-height: none; order: 0; }
+  /* 分类页/搜索页：侧栏移到内容下方（仍是折叠的一条） */
+  .wiki-layout-2 { grid-template-columns: minmax(0, 1fr); }
+  .wiki-layout-2 > .wiki-col-side { order: 2; }
+
+  /* --- 折叠面板（目录树 / 目录）--- */
+  .wiki-panel-toggle {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    width: 100%; min-height: 44px; padding: 10px 2px; margin: 0;
+    border: none; background: transparent; color: var(--text); cursor: pointer;
+    font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em;
+    text-align: left; touch-action: manipulation;
+  }
+  /* 折叠面板本体压扁：收起时只占 ~52px 高（按钮 44 + 上下 4），不再吃掉屏幕 */
+  .wiki-toc-mobile, .wiki-tree-panel { padding: 4px 10px; margin-bottom: 10px; }
+  .wiki-panel-title { display: none; }            /* 桌面用的 h4 标题在手机上由按钮替代 */
+  .wiki-tree-panel .wiki-tree { display: none; margin-top: 6px; }
+  .wiki-tree-panel.is-open .wiki-tree { display: block; }
+  .wiki-tree a { min-height: 44px; padding: 10px 10px; font-size: 14px; }
+  .wiki-tree ul { margin-left: 8px; }
+  /* 分类页的子分类胶囊是链接，手机上也要够大才好点 */
+  .wiki-page a.badge { min-height: 40px; display: inline-flex; align-items: center; padding: 6px 12px; }
+
+  /* --- 文章页：标题/摘要/元信息堆叠 --- */
+  .wiki-breadcrumb { font-size: 12px; line-height: 1.7; overflow-wrap: break-word; }
+  .wiki-article { padding: 16px 14px; border-radius: 12px; }
+  .wiki-article-head h1 { font-size: 21px; line-height: 1.35; overflow-wrap: break-word; }
+  .wiki-article-summary { font-size: 13.5px; line-height: 1.75; }
+  /* 元信息改单列堆叠：分类/作者/最后编辑/创建/阅读 各占一行，窄屏不互相挤压 */
+  .wiki-article-meta {
+    display: grid; grid-template-columns: minmax(0, 1fr); gap: 3px;
+    font-size: 12.5px; line-height: 1.7; padding-bottom: 12px; margin-bottom: 14px;
+  }
+  .wiki-article-meta span { min-width: 0; overflow-wrap: anywhere; }
+  /* 操作按钮（编辑/历史/导出/返回）：整齐换行 + 点按高度 ≥40px */
+  .wiki-article-head .btn-sm,
+  .wiki-article-head .btn { min-height: 40px; padding: 9px 14px; }
+  .wiki-article-head .flex { gap: 8px; }
+
+  /* --- 正文排版：字号 ≥15px、行高 ≥1.8 --- */
+  .wiki-content { font-size: 15.5px; line-height: 1.9; }
+  .wiki-content h1, .wiki-content h2 { font-size: 19px; }
+  .wiki-content h3 { font-size: 16.5px; }
+  .wiki-content h4 { font-size: 15px; }
+  .wiki-content ul, .wiki-content ol { margin-left: 18px; }
+  .wiki-content blockquote { padding: 8px 12px; margin: 14px 0; }
+  .wiki-content pre { font-size: 12.5px; padding: 12px; border-radius: 8px; }
+  .wiki-content table { font-size: 13px; margin: 14px 0; }
+  .wiki-content th, .wiki-content td { padding: 7px 9px; }
+  /* 表格横滑提示：两端渐变（background-attachment: local 让提示在滚到边缘时自动消失） */
+  .wiki-content table {
+    background-image:
+      linear-gradient(to right, var(--card) 30%, rgba(0, 0, 0, 0)),
+      linear-gradient(to left, var(--card) 30%, rgba(0, 0, 0, 0)),
+      radial-gradient(farthest-side at 0 50%, rgba(0, 0, 0, .16), rgba(0, 0, 0, 0)),
+      radial-gradient(farthest-side at 100% 50%, rgba(0, 0, 0, .16), rgba(0, 0, 0, 0));
+    background-position: 0 0, 100% 0, 0 0, 100% 0;
+    background-repeat: no-repeat;
+    background-size: 34px 100%, 34px 100%, 13px 100%, 13px 100%;
+    background-attachment: local, local, scroll, scroll;
+  }
+  .wiki-content img { border-radius: 8px; margin: 10px 0; }
+
+  /* --- 上一篇 / 下一篇 --- */
+  .wiki-footnav a { flex: 1 1 100%; min-width: 0; padding: 12px 14px; }
+  .wiki-footnav b { overflow-wrap: anywhere; }
+
+  /* --- 首页：卡片单列/双列、贡献者换行 --- */
+  .wiki-section { margin-bottom: 22px; }
+  .wiki-section-head { flex-wrap: wrap; gap: 2px 10px; }
+  .wiki-section-head h2 { font-size: 17px; overflow-wrap: anywhere; }
+  .wiki-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .wiki-card { padding: 14px; }
+  .wiki-card h3 { font-size: 14.5px; overflow-wrap: anywhere; }
+  .wiki-card p { font-size: 12.5px; }
+  .wiki-contributors { gap: 8px; }
+  .wiki-contributor { max-width: 100%; padding: 6px 10px; gap: 6px; min-height: 40px; }
+  .wiki-contributor span { font-size: 12.5px; overflow-wrap: anywhere; }
+  .wiki-contributor img { width: 24px; height: 24px; }
+  /* 侧栏「快速入口」也是导航控件，手机上撑到 44px */
+  .wiki-quick-link { min-height: 44px; }
+  .wiki-section-head a { display: inline-flex; align-items: center; min-height: 40px; }
+  /* 行内文本链接（面包屑 / 正文内链 / 元信息分类）保持行内排版，只加 4px 上下 hit-slop 加大点按面 */
+  .wiki-breadcrumb a, .wiki-article-meta a, .wiki-content a { padding-top: 4px; padding-bottom: 4px; }
+
+  /* --- 搜索框：下拉不超出视口 --- */
+  .wiki-search { margin: 14px 0 18px; }
+  .wiki-search input { padding: 13px 16px; }
+  .wiki-search .wiki-search-hint { display: none; }   /* 「Ctrl K」提示对触屏无意义 */
+  .wiki-search-dropdown { max-height: min(340px, 55vh); }
+  .wiki-search-dropdown a { min-height: 44px; padding: 11px 14px; }
+
+  /* --- 搜索页 / 分类页：结果与分页 --- */
+  .wiki-search-dropdown .wd-title, .wiki-article a { overflow-wrap: anywhere; }
+  /* 结果卡片标题是整卡的主要点按目标，手机上撑到 44px */
+  .wiki-result-title { display: flex; align-items: center; min-height: 44px; overflow-wrap: anywhere; line-height: 1.4; }
+  .wiki-page .flex-center { flex-wrap: wrap; }
+  .wiki-page .btn-sm { min-height: 40px; padding: 9px 14px; }
+  .wiki-page .form-input, .wiki-page .form-select, .wiki-page .form-textarea { min-width: 0; max-width: 100%; }
+
+  /* --- 历史页：版本行纵向（信息在上、按钮在下等宽） --- */
+  .wiki-rev { flex-direction: column; align-items: stretch; gap: 10px; padding: 12px; }
+  .wiki-rev-main div { overflow-wrap: anywhere; }
+  .wiki-rev > .flex { display: flex; flex-wrap: wrap; gap: 6px !important; }
+  .wiki-rev > .flex > .btn { flex: 1 1 0; min-width: 0; min-height: 40px; }
+  .wiki-diff { grid-template-columns: 1fr; }
+  .wiki-diff-box { max-height: 46vh; padding: 12px; font-size: 13px; }
+  .wiki-section-head .btn-sm { min-height: 40px; }
+
+  /* --- 编辑器：工具栏横滑 + 编辑区变矮 --- */
+  .wiki-editor-toolbar {
+    position: static;                       /* 窄屏取消 sticky，避免占掉半屏 */
+    flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden;
+    gap: 2px; padding: 6px; scrollbar-width: thin;
+    -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain;
+  }
+  .wiki-editor-toolbar button { flex: 0 0 auto; min-width: 40px; height: 40px; padding: 0 10px; font-size: 14px; }
+  .wiki-editor-toolbar .sep { flex: 0 0 auto; height: 24px; margin: 8px 4px; }
+  .wiki-editor .ProseMirror { min-height: 280px; padding: 14px; font-size: 15.5px; line-height: 1.85; }
+  .wiki-link-popup { width: auto; left: 0 !important; right: 0; max-width: 100%; }
+  .wiki-link-popup .wlp-item { min-height: 44px; padding: 11px 12px; }
+
+  /* --- 后台分页 --- */
+  .wiki-admin .wiki-stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .wiki-admin .wiki-stat { padding: 12px 10px; }
+  .wiki-admin .wiki-stat b { font-size: 20px; }
+  .wiki-admin .wiki-stat span { font-size: 11.5px; }
+  .wiki-admin-row { flex-direction: column; align-items: stretch; gap: 10px; padding: 12px; }
+  .wiki-admin-row .war-main b { overflow-wrap: anywhere; }
+  .wiki-admin-row .war-main div { overflow-wrap: anywhere; }
+  .wiki-admin-row > .flex { display: flex; flex-wrap: wrap; gap: 6px !important; }
+  .wiki-admin-row > .flex > .btn { flex: 1 1 0; min-width: 0; min-height: 40px; }
+  .wiki-admin-cat { flex-wrap: wrap; gap: 8px; }
+  .wiki-admin-cat .wac-main { min-width: 0; overflow-wrap: anywhere; }
+  .wiki-admin-cat .wac-main span { display: inline-block; }
+  .wiki-admin-rev { flex-direction: column; align-items: stretch; gap: 8px; }
+  .wiki-admin-rev > .flex > .btn { min-height: 40px; }
+  .wiki-admin .card { padding: 12px !important; }
+  .wiki-admin .flex > .btn { min-height: 40px; }
+
+  /* --- 预览弹层：fixed 元素补安全区内边距 --- */
+  .wiki-preview-mask {
+    padding: calc(14px + var(--sat, 0px)) calc(10px + var(--sar, 0px)) calc(14px + var(--sab, 0px)) calc(10px + var(--sal, 0px));
+  }
+  .wiki-preview-card { max-height: calc(var(--app-vh, 1vh) * 100 - 28px - var(--sat, 0px) - var(--sab, 0px)); }
+  .wiki-preview-head { padding: 10px 12px; }
+  .wiki-preview-close { min-width: 40px; height: 40px; }
+  .wiki-preview-body { padding: 14px 12px 20px; }
+
+  /* --- 首页 Hero 的移动端退化：单列、装饰关闭、统计换行变小 --- */
+  .wiki-hero { padding: 24px 16px; }
+  .wiki-hero h1 { font-size: 22px; }
+  .wiki-hero-home { padding: 28px 18px 0; }
+  .wiki-hero-home h1 { font-size: 23px; margin-bottom: 10px; }
   .wiki-hero-home p { font-size: 13.5px; line-height: 1.75; }
   .wiki-hero-kicker { font-size: 10.5px; letter-spacing: .12em; margin-bottom: 12px; }
   .wiki-hero-deco { display: none; }              /* 装饰层在移动端整体隐藏 */
@@ -405,7 +596,7 @@
   }
   .wiki-hero-stat {
     padding: 10px 12px; border-left: none; border-radius: 10px;
-    background: rgba(255, 255, 255, .1);
+    background: rgba(255, 255, 255, .1); min-width: 0;
   }
   .wiki-hero-stat:first-child { padding-left: 12px; }
   .wiki-hero-stat b { font-size: 19px; }
@@ -414,4 +605,38 @@
   .wiki-hero-home + .wiki-search input { padding: 12px 14px 12px 38px; font-size: 14px; }
   .wiki-hero-home + .wiki-search::before { left: 22px; width: 16px; height: 16px; }
   .wiki-hero-home + .wiki-search .wiki-search-hint { display: none; }   /* 键盘快捷键提示对触屏无意义 */
+}
+
+/* ---------- ≤480px：超窄屏（360/390/414） ---------- */
+@media (max-width: 480px) {
+  .wiki-article { padding: 14px 12px; }
+  .wiki-article-head h1 { font-size: 19.5px; }
+  .wiki-section-head h2 { font-size: 16px; }
+  /* 卡片单列：360px 下 240px 两列会挤，直接一列 */
+  .wiki-card-grid { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  .wiki-card { padding: 13px; }
+  .wiki-hero-home { padding: 22px 15px 0; }
+  .wiki-hero-home h1 { font-size: 21px; }
+  .wiki-hero-home p { font-size: 13px; }
+  .wiki-hero { padding: 20px 15px; }
+  .wiki-hero h1 { font-size: 20px; }
+  .wiki-hero-stats { gap: 8px; margin-top: 16px; padding-top: 14px; }
+  .wiki-hero-stat { padding: 8px 10px; }
+  .wiki-hero-stat b { font-size: 17px; }
+  .wiki-hero-stat span { font-size: 11.5px; }
+  .wiki-hero-kicker { font-size: 10px; letter-spacing: .08em; }
+  .wiki-editor-toolbar button { min-width: 38px; height: 38px; padding: 0 8px; }
+  .wiki-content pre { font-size: 12px; }
+}
+
+/* ---------- 无 hover 能力的设备：去掉「粘住」的 hover 态（移动端不能只靠 hover 操作） ---------- */
+@media (hover: none) {
+  .wiki-card:hover { transform: none; box-shadow: none; }
+  .wiki-tree a:not(.active):hover { background: transparent; }
+  .wiki-toc a:not(.active):hover { color: var(--text-secondary); }
+  .wiki-footnav a:hover { border-color: var(--border); }
+  .wiki-content img:hover { opacity: 1; }
+  .wiki-search-dropdown a:hover { background: transparent; }
+  .wiki-editor-toolbar button:hover { background: transparent; border-color: transparent; }
+  .wiki-preview-close:hover { border-color: var(--border); color: var(--text); }
 }

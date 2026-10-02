@@ -11,6 +11,7 @@ import { CodeBlockLowlight } from '@tiptap/extension-code-block-lowlight';
 import { createLowlight, common } from 'lowlight';
 import { api, uploadImage } from '../api';
 import { useToast } from './UI';
+import { IconTask, IconQuote } from './WikiIcons';
 
 const lowlight = createLowlight(common);
 
@@ -234,6 +235,7 @@ export default function WikiRichEditor({ value, onChange, placeholder = '开始�
 
   return (
     <div className="wiki-editor" ref={wrapRef} style={{ position: 'relative' }}>
+      {/* 窄屏（≤780px）工具栏改为横向可滑动（见 wiki.css），不再换行占掉半屏 */}
       <div className="wiki-editor-toolbar">
         {btn(<b>B</b>, '加粗', () => editor.chain().focus().toggleBold().run(), editor.isActive('bold'))}
         {btn(<i>I</i>, '斜体', () => editor.chain().focus().toggleItalic().run(), editor.isActive('italic'))}
@@ -244,8 +246,8 @@ export default function WikiRichEditor({ value, onChange, placeholder = '开始�
         {sep('s1')}
         {btn('≡', '无序列表', () => editor.chain().focus().toggleBulletList().run(), editor.isActive('bulletList'))}
         {btn('1.', '有序列表', () => editor.chain().focus().toggleOrderedList().run(), editor.isActive('orderedList'))}
-        {btn('☑', '任务清单', () => editor.chain().focus().toggleTaskList().run(), editor.isActive('taskList'))}
-        {btn('❝', '引用', () => editor.chain().focus().toggleBlockquote().run(), editor.isActive('blockquote'))}
+        {btn(<IconTask />, '任务清单', () => editor.chain().focus().toggleTaskList().run(), editor.isActive('taskList'))}
+        {btn(<IconQuote />, '引用', () => editor.chain().focus().toggleBlockquote().run(), editor.isActive('blockquote'))}
         {sep('s2')}
         {btn('</>', '代码块（高亮）', () => editor.chain().focus().toggleCodeBlock().run(), editor.isActive('codeBlock'))}
         {btn('▦', '插入表格', insertTable, editor.isActive('table'))}
