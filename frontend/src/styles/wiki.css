@@ -625,7 +625,8 @@
   .wiki-hero-stat b { font-size: 17px; }
   .wiki-hero-stat span { font-size: 11.5px; }
   .wiki-hero-kicker { font-size: 10px; letter-spacing: .08em; }
-  .wiki-editor-toolbar button { min-width: 38px; height: 38px; padding: 0 8px; }
+  /* 超窄屏只收紧内边距，点按高度仍保持 40px（≤780px 段已定的触控下限，不能为了塞下更多按钮而缩） */
+  .wiki-editor-toolbar button { min-width: 40px; height: 40px; padding: 0 8px; }
   .wiki-content pre { font-size: 12px; }
 }
 
