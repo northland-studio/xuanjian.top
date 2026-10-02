@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
 import WikiTree from '../components/WikiTree';
 import WikiToc, { withHeadingIds } from '../components/WikiToc';
+import Lightbox from '../components/Lightbox';
 import { useServerData } from '../context/ServerDataContext';
 import { formatDate } from '../utils';
 import { setPageSeo, plainText } from '../lib/seo';
@@ -65,6 +66,25 @@ export default function WikiPage() {
   const page = data?.page;
   const html = useMemo(() => (data?.content_html ? withHeadingIds(data.content_html) : ''), [data]);
 
+  // 图片查看器：SSG/SSR 直出的 HTML 用事件委托挂点击（不能逐张绑），
+  // 图集 = 当前页 .wiki-content 里的全部图片，点哪张就从哪张开始看。
+  const contentRef = useRef(null);
+  const [lightbox, setLightbox] = useState(null);
+  useEffect(() => {
+    const el = contentRef.current;
+    if (!el) return;
+    const onClick = (e) => {
+      const img = e.target.closest && e.target.closest('img');
+      if (!img || !el.contains(img)) return;
+      const list = [...el.querySelectorAll('img')].map(i => i.getAttribute('src')).filter(Boolean);
+      if (!list.length) return;
+      e.preventDefault();
+      setLightbox({ images: list, index: Math.max(0, list.indexOf(img.getAttribute('src'))) });
+    };
+    el.addEventListener('click', onClick);
+    return () => el.removeEventListener('click', onClick);
+  }, [html]);
+
   if (loading) return <div className="loading"><div className="spinner" />加载中…</div>;
   if (notFound || !page) {
     return (
@@ -123,7 +143,7 @@ export default function WikiPage() {
               )}
             </div>
 
-            <div className="wiki-content" dangerouslySetInnerHTML={{ __html: html }} />
+            <div className="wiki-content" ref={contentRef} dangerouslySetInnerHTML={{ __html: html }} />
           </article>
 
           {(prev || next) && (
@@ -169,6 +189,10 @@ export default function WikiPage() {
           <WikiToc html={html} />
         </div>
       </div>
+
+      {lightbox && (
+        <Lightbox images={lightbox.images} index={lightbox.index} onClose={() => setLightbox(null)} />
+      )}
     </div>
   );
 }

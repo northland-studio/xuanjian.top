@@ -115,7 +115,8 @@
 .wiki-content code { background: var(--input-bg); padding: 2px 6px; border-radius: 6px; font-size: 13px; }
 .wiki-content pre { background: #1e2530; color: #e6edf3; padding: 14px 16px; border-radius: 10px; overflow-x: auto; font-size: 13px; line-height: 1.6; }
 .wiki-content pre code { background: none; color: inherit; padding: 0; }
-.wiki-content img { max-width: 100%; height: auto; border-radius: 10px; margin: 12px 0; }
+.wiki-content img { max-width: 100%; height: auto; border-radius: 10px; margin: 12px 0; cursor: zoom-in; }
+.wiki-content img:hover { opacity: .94; }
 .wiki-content figure { margin: 18px 0; text-align: center; }
 .wiki-content figcaption { font-size: 12.5px; color: var(--text-secondary); margin-top: 6px; }
 .wiki-content table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px; display: block; overflow-x: auto; }
