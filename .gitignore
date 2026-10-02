@@ -37,6 +37,11 @@ guild*.db-wal
 # 经济面板分析产出（由 scripts/econ/ 生成）
 reports/
 
+# Wiki 种子导入的图片缓存与临时驱动脚本（运行时产物）
+data/wiki-seed-images.json
+data/wiki-seed-test.db*
+scripts/_tmp-*.js
+
 .deploy/
 
 .xjn/

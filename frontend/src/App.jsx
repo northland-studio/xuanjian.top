@@ -39,6 +39,12 @@ import PayChargeNew from './pages/PayChargeNew';
 import PayRecords from './pages/PayRecords';
 import PayAdmin from './pages/PayAdmin';
 import ChatPage from './pages/ChatPage';
+import Wiki from './pages/Wiki';
+import WikiPage from './pages/WikiPage';
+import WikiCategory from './pages/WikiCategory';
+import WikiSearch from './pages/WikiSearch';
+import WikiEditor from './pages/WikiEditor';
+import WikiHistory from './pages/WikiHistory';
 
 // 主站路由：统一包裹在 Layout（含主站导航/页脚）内
 function MainSite() {
@@ -54,6 +60,14 @@ function MainSite() {
         <Route path="/daily" element={<ContentList type="daily" title="公会日报" />} />
         <Route path="/decision" element={<ContentList type="decision" title="决策公示" />} />
         <Route path="/forum" element={<ContentList type="forum" title="公会贴吧" />} />
+        {/* Wiki 知识库：首页 / 搜索 / 分类 / 编辑 / 历史 / 文章（静态段优先级高于 :slug） */}
+        <Route path="/wiki" element={<Wiki />} />
+        <Route path="/wiki/search" element={<WikiSearch />} />
+        <Route path="/wiki/category/:slug" element={<WikiCategory />} />
+        <Route path="/wiki/editor" element={<WikiEditor />} />
+        <Route path="/wiki/editor/:id" element={<WikiEditor />} />
+        <Route path="/wiki/:slug/history" element={<WikiHistory />} />
+        <Route path="/wiki/:slug" element={<WikiPage />} />
         <Route path="/post/:id" element={<PostDetail />} />
         <Route path="/posts/:id" element={<PostDetail />} />
         <Route path="/editor" element={<Editor />} />

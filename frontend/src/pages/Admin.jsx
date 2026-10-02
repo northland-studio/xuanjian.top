@@ -6,6 +6,7 @@ import { useToast } from '../components/UI';
 import TeamAdmin from '../components/TeamAdmin';
 import PayAdminPanel from '../components/PayAdminPanel';
 import TitleGrantPanel from '../components/TitleGrantPanel';
+import WikiAdminPanel from '../components/WikiAdminPanel';
 import { formatDate } from '../utils';
 
 const TABS = [
@@ -13,6 +14,7 @@ const TABS = [
   { key: 'banners', label: '轮播图管理' },
   { key: 'users', label: '用户管理' },
   { key: 'posts', label: '内容管理' },
+  { key: 'wiki', label: 'Wiki 管理' },
   { key: 'announcements', label: '公告管理' },
   { key: 'shop', label: '商城管理' },
   { key: 'claims', label: '申报审核' },
@@ -36,7 +38,7 @@ const TABS = [
 const TAB_GROUPS = [
   { group: '概览', keys: ['dashboard'] },
   { group: '成员', keys: ['users', 'discipline', 'generations', 'grant', 'team'] },
-  { group: '内容', keys: ['posts', 'announcements', 'banners'] },
+  { group: '内容', keys: ['posts', 'wiki', 'announcements', 'banners'] },
   { group: '经济', keys: ['shop', 'logs', 'claims', 'tasks', 'verify', 'donation'] },
   { group: '接入', keys: ['paygate', 'paylink', 'pay', 'mod'] },
   { group: '聊天', keys: ['bubbles', 'stickers'] }
@@ -158,6 +160,7 @@ export default function Admin() {
           {tab === 'banners' && <BannerManager showToast={showToast} />}
           {tab === 'users' && <UserManager showToast={showToast} isSuper={user.level >= 2} />}
           {tab === 'posts' && <PostManager showToast={showToast} />}
+          {tab === 'wiki' && <WikiAdminPanel />}
           {tab === 'announcements' && <AnnouncementManager showToast={showToast} />}
           {tab === 'shop' && <ShopManager showToast={showToast} />}
           {tab === 'claims' && <ClaimReview showToast={showToast} />}

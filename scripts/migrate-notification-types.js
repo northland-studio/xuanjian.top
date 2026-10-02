@@ -9,11 +9,11 @@
  */
 const db = require('../database');
 
-// 原白名单 + 新增：system（系统通知）、title_grant（头衔发放）
+// 原白名单 + 新增：system（系统通知）、title_grant（头衔发放）、wiki（Wiki 发布）
 const TYPES = [
     'post_daily', 'post_decision', 'comment', 'like', 'claim_result', 'task_reward',
     'transfer', 'favorite', 'follow', 'purchase', 'discipline', 'player_task',
-    'chat', 'chat_mention', 'pay', 'system', 'title_grant'
+    'chat', 'chat_mention', 'pay', 'system', 'title_grant', 'wiki'
 ];
 
 const COLUMNS = 'id, user_id, type, title, content, post_id, comment_id, actor_id, is_read, created_at';
