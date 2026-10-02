@@ -2,8 +2,13 @@ import { useEffect, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { api } from '../api';
 import WikiTree from '../components/WikiTree';
+import { withHeadingIds } from '../components/WikiToc';
+import { useToast } from '../components/UI';
 import { useServerData } from '../context/ServerDataContext';
 import { formatDate } from '../utils';
+
+/** 整本通史导出只在「公会历史」这个根分类下提供 */
+const BOOK_CATEGORY_SLUG = 'gong-hui-li-shi';
 
 /** 分类页：/wiki/category/:slug —— 分类介绍 + 子分类 + 文章列表（分页/分类内搜索） */
 export default function WikiCategory() {
@@ -11,6 +16,7 @@ export default function WikiCategory() {
   const [sp, setSp] = useSearchParams();
   const page = Number(sp.get('page') || 1);
   const q = sp.get('q') || '';
+  const { showToast } = useToast();
 
   // SSR/SSG 预取只覆盖「第一页、无搜索词」的形态（分页/搜索由客户端接管）
   const seededCat = useServerData('wikiCategory');
@@ -21,6 +27,7 @@ export default function WikiCategory() {
   const [tree, setTree] = useState(seededTree || []);
   const [loading, setLoading] = useState(!useSeeded);
   const [kw, setKw] = useState(q);
+  const [bookExporting, setBookExporting] = useState(false);
 
   useEffect(() => {
     if (seededTree) return;
@@ -48,6 +55,49 @@ export default function WikiCategory() {
   if (!data) return <div className="empty-state"><p>分类不存在或加载失败</p></div>;
 
   const { category, children = [], breadcrumb = [], pages = [], total = 0, totalPages = 1 } = data;
+
+  const canExportBook = slug === BOOK_CATEGORY_SLUG;
+
+  // 整本通史：拉全「公会历史」下所有已发布页面 → 逐页取正文 → 合并成一个 PDF（封面+目录+每章另起一页）
+  const exportBook = async () => {
+    if (bookExporting) return;
+    setBookExporting(true);
+    try {
+      const list = [];
+      let p = 1;
+      let sum = Infinity;
+      while (list.length < sum && p <= 10) {
+        // eslint-disable-next-line no-await-in-loop
+        const d = await api.get(`/api/wiki/categories/${encodeURIComponent(slug)}?page=${p}&limit=100`);
+        list.push(...(d.pages || []));
+        sum = d.total || 0;
+        if (!d.pages || !d.pages.length) break;
+        p += 1;
+      }
+      if (!list.length) throw new Error('这个分类下还没有文章');
+      const chapters = [];
+      for (const item of list) {
+        // eslint-disable-next-line no-await-in-loop
+        const d = await api.get(`/api/wiki/${encodeURIComponent(item.slug)}`);
+        chapters.push({
+          page: d.page || item,
+          html: withHeadingIds(d.content_html || ''),
+          breadcrumb: d.breadcrumb || []
+        });
+      }
+      const { exportWikiBookPdf } = await import('../lib/wiki-pdf.js');
+      await exportWikiBookPdf({
+        title: `玄剑公会通史（${category?.name || '公会历史'}）`,
+        subtitle: `共 ${chapters.length} 章 · 由 xuanjian.top 生成`,
+        chapters
+      });
+      showToast('整本通史 PDF 已导出', 'success');
+    } catch (e) {
+      showToast(e?.message || '整本导出失败', 'error');
+    } finally {
+      setBookExporting(false);
+    }
+  };
 
   return (
     <div className="fade-in-up wiki-page">
@@ -86,6 +136,17 @@ export default function WikiCategory() {
               {q && (
                 <button type="button" className="btn btn-secondary" onClick={() => { setKw(''); const n = new URLSearchParams(sp); n.delete('q'); n.set('page', '1'); setSp(n); }}>
                   清除
+                </button>
+              )}
+              {canExportBook && (
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={exportBook}
+                  disabled={bookExporting}
+                  title="把本分类下全部已发布页面合并导出成一个 PDF"
+                >
+                  {bookExporting ? '导出中…' : '导出整本通史'}
                 </button>
               )}
             </form>
