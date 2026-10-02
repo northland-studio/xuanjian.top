@@ -189,6 +189,12 @@ app.use('/assets', express.static(path.join(frontendDist, 'assets'), { maxAge: '
 // React静态资源（不自动提供index.html，由SPA回退处理）
 app.use(express.static(frontendDist, { index: false }));
 
+// ============ SSR / SSG 渲染（lib/ssr.js）============
+// 命中 SSG 路由发预渲染产物（无则现场渲染并落盘），命中 SSR 路由按请求渲染（进程内 60s 缓存）；
+// 其余路由与 SPA_ONLY=1 时一律走下面的 SPA 回退，行为与改造前一致。
+const ssr = require('./lib/ssr');
+app.use(ssr.middleware());
+
 // SPA回退：非API/上传请求统一返回React入口
 app.get('*', (req, res, next) => {
     if (req.path.startsWith('/api/') || req.path.startsWith('/uploads/')) {
@@ -220,6 +226,17 @@ const server = app.listen(PORT, () => {
 // WebSocket 实时通知
 const { initRealtime } = require('./lib/realtime');
 initRealtime(server);
+
+// SSR/SSG 预热：提前加载服务端渲染产物，避免首个请求变慢（失败自动退回纯 SPA）
+ssr.warmup().then(r => {
+    if (r.enabled) {
+        const list = (r.routes || []).filter(x => (x.ssg || []).length || (x.ssr || []).length)
+            .map(x => `${x.name}(SSG ${x.ssg.length}/SSR ${x.ssr.length})`).join('、');
+        logger.info(`SSR/SSG 已启用：${list || '无路由'}`);
+    } else {
+        logger.info(`SSR/SSG 未启用（${r.reason || '未知原因'}），全部走纯 SPA`);
+    }
+}).catch(e => logger.error('SSR 预热失败:', e.message));
 
 // 聊天媒体清理（数据库 + 对象存储双删），每小时执行一次
 //  - 私聊图片/语音：CHAT_DM_MEDIA_RETENTION_DAYS（默认 3 天）到期整条删除

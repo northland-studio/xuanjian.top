@@ -1,4 +1,4 @@
-import { createRoot } from 'react-dom/client';
+import { createRoot, hydrateRoot } from 'react-dom/client';
 import { BrowserRouter, HashRouter } from 'react-router-dom';
 import './styles/global.css';
 import './styles/wiki.css';
@@ -6,6 +6,7 @@ import App from './App.jsx';
 import { ThemeProvider } from './context/ThemeContext';
 import { AuthProvider } from './context/AuthContext';
 import { ToastProvider } from './components/UI';
+import { ServerDataProvider } from './context/ServerDataContext';
 import { applyPlatformAttrs, isNative } from './lib/platform';
 
 // 首屏渲染前标记运行环境（data-platform / data-shell / data-native / data-touch），
@@ -31,14 +32,27 @@ if ('serviceWorker' in navigator && !isNative) {
 // 打包后的本地加载没有 SPA 回退，BrowserRouter 的深链/刷新会 404。网页版行为不变。
 const Router = isNative ? HashRouter : BrowserRouter;
 
-createRoot(document.getElementById('root')).render(
+// SSR/SSG 页面：服务端已渲染好 HTML 并带上 __SSR_DATA__，这里用同一份数据 hydrate；
+// 其余页面（纯 SPA 路由）照旧 createRoot 挂载。
+const ssrData = typeof window !== 'undefined' ? window.__SSR_DATA__ : null;
+const container = document.getElementById('root');
+
+const tree = (
   <Router>
     <ThemeProvider>
-      <AuthProvider>
-        <ToastProvider>
-          <App />
-        </ToastProvider>
-      </AuthProvider>
+      <ServerDataProvider value={ssrData}>
+        <AuthProvider>
+          <ToastProvider>
+            <App />
+          </ToastProvider>
+        </AuthProvider>
+      </ServerDataProvider>
     </ThemeProvider>
   </Router>
 );
+
+if (ssrData && container && container.firstChild) {
+  hydrateRoot(container, tree);
+} else {
+  createRoot(container).render(tree);
+}

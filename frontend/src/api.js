@@ -35,8 +35,16 @@ const API_BASE = detectApiBase();
 // 平台信息（供原生能力模块使用）
 export const platformInfo = native;
 
+// SSR 环境（Node）没有 localStorage，统一兜底，避免服务端渲染抛 ReferenceError
+const hasStorage = typeof localStorage !== 'undefined';
+const storage = {
+  get(k) { try { return hasStorage ? localStorage.getItem(k) : null; } catch { return null; } },
+  set(k, v) { try { if (hasStorage) localStorage.setItem(k, v); } catch { /* 私密模式忽略 */ } },
+  remove(k) { try { if (hasStorage) localStorage.removeItem(k); } catch { /* 忽略 */ } }
+};
+
 export function getToken() {
-  return localStorage.getItem('token');
+  return storage.get('token');
 }
 
 /**
@@ -63,21 +71,21 @@ export function wsUrlWithToken() {
 }
 
 export function setAuth(token, user) {
-  localStorage.setItem('token', token);
-  localStorage.setItem('user', JSON.stringify(user));
+  storage.set('token', token);
+  storage.set('user', JSON.stringify(user));
 }
 
 export function getCurrentUser() {
   try {
-    return JSON.parse(localStorage.getItem('user'));
+    return JSON.parse(storage.get('user'));
   } catch {
     return null;
   }
 }
 
 export function clearAuth() {
-  localStorage.removeItem('token');
-  localStorage.removeItem('user');
+  storage.remove('token');
+  storage.remove('user');
 }
 
 async function request(url, options = {}) {

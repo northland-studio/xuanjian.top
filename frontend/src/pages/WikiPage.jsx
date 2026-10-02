@@ -4,6 +4,7 @@ import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
 import WikiTree from '../components/WikiTree';
 import WikiToc, { withHeadingIds } from '../components/WikiToc';
+import { useServerData } from '../context/ServerDataContext';
 import { formatDate } from '../utils';
 import { setPageSeo, plainText } from '../lib/seo';
 
@@ -16,18 +17,29 @@ export default function WikiPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  const [data, setData] = useState(null);
-  const [tree, setTree] = useState([]);
-  const [loading, setLoading] = useState(true);
+  // SSR/SSG：服务端已渲染好这一篇（含正文 HTML、面包屑、相关、上下篇）
+  const seeded = useServerData('wikiPage');
+  const seededTree = useServerData('wikiTree');
+  const seededForThis = seeded && seeded.page && seeded.page.slug === slug ? seeded : null;
+
+  const [data, setData] = useState(seededForThis);
+  const [tree, setTree] = useState(seededTree || []);
+  const [loading, setLoading] = useState(!seededForThis);
   const [notFound, setNotFound] = useState(false);
 
   const isAdmin = !!user && user.level >= 1;
 
   useEffect(() => {
+    if (seededTree) return;
     api.get('/api/wiki/categories').then(d => setTree(d.tree || [])).catch(() => setTree([]));
-  }, []);
+  }, [seededTree]);
 
   useEffect(() => {
+    if (seeded && seeded.page && seeded.page.slug === slug) {
+      setData(seeded);
+      setLoading(false);
+      return;
+    }
     let alive = true;
     setLoading(true);
     setNotFound(false);
