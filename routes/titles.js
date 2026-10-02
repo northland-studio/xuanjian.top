@@ -111,7 +111,7 @@ router.post('/grant', authMiddleware, adminMiddleware, async (req, res) => {
             const { createNotification } = require('./notifications');
             await createNotification({
                 userId,
-                type: 'system',
+                type: 'title_grant',
                 title: '获得新头衔',
                 content: `管理员向你发放了头衔「${title.name}」，可在「我的库存 → 我的称号」中装备。`,
                 actorId: req.userId,
