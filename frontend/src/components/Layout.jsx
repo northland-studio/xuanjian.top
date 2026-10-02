@@ -338,6 +338,7 @@ export default function Layout({ children }) {
         <div className="footer-content">
           <span>© 2026 我的世界玄剑公会</span>
           <span style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <Link to="/privacy">隐私政策</Link>
             <a href="https://xuanjian.top" target="_blank" rel="noreferrer">官网</a>
             <a href={QQ_GROUP_URL} target="_blank" rel="noreferrer">QQ群</a>
           </span>

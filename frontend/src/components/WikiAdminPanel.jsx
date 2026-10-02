@@ -154,7 +154,7 @@ export default function WikiAdminPanel() {
   };
 
   return (
-    <div>
+    <div className="wiki-admin">
       <div className="wiki-section-head">
         <h3 style={{ fontSize: 16, fontWeight: 700 }}>Wiki 知识库</h3>
         <Link to="/wiki/editor" className="btn btn-primary btn-sm">+ 新建页面</Link>
@@ -277,8 +277,8 @@ export default function WikiAdminPanel() {
           <div className="card" style={{ padding: 14 }}>
             <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 10 }}>分类树（{flatCats.length}）</div>
             {flatCats.length === 0 ? <div className="text-secondary" style={{ fontSize: 13 }}>还没有分类</div> : flatCats.map(c => (
-              <div key={c.id} className="flex" style={{ justifyContent: 'space-between', alignItems: 'center', padding: '8px 10px', borderBottom: '1px solid var(--border)' }}>
-                <div>
+              <div key={c.id} className="wiki-admin-cat flex" style={{ justifyContent: 'space-between', alignItems: 'center', padding: '8px 10px', borderBottom: '1px solid var(--border)' }}>
+                <div className="wac-main">
                   <span style={{ marginLeft: c.depth * 16 }}>{c.icon ? `${c.icon} ` : ''}<b>{c.name}</b></span>
                   <span className="text-secondary" style={{ fontSize: 12, marginLeft: 8 }}>/wiki/category/{c.slug} · 排序 {c.sort_order} · {c.page_count || 0} 篇</span>
                 </div>
@@ -296,8 +296,8 @@ export default function WikiAdminPanel() {
         <div className="card" style={{ padding: 14 }}>
           <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 10 }}>最近版本记录（{revisions.length}）</div>
           {revisions.length === 0 ? <div className="text-secondary" style={{ fontSize: 13 }}>暂无记录</div> : revisions.map(r => (
-            <div key={r.id} className="flex" style={{ justifyContent: 'space-between', gap: 10, padding: '8px 0', borderBottom: '1px solid var(--border)', flexWrap: 'wrap' }}>
-              <div style={{ minWidth: 0 }}>
+            <div key={r.id} className="wiki-admin-rev flex" style={{ justifyContent: 'space-between', gap: 10, padding: '8px 0', borderBottom: '1px solid var(--border)', flexWrap: 'wrap' }}>
+              <div className="war-main" style={{ minWidth: 0 }}>
                 <b style={{ fontSize: 13.5 }}>{r.title}</b>
                 <div className="text-secondary" style={{ fontSize: 12 }}>
                   版本 #{r.id} · {formatDate(r.created_at, true)} · {r.editor_name || r.editor_username || '—'}

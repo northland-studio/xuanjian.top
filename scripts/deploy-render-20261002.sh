@@ -45,6 +45,13 @@ mkdir -p "$SITE/frontend/dist-ssr"
 tar -xzf "$STAGE/dist-ssr.tgz" -C "$SITE/frontend/dist-ssr"
 ls -lh "$SITE/frontend/dist-ssr/entry-server.js" | awk '{print "  " $NF, $5}'
 
+# 若本次部署的就是国庆主题产物，同步刷新常驻主题产物（否则切主题时会用到旧构建）
+if [ -f "$SITE/frontend/dist/.national-day" ]; then
+  echo "  同步常驻主题产物 themes/national-day/{dist,dist-ssr}"
+  rm -rf "$SITE/themes/national-day/dist" "$SITE/themes/national-day/dist-ssr"
+  cp -a "$SITE/frontend/dist" "$SITE/themes/national-day/dist"
+  [ -d "$SITE/frontend/dist-ssr" ] && cp -a "$SITE/frontend/dist-ssr" "$SITE/themes/national-day/dist-ssr"
+fi
 echo "[4/5] 重启服务并生成 SSG 产物"
 pm2 restart xuanjian-guild --update-env >/dev/null 2>&1
 sleep 4

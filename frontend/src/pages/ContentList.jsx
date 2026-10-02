@@ -4,10 +4,15 @@ import { api } from '../api';
 import PostCard from '../components/PostCard';
 import { useServerData } from '../context/ServerDataContext';
 import { requireLogin } from '../utils';
+import { useAdSense } from '../lib/adsense';
 
 // 通用内容列表页（日报/决策/贴吧）
 export default function ContentList({ type, title }) {
   const navigate = useNavigate();
+
+  // Google AdSense（Auto Ads）投放范围：只投内容型列表（日报 daily / 决策 decision）。
+  // 贴吧（forum，UGC）等其它 type 一律关闭 → useAdSense(false)，不会注入广告脚本。
+  useAdSense(type === 'daily' || type === 'decision');
 
   // SSR/SSG：服务端预取了「无参数第一页」的列表，首屏直接渲染同一份数据（避免 hydrate 前后闪烁）。
   // 预取数据是按 type 区分的，只有 type 对得上才使用（例如从日报跳到决策时不能复用）。

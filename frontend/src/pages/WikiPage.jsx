@@ -5,9 +5,11 @@ import { useAuth } from '../context/AuthContext';
 import WikiTree from '../components/WikiTree';
 import WikiToc, { withHeadingIds } from '../components/WikiToc';
 import Lightbox from '../components/Lightbox';
+import { useToast } from '../components/UI';
 import { useServerData } from '../context/ServerDataContext';
 import { formatDate } from '../utils';
 import { setPageSeo, plainText } from '../lib/seo';
+import { useAdSense } from '../lib/adsense';
 
 /**
  * Wiki 文章页：/wiki/:slug
@@ -17,6 +19,7 @@ export default function WikiPage() {
   const { slug } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { showToast } = useToast();
 
   // SSR/SSG：服务端已渲染好这一篇（含正文 HTML、面包屑、相关、上下篇）
   const seeded = useServerData('wikiPage');
@@ -27,6 +30,10 @@ export default function WikiPage() {
   const [tree, setTree] = useState(seededTree || []);
   const [loading, setLoading] = useState(!seededForThis);
   const [notFound, setNotFound] = useState(false);
+  const [exporting, setExporting] = useState(false);
+
+  // Google AdSense（Auto Ads）：仅在文章存在时注入脚本（空状态 / 404 不投放）
+  useAdSense(!!(data && data.page));
 
   const isAdmin = !!user && user.level >= 1;
 
@@ -103,6 +110,21 @@ export default function WikiPage() {
   const { prev, next } = data.neighbors || {};
   const canEdit = data.can_edit;
 
+  // 导出 PDF：jsPDF 体积很大，必须等点击后再动态 import，别进首屏包 / SSR 产物
+  const handleExportPdf = async () => {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      const { exportWikiPdf } = await import('../lib/wiki-pdf.js');
+      await exportWikiPdf({ page, html, breadcrumb });
+      showToast('PDF 已导出', 'success');
+    } catch (e) {
+      showToast(e?.message || 'PDF 导出失败', 'error');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <div className="fade-in-up wiki-page">
       <div className="wiki-breadcrumb">
@@ -119,6 +141,11 @@ export default function WikiPage() {
         </div>
 
         <div>
+          {/* 移动端（≤1080px）可折叠目录：必须放在正文列内。
+              桌面右栏 .wiki-col-toc 在 ≤1080px 被整体隐藏，旧实现把折叠版放在那里面，
+              手机上就永远没有目录可看（见 wiki.css 的响应式段注释）。 */}
+          <WikiToc html={html} variant="mobile" />
+
           <article className="wiki-article">
             <div className="wiki-article-head">
               <h1>{page.title}</h1>
@@ -134,13 +161,24 @@ export default function WikiPage() {
                 {page.status !== 'published' && <span className="badge badge-warning">{page.status === 'draft' ? '草稿' : '已归档'}</span>}
               </div>
 
-              {canEdit && (
-                <div className="flex" style={{ gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
-                  <Link to={`/wiki/editor/${page.id}`} className="btn btn-primary btn-sm">编辑</Link>
-                  <Link to={`/wiki/${page.slug}/history`} className="btn btn-secondary btn-sm">历史版本</Link>
-                  <Link to={`/wiki/category/${page.category_slug || ''}`} className="btn btn-secondary btn-sm">返回分类</Link>
-                </div>
-              )}
+              <div className="flex" style={{ gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={handleExportPdf}
+                  disabled={exporting}
+                  title="把这一篇导出为 PDF（含图片）"
+                >
+                  {exporting ? '导出中…' : '导出 PDF'}
+                </button>
+                {canEdit && (
+                  <>
+                    <Link to={`/wiki/editor/${page.id}`} className="btn btn-primary btn-sm">编辑</Link>
+                    <Link to={`/wiki/${page.slug}/history`} className="btn btn-secondary btn-sm">历史版本</Link>
+                    <Link to={`/wiki/category/${page.category_slug || ''}`} className="btn btn-secondary btn-sm">返回分类</Link>
+                  </>
+                )}
+              </div>
             </div>
 
             <div className="wiki-content" ref={contentRef} dangerouslySetInnerHTML={{ __html: html }} />
@@ -186,7 +224,7 @@ export default function WikiPage() {
               <span>字数：约 {plainText(html, 999999).length} 字</span>
             </div>
           </div>
-          <WikiToc html={html} />
+          <WikiToc html={html} variant="desktop" />
         </div>
       </div>
 

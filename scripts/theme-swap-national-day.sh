@@ -1,32 +1,51 @@
 #!/bin/bash
-# 切换到国庆主题（安全版：主题产物始终留在 themes/national-day/dist，绝不搬走，避免被前端部署覆盖）
+# 切换到国庆主题（客户端产物 + SSR 产物一起换，并按新主题重建 SSG 静态页）
+#
+# 为什么必须一起换：三层渲染下，SSG/SSR 的 HTML 是服务端渲染 + 构建时写死 CSS 文件名的——
+#   ① SSG 静态页里引用的 CSS hash 属于生成时的主题，只换 frontend/dist 会导致 SSG 页面丢样式；
+#   ② 国庆横幅是 Layout.jsx 渲染进 SSR/SSG HTML 的，只换客户端产物会出现「新 CSS + 旧横幅」混搭。
+#
 # 用法：bash /var/www/xuanjian-guild/themes/swap-national-day.sh
+# 依赖目录（常驻，不被前端部署覆盖）：
+#   themes/national-day/dist      主题客户端产物
+#   themes/national-day/dist-ssr  主题 SSR 产物
 set -e
-FRONT=/var/www/xuanjian-guild/frontend
-THEME=/var/www/xuanjian-guild/themes/national-day
-LOG=/var/www/xuanjian-guild/themes/swap.log
+SITE=/var/www/xuanjian-guild
+FRONT=$SITE/frontend
+THEME=$SITE/themes/national-day
+LOG=$SITE/themes/swap.log
 
-echo "[$(date '+%F %T')] SWAP start" >> "$LOG"
+say() { echo "[$(date '+%F %T')] $*" | tee -a "$LOG"; }
 
 if [ -f "$FRONT/dist/.national-day" ]; then
-  echo "[$(date '+%F %T')] already national-day, skip" >> "$LOG"
-  echo "已经是国庆主题，无需重复切换"
+  say "已经是国庆主题，无需重复切换"
   exit 0
 fi
-if [ ! -d "$THEME/dist" ]; then
-  echo "[$(date '+%F %T')] ERROR: theme dir missing" >> "$LOG"
-  echo "错误：$THEME/dist 不存在（主题产物丢失，需先重新构建）"
-  exit 1
-fi
-[ -f "$THEME/dist/.national-day" ] || touch "$THEME/dist/.national-day"
+[ -d "$THEME/dist" ] || { say "错误：主题客户端产物缺失 $THEME/dist（需先在该分支构建并同步）"; exit 1; }
+[ -d "$THEME/dist-ssr" ] || { say "错误：主题 SSR 产物缺失 $THEME/dist-ssr"; exit 1; }
 
-# 当前普通产物先留档（每次切换都刷新留档，便于回滚到最近一次普通前端）
+say "[1/4] 切换客户端产物（普通版留档 dist-normal）"
 rm -rf "$FRONT/dist-normal"
 mv "$FRONT/dist" "$FRONT/dist-normal"
-
-# 从主题仓库「复制」出主题产物：主题产物原地不动，前端部署只影响 frontend/dist
 cp -a "$THEME/dist" "$FRONT/dist"
 touch "$FRONT/dist/.national-day"
 
-echo "[$(date '+%F %T')] switched to national-day（dist-normal 已留档）" >> "$LOG"
-echo "已切换到国庆主题；回滚：bash /var/www/xuanjian-guild/themes/rollback-national-day.sh"
+say "[2/4] 切换 SSR 产物（普通版留档 dist-ssr-normal）"
+if [ -d "$FRONT/dist-ssr" ]; then
+  rm -rf "$FRONT/dist-ssr-normal"
+  mv "$FRONT/dist-ssr" "$FRONT/dist-ssr-normal"
+fi
+cp -a "$THEME/dist-ssr" "$FRONT/dist-ssr"
+
+say "[3/4] 按国庆主题重建 SSG 静态页"
+rm -rf "$FRONT/prerender"
+if (cd "$SITE" && node scripts/prerender.js >/tmp/theme-prerender.log 2>&1); then
+  say "      SSG 已重建：$(ls "$FRONT/prerender" 2>/dev/null | wc -l) 个"
+else
+  say "      警告：SSG 重建失败（见 /tmp/theme-prerender.log），缺的页面会由中间件按需生成"
+fi
+
+say "[4/4] 重启服务（清掉内存里的模板与 SSR 渲染器缓存）"
+pm2 restart xuanjian-guild --update-env >/dev/null 2>&1
+
+say "已切换到国庆主题 ✓（回滚：bash $SITE/themes/rollback-national-day.sh）"

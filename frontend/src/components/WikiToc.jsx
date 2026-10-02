@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { IconBook, IconChevron } from './WikiIcons';
 
 /**
  * 从正文 HTML 里抽取 H1/H2/H3 生成目录。
@@ -33,8 +34,16 @@ export function withHeadingIds(html = '') {
 
 /**
  * 文章目录：点击平滑滚动 + 当前章节高亮；移动端可折叠。
+ *
+ * variant 决定渲染哪一份，默认 'both'（向后兼容）：
+ *   - 'mobile' ：只渲染可折叠的移动版
+ *   - 'desktop'：只渲染右栏的桌面面板
+ *   - 'both'   ：两份都渲染（旧调用方行为不变）
+ *
+ * 移动版必须挂在**正文列内**：桌面右栏 `.wiki-col-toc` 在 ≤1080px 被整体隐藏，
+ * 旧实现把移动折叠版放在同一个容器里，于是手机上永远没有目录可看。
  */
-export default function WikiToc({ html = '', title = '本页目录' }) {
+export default function WikiToc({ html = '', title = '本页目录', variant = 'both' }) {
   const items = useMemo(() => extractToc(html), [html]);
   const [activeId, setActiveId] = useState('');
   const [open, setOpen] = useState(false);
@@ -64,35 +73,42 @@ export default function WikiToc({ html = '', title = '本页目录' }) {
     if (!el) return;
     const top = el.getBoundingClientRect().top + window.scrollY - 80;
     window.scrollTo({ top, behavior: 'smooth' });
-    setOpen(false);
+    setActiveId(id);              // 立即高亮，滚动事件到达前也不闪
+    // 不自动收起：手机上跳转后目录已滚出视口，保留展开态才能看到当前章节高亮
   };
+
+  const list = (
+    <ul className="wiki-toc">
+      {items.map(it => (
+        <li key={it.id} className={it.level === 3 ? 'lv3' : ''}>
+          <a href={`#${it.id}`} className={activeId === it.id ? 'active' : ''} onClick={e => jump(e, it.id)}>{it.text}</a>
+        </li>
+      ))}
+    </ul>
+  );
 
   return (
     <>
-      <div className="wiki-panel wiki-toc-mobile" style={{ marginBottom: 12 }}>
-        <h4 style={{ cursor: 'pointer', margin: 0 }} onClick={() => setOpen(o => !o)}>
-          {title} {open ? '▲' : '▼'}
-        </h4>
-        {open && (
-          <ul className="wiki-toc" style={{ marginTop: 10 }}>
-            {items.map(it => (
-              <li key={it.id} className={it.level === 3 ? 'lv3' : ''}>
-                <a href={`#${it.id}`} className={activeId === it.id ? 'active' : ''} onClick={e => jump(e, it.id)}>{it.text}</a>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-      <div className="wiki-panel">
-        <h4>{title}</h4>
-        <ul className="wiki-toc">
-          {items.map(it => (
-            <li key={it.id} className={it.level === 3 ? 'lv3' : ''}>
-              <a href={`#${it.id}`} className={activeId === it.id ? 'active' : ''} onClick={e => jump(e, it.id)}>{it.text}</a>
-            </li>
-          ))}
-        </ul>
-      </div>
+      {variant !== 'desktop' && (
+        <div className={`wiki-panel wiki-toc-mobile${open ? ' is-open' : ''}`}>
+          <button
+            type="button"
+            className="wiki-toc-toggle"
+            aria-expanded={open}
+            onClick={() => setOpen(o => !o)}
+          >
+            <span className="wiki-panel-toggle-label"><IconBook /> {title}</span>
+            <span className="wiki-panel-chev" aria-hidden="true"><IconChevron /></span>
+          </button>
+          {list}
+        </div>
+      )}
+      {variant !== 'mobile' && (
+        <div className="wiki-panel">
+          <h4>{title}</h4>
+          {list}
+        </div>
+      )}
     </>
   );
 }

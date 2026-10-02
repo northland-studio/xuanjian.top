@@ -45,6 +45,7 @@ import WikiCategory from './pages/WikiCategory';
 import WikiSearch from './pages/WikiSearch';
 import WikiEditor from './pages/WikiEditor';
 import WikiHistory from './pages/WikiHistory';
+import Privacy from './pages/Privacy';
 
 // 主站路由：统一包裹在 Layout（含主站导航/页脚）内
 function MainSite() {
@@ -92,6 +93,8 @@ function MainSite() {
         <Route path="/chat" element={<ChatPage />} />
         <Route path="/chat/:userId" element={<ChatPage />} />
         <Route path="/projections" element={<Projections />} />
+        {/* 隐私政策（附广告/第三方服务说明） */}
+        <Route path="/privacy" element={<Privacy />} />
         {/* 贡献点扫码支付（支付中心 / 落地页 / 缴费单 / 记录 / 管理） */}
         <Route path="/pay" element={<Pay />} />
         <Route path="/pay/records" element={<PayRecords />} />
