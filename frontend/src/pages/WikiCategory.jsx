@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { api } from '../api';
 import WikiTree from '../components/WikiTree';
+import { useServerData } from '../context/ServerDataContext';
 import { formatDate } from '../utils';
 
 /** 分类页：/wiki/category/:slug —— 分类介绍 + 子分类 + 文章列表（分页/分类内搜索） */
@@ -11,22 +12,29 @@ export default function WikiCategory() {
   const page = Number(sp.get('page') || 1);
   const q = sp.get('q') || '';
 
-  const [data, setData] = useState(null);
-  const [tree, setTree] = useState([]);
-  const [loading, setLoading] = useState(true);
+  // SSR/SSG 预取只覆盖「第一页、无搜索词」的形态（分页/搜索由客户端接管）
+  const seededCat = useServerData('wikiCategory');
+  const seededTree = useServerData('wikiTree');
+  const useSeeded = !!seededCat && page === 1 && !q;
+
+  const [data, setData] = useState(useSeeded ? seededCat : null);
+  const [tree, setTree] = useState(seededTree || []);
+  const [loading, setLoading] = useState(!useSeeded);
   const [kw, setKw] = useState(q);
 
   useEffect(() => {
+    if (seededTree) return;
     api.get('/api/wiki/categories').then(d => setTree(d.tree || [])).catch(() => setTree([]));
-  }, []);
+  }, [seededTree]);
 
   useEffect(() => {
+    if (useSeeded) return;
     setLoading(true);
     api.get(`/api/wiki/categories/${slug}?page=${page}&limit=12${q ? `&q=${encodeURIComponent(q)}` : ''}`)
       .then(d => setData(d))
       .catch(() => setData(null))
       .finally(() => setLoading(false));
-  }, [slug, page, q]);
+  }, [slug, page, q, useSeeded]);
 
   const submitSearch = (e) => {
     e.preventDefault();

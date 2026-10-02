@@ -41,7 +41,14 @@ reports/
 data/wiki-seed-images.json
 data/wiki-seed-export.json
 data/wiki-seed-test.db*
+data/wiki-ssr-test.db*
+data/guild-prod-copy.db*
 scripts/_tmp-*.js
+
+# 渲染产物（SSR/SSG 构建输出，由 scripts/build-frontend.sh 与 scripts/prerender.js 生成）
+frontend/dist-ssr/
+frontend/dist-ssr-*/
+frontend/prerender/
 
 .deploy/
 

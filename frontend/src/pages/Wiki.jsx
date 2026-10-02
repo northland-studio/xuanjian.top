@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { api } from '../api';
 import WikiTree from '../components/WikiTree';
 import WikiSearchBox from '../components/WikiSearchBox';
+import { useServerData } from '../context/ServerDataContext';
 import { formatDate } from '../utils';
 
 /** 单张卡片：标题 + 摘要 + 分类/更新时间/浏览 */
@@ -22,15 +23,18 @@ function WikiCard({ page }) {
 
 /** Wiki 首页：Hero + 搜索 + 分类树 + 精选/最近更新/热门 + 最近贡献者 */
 export default function Wiki() {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  // SSR/SSG：服务端已预取好首页数据，首屏直接用，避免 hydrate 前后闪烁
+  const seeded = useServerData('wikiHome');
+  const [data, setData] = useState(seeded || null);
+  const [loading, setLoading] = useState(!seeded);
 
   useEffect(() => {
+    if (seeded) return;                     // 服务端已给数据，不再重复请求
     api.get('/api/wiki')
       .then(d => setData(d))
       .catch(() => setData(null))
       .finally(() => setLoading(false));
-  }, []);
+  }, [seeded]);
 
   if (loading) return <div className="loading"><div className="spinner" />加载 Wiki…</div>;
   if (!data) return <div className="empty-state"><p>Wiki 暂时无法加载，请稍后再试</p></div>;
