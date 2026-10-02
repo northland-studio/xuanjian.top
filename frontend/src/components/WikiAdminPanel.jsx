@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/UI';
+import { IconStar, IconPin } from './WikiIcons';
 import { formatDate } from '../utils';
 
 const TABS = [
@@ -206,7 +207,7 @@ export default function WikiAdminPanel() {
               {pages.map(p => (
                 <div key={p.id} className="wiki-admin-row">
                   <div className="war-main">
-                    <b>{p.is_pinned ? '📌 ' : ''}{p.is_featured ? '★ ' : ''}{p.title}</b>
+                    <b>{p.is_pinned ? <><IconPin />{' '}</> : null}{p.is_featured ? <><IconStar />{' '}</> : null}{p.title}</b>
                     <div>
                       <span className={`badge ${p.status === 'published' ? 'badge-success' : p.status === 'draft' ? 'badge-warning' : 'badge-gray'}`}>{STATUS_LABEL[p.status] || p.status}</span>
                       <span style={{ marginLeft: 8 }}>{p.category_name || '未分类'} · {p.author_name || p.author_username || '—'} · 更新 {formatDate(p.updated_at, true)} · {p.views || 0} 阅读</span>

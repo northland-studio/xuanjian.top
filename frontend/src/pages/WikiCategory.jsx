@@ -3,6 +3,7 @@ import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { api } from '../api';
 import WikiTree from '../components/WikiTree';
 import { withHeadingIds } from '../components/WikiToc';
+import { IconPin } from '../components/WikiIcons';
 import { useToast } from '../components/UI';
 import { useServerData } from '../context/ServerDataContext';
 import { formatDate } from '../utils';
@@ -165,7 +166,7 @@ export default function WikiCategory() {
                 {pages.map(p => (
                   <Link key={p.id} to={`/wiki/${p.slug}`} className="wiki-admin-row" style={{ textDecoration: 'none', color: 'var(--text)' }}>
                     <div className="war-main">
-                      <b>{p.is_pinned ? '📌 ' : ''}{p.title}</b>
+                      <b>{p.is_pinned ? <><IconPin />{' '}</> : null}{p.title}</b>
                       <div>{p.summary || '（暂无摘要）'}</div>
                     </div>
                     <div className="text-secondary" style={{ fontSize: 12, textAlign: 'right', whiteSpace: 'nowrap' }}>

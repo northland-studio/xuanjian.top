@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { api } from '../api';
 import WikiTree from '../components/WikiTree';
 import WikiSearchBox from '../components/WikiSearchBox';
+import { IconStar } from '../components/WikiIcons';
 import { useServerData } from '../context/ServerDataContext';
 import { formatDate } from '../utils';
 
@@ -30,7 +31,7 @@ function IconPen() {
 function WikiCard({ page }) {
   return (
     <Link to={`/wiki/${page.slug}`} className="wiki-card">
-      <h3>{page.is_featured ? '★ ' : ''}{page.title}</h3>
+      <h3>{page.is_featured ? <><IconStar />{' '}</> : null}{page.title}</h3>
       <p>{page.summary || '（暂无摘要）'}</p>
       <div className="wiki-card-meta">
         {page.category_name && <span className="badge">{page.category_name}</span>}

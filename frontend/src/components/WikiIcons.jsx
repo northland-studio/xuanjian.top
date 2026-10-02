@@ -56,3 +56,23 @@ export function IconQuote({ size = 17 }) {
     </svg>
   );
 }
+
+/** 精选星标（实心，替代旧的字形 '★ '；行内使用，故用 verticalAlign 对齐基线） */
+export function IconStar({ size = 14 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"
+      style={{ flex: '0 0 auto', verticalAlign: '-2px' }}>
+      <path d="M12 2.6l2.92 5.92 6.53.95-4.72 4.6 1.11 6.5L12 17.5l-5.84 3.07 1.11-6.5-4.72-4.6 6.53-.95z" />
+    </svg>
+  );
+}
+
+/** 置顶图钉（替代旧的字形 '📌 '） */
+export function IconPin({ size = 13 }) {
+  return (
+    <svg {...BASE} width={size} height={size} style={{ flex: '0 0 auto', verticalAlign: '-2px' }}>
+      <path d="M9.5 3.5h5l-.8 4.6 2.8 2.8v1.6H7.5v-1.6l2.8-2.8z" />
+      <path d="M12 12.5V20" />
+    </svg>
+  );
+}
