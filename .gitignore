@@ -36,3 +36,7 @@ guild*.db-wal
 "guild (*).db"*
 # 经济面板分析产出（由 scripts/econ/ 生成）
 reports/
+
+.deploy/
+
+.xjn/
