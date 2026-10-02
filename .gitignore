@@ -39,6 +39,7 @@ reports/
 
 # Wiki 种子导入的图片缓存与临时驱动脚本（运行时产物）
 data/wiki-seed-images.json
+data/wiki-seed-export.json
 data/wiki-seed-test.db*
 scripts/_tmp-*.js
 
