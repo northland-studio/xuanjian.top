@@ -404,13 +404,38 @@ router.post('/items', authMiddleware, adminMiddleware, async (req, res) => {
         if (!name || !type || price === undefined) {
             return res.status(400).json({ error: '商品名称、类型和价格不能为空' });
         }
-        
+
+        // 称号类型必须落到 titles 表：商城的「称号」tab 读的是 /api/titles（titles 表），
+        // 只写 shop_items 的话商品永远不显示（历史遗留的孤儿类型，等于添加失败）
+        let finalRefId = ref_id || null;
+        if (type === 'title') {
+            const titlePrice = Number(price) || 0;
+            if (finalRefId) {
+                const exists = await db.get('SELECT id FROM titles WHERE id = ?', [finalRefId]);
+                if (!exists) return res.status(400).json({ error: `称号 #${finalRefId} 不存在` });
+                await db.run(
+                    'UPDATE titles SET name = ?, description = ?, price = ?, in_shop = 1, is_active = 1 WHERE id = ?',
+                    [name, description || '', titlePrice, finalRefId]
+                );
+            } else {
+                const created = await db.run(
+                    'INSERT INTO titles (name, description, color, price, is_preset, in_shop) VALUES (?, ?, ?, ?, 0, 1)',
+                    [name, description || '', '#6366f1', titlePrice]
+                );
+                finalRefId = created.id;
+            }
+        }
+
         const result = await db.run(
             'INSERT INTO shop_items (name, description, type, ref_id, price, image, stock, duration_days) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-            [name, description || '', type, ref_id || null, price, image || '', stock !== undefined ? stock : -1, parseInt(duration_days) || 0]
+            [name, description || '', type, finalRefId, price, image || '', stock !== undefined ? stock : -1, parseInt(duration_days) || 0]
         );
-        
-        res.status(201).json({ message: '商品创建成功', itemId: result.id });
+
+        res.status(201).json({
+            message: type === 'title' ? '称号已上架（可在商城「称号」查看）' : '商品创建成功',
+            itemId: result.id,
+            titleId: type === 'title' ? finalRefId : undefined
+        });
     } catch (error) {
         logger.error('创建商品错误:', error);
         res.status(500).json({ error: '创建商品失败' });
@@ -426,6 +451,15 @@ router.put('/items/:id', authMiddleware, adminMiddleware, async (req, res) => {
             'UPDATE shop_items SET name = ?, description = ?, price = ?, image = ?, stock = ?, duration_days = ?, is_active = ?, updated_at = ? WHERE id = ?',
             [name, description, price, image, stock, parseInt(duration_days) || 0, is_active ? 1 : 0, getLocalTimestamp(), id]
         );
+
+        // 称号类型的商品与 titles 表保持同步（改名/改价/上下架），否则商城「称号」tab 会与后台不一致
+        const item = await db.get('SELECT type, ref_id FROM shop_items WHERE id = ?', [id]);
+        if (item && item.type === 'title' && item.ref_id) {
+            await db.run(
+                'UPDATE titles SET name = ?, description = ?, price = ?, in_shop = ?, is_active = ? WHERE id = ?',
+                [name, description || '', Number(price) || 0, is_active ? 1 : 0, is_active ? 1 : 0, item.ref_id]
+            );
+        }
         
         res.json({ message: '商品更新成功' });
     } catch (error) {
@@ -437,10 +471,17 @@ router.put('/items/:id', authMiddleware, adminMiddleware, async (req, res) => {
 router.delete('/items/:id', authMiddleware, adminMiddleware, async (req, res) => {
     try {
         const { id } = req.params;
-        
+
+        // 删除称号类商品时只把称号「下架」，不删 titles 行
+        // （titles 里存着所有人的持有记录 user_titles，删掉会连带清空）
+        const item = await db.get('SELECT type, ref_id FROM shop_items WHERE id = ?', [id]);
+        if (item && item.type === 'title' && item.ref_id) {
+            await db.run('UPDATE titles SET in_shop = 0 WHERE id = ?', [item.ref_id]);
+        }
+
         await db.run('DELETE FROM shop_items WHERE id = ?', [id]);
         
-        res.json({ message: '商品删除成功' });
+        res.json({ message: item && item.type === 'title' ? '称号已下架' : '商品删除成功' });
     } catch (error) {
         logger.error('删除商品错误:', error);
         res.status(500).json({ error: '删除商品失败' });

@@ -672,16 +672,19 @@ function ShopManager({ showToast }) {
   const [form, setForm] = useState(EMPTY_ITEM);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(null);
+  const [titleOptions, setTitleOptions] = useState([]);   // 称号类型商品要选择的已有称号
   const fileInput = useRef(null);
 
   const fetchItems = () => {
     setLoading(true);
     Promise.all([
       api.get('/api/shop/admin/items'),
-      api.get('/api/shop/admin/sales').catch(() => null)
-    ]).then(([d, s]) => {
+      api.get('/api/shop/admin/sales').catch(() => null),
+      api.get('/api/titles/all').then(d => d.titles || []).catch(() => [])
+    ]).then(([d, s, t]) => {
       setItems(d.items || []);
       setSales(s);
+      setTitleOptions(t);
     }).catch(() => setItems([]))
       .finally(() => setLoading(false));
   };
@@ -783,8 +786,28 @@ function ShopManager({ showToast }) {
           </div>
           {form.type === 'title' && (
             <div className="form-group" style={{ marginBottom: 0 }}>
-              <label className="form-label">称号ID（ref_id）</label>
-              <input className="form-input" value={form.ref_id} onChange={e => setForm(f => ({ ...f, ref_id: e.target.value }))} placeholder="对应称号表的ID" />
+              <label className="form-label">已有称号</label>
+              <select
+                className="form-select"
+                value={form.ref_id || ''}
+                onChange={e => {
+                  const v = e.target.value;
+                  const picked = titleOptions.find(t => String(t.id) === String(v));
+                  setForm(f => picked
+                    ? { ...f, ref_id: v, name: picked.name, description: picked.description || f.description, price: picked.price ?? f.price }
+                    : { ...f, ref_id: '' });
+                }}
+              >
+                <option value="">＋ 新建称号（用下面的名称/描述/价格创建）</option>
+                {titleOptions.map(t => (
+                  <option key={t.id} value={t.id}>
+                    #{t.id} {t.name}{t.price ? ` · ${t.price} 点` : ''}{t.in_shop ? '' : '（未在售）'}
+                  </option>
+                ))}
+              </select>
+              <p className="text-secondary" style={{ fontSize: 12, marginTop: 4 }}>
+                选已有称号＝改名/改价并重新上架；留空＝按下面的名称、描述、价格新建一个称号。商城的「称号」页直接读称号表，所以添加后立刻可见。
+              </p>
             </div>
           )}
           <div className="form-group" style={{ marginBottom: 0 }}>
@@ -902,7 +925,7 @@ function ShopManager({ showToast }) {
                 <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
                   {fmtPoints(item.price)} 贡献点 · {item.stock === -1 ? '不限量' : `库存 ${item.stock}`}
                   {item.type === 'permission' ? ` · 有效期 ${item.duration_days || 0} 天` : ''}
-                  {item.ref_id ? ` · 称号ID ${item.ref_id}` : ''}
+                  {item.type === 'title' && item.ref_id ? ` · 称号：${titleOptions.find(t => t.id === item.ref_id)?.name || '#' + item.ref_id}` : item.ref_id ? ` · 关联ID ${item.ref_id}` : ''}
                 </div>
                 {item.description && <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>{item.description}</div>}
               </div>
