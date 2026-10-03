@@ -20,6 +20,7 @@ const { finalTitle } = require('./titles');
 const ROOT = path.join(__dirname, '..', '..');
 const DATA_DIR = process.env.MCWIKI_ADAPTED || path.join(ROOT, 'data', 'mcwiki', 'adapted');
 const REPORT = path.join(ROOT, 'data', 'mcwiki', 'publish-report.json');
+const IMAGE_MANIFEST = process.env.MCWIKI_IMAGES || path.join(ROOT, 'data', 'mcwiki', 'images.json');
 
 const args = process.argv.slice(2);
 const has = (f) => args.includes(f);
@@ -62,6 +63,14 @@ function normalizeLinks(html) {
   });
 }
 
+/** 统一的主图区块（图 + 出处），插在正文最前面 */
+function figureBlock(meta) {
+  return (
+    `<figure><img src="${meta.cdn}" alt="${meta.alt || meta.title}" loading="lazy">` +
+    `<figcaption>${meta.alt || meta.title} · 图源：Minecraft Wiki（CC BY-NC-SA 3.0）</figcaption></figure>\n`
+  );
+}
+
 function countMatches(s, re) {
   return (String(s).match(re) || []).length;
 }
@@ -75,11 +84,23 @@ async function main() {
   const admin = await db.get('SELECT id, username FROM users WHERE level = 0 ORDER BY id LIMIT 1');
   if (!admin) throw new Error('找不到管理员账号（level = 0）');
 
+  // 主图清单（可选）：由 06-images.js 产出；不存在就纯文字发布
+  let imageItems = {};
+  if (fs.existsSync(IMAGE_MANIFEST)) {
+    try {
+      imageItems = (JSON.parse(fs.readFileSync(IMAGE_MANIFEST, 'utf8').replace(/^\uFEFF/, '')).items) || {};
+    } catch (e) {
+      console.log(`⚠ 主图清单解析失败（按纯文字发布）：${e.message}`);
+    }
+  }
+  const withImage = Object.values(imageItems).filter((v) => v && v.cdn).length;
+
   let files = fs.existsSync(DATA_DIR) ? fs.readdirSync(DATA_DIR).filter((f) => f.endsWith('.json')) : [];
   if (ONLY.length) files = files.filter((f) => ONLY.includes(path.basename(f, '.json')));
   if (!files.length) throw new Error(`没有可发布的改写产物：${DATA_DIR}`);
 
   console.log(`模式：${DRY ? 'DRY-RUN（不写库）' : 'WRITE'}   分类：${cat.name}（#${cat.id}）   作者：${admin.username}（#${admin.id}）`);
+  console.log(`主图清单：${withImage} 张可用${withImage ? '' : '（未跑 06-images.js，将按纯文字发布）'}`);
   console.log(`待处理 ${files.length} 个改写产物\n`);
 
   const report = { startedAt: new Date().toISOString(), mode: DRY ? 'dry-run' : 'write', category: cat.slug, created: [], updated: [], skipped: [], failed: [] };
@@ -101,12 +122,15 @@ async function main() {
     const title = finalTitle(String(meta.title || key));
     const summary = String(meta.summary || '').trim();
     const raw = normalizeLinks(String(meta.content || '').trim());
+    // 主图（06-images.js 产出的清单）：有就插在正文最前面，图源与许可随图标注
+    const img = imageItems[key];
+    const body = img && img.cdn && !/^\s*<figure/i.test(raw) ? figureBlock({ ...img, title }) + raw : raw;
     if (!title) { report.failed.push({ key, stage: 'validate', error: '标题为空' }); console.log(`✗ ${pad(key, 22)} 标题为空`); continue; }
     if (!raw) { report.failed.push({ key, stage: 'validate', error: '正文为空' }); console.log(`✗ ${pad(key, 22)} 正文为空`); continue; }
     if (title.length > 200) { report.failed.push({ key, stage: 'validate', error: '标题过长' }); console.log(`✗ ${pad(key, 22)} 标题过长`); continue; }
     if (summary.length > 500) { report.failed.push({ key, stage: 'validate', error: '摘要过长' }); console.log(`✗ ${pad(key, 22)} 摘要过长`); continue; }
 
-    const content = raw + sourceFooter(meta);
+    const content = body + sourceFooter(meta);
     const clean = wiki.sanitizeContent(content);
 
     // 体检指标
@@ -134,7 +158,7 @@ async function main() {
     }
 
     if (DRY) {
-      console.log(`· ${pad(key, 22)} → 「${title}」 摘要${String(stats.summaryLen).padStart(3)}字 正文${String(stats.cleanLen).padStart(5)}字 h2×${stats.h2} 表×${stats.tables} li×${stats.lis} 内链×${stats.wikiLinks} 页脚${stats.hasSourceFooter ? '✓' : '✗'}${stats.sanitizeWarning ? '  ⚠清洗掉>25%' : ''}`);
+      console.log(`· ${pad(key, 22)} → 「${title}」 摘要${String(stats.summaryLen).padStart(3)}字 正文${String(stats.cleanLen).padStart(5)}字 h2×${stats.h2} 表×${stats.tables} li×${stats.lis} 内链×${stats.wikiLinks} 页脚${stats.hasSourceFooter ? '✓' : '✗'}${img && img.cdn ? ' 主图✓' : ''}${stats.sanitizeWarning ? '  ⚠清洗掉>25%' : ''}`);
       (report.created).push({ key, title, dryRun: true, ...stats });
       continue;
     }
