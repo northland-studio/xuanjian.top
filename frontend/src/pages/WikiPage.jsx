@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import WikiTree from '../components/WikiTree';
 import WikiToc, { withHeadingIds } from '../components/WikiToc';
 import Lightbox from '../components/Lightbox';
+import WikiComments from '../components/WikiComments';
 import { useToast } from '../components/UI';
 import { useServerData } from '../context/ServerDataContext';
 import { formatDate } from '../utils';
@@ -73,6 +74,18 @@ export default function WikiPage() {
   const page = data?.page;
   const html = useMemo(() => (data?.content_html ? withHeadingIds(data.content_html) : ''), [data]);
 
+  // SSG/SSR 产物是**匿名渲染**的，里面没有 can_edit / can_review / 待审状态这些"跟人走"的字段。
+  // 所以登录用户进页面后，客户端再取一次详情，把这些字段补上（无需刷新即可看到编辑按钮与待审提示）。
+  const [userExtra, setUserExtra] = useState(null);
+  useEffect(() => {
+    if (!user || !slug) { setUserExtra(null); return undefined; }
+    let alive = true;
+    api.get(`/api/wiki/${encodeURIComponent(slug)}`)
+      .then(d => { if (alive) setUserExtra({ can_edit: d.can_edit, can_review: d.can_review, pending_review: d.pending_review, my_pending: d.my_pending, comment_count: d.comment_count }); })
+      .catch(() => { /* 忽略：保持匿名视图 */ });
+    return () => { alive = false; };
+  }, [user, slug]);
+
   // 图片查看器：SSG/SSR 直出的 HTML 用事件委托挂点击（不能逐张绑），
   // 图集 = 当前页 .wiki-content 里的全部图片，点哪张就从哪张开始看。
   const contentRef = useRef(null);
@@ -108,7 +121,11 @@ export default function WikiPage() {
   const breadcrumb = data.breadcrumb || [];
   const related = data.related || [];
   const { prev, next } = data.neighbors || {};
-  const canEdit = data.can_edit;
+  const canEdit = userExtra ? userExtra.can_edit : (data.can_edit || !!user);
+  const canReview = userExtra ? !!userExtra.can_review : !!isAdmin;
+  const pendingReview = userExtra ? userExtra.pending_review : data.pending_review;
+  const myPending = userExtra ? userExtra.my_pending : data.my_pending;
+  const commentCount = (userExtra && typeof userExtra.comment_count === 'number') ? userExtra.comment_count : (data.comment_count ?? 0);
 
   // 导出 PDF：jsPDF 体积很大，必须等点击后再动态 import，别进首屏包 / SSR 产物
   const handleExportPdf = async () => {
@@ -147,6 +164,19 @@ export default function WikiPage() {
           <WikiToc html={html} variant="mobile" />
 
           <article className="wiki-article">
+            {canReview && pendingReview && (
+              <div className="wiki-pending-banner">
+                <span className="badge badge-warning">待审核</span>
+                <span>本页有一条待审{pendingReview.kind === 'new' ? '新页面' : '修改'}：由 <b>{pendingReview.submitter_nickname || pendingReview.submitter_username || '成员'}</b> 于 {formatDate(pendingReview.created_at, true)} 提交</span>
+                <Link to="/admin#wiki/review" className="btn btn-primary btn-sm" style={{ marginLeft: 'auto' }}>去审核</Link>
+              </div>
+            )}
+            {!canReview && myPending && (
+              <div className="wiki-pending-banner">
+                <span className="badge badge-warning">排队中</span>
+                <span>你的投稿正在等待管理员审核，通过后才会显示在这里。</span>
+              </div>
+            )}
             <div className="wiki-article-head">
               <h1>{page.title}</h1>
               {page.summary && <p className="wiki-article-summary">{page.summary}</p>}
@@ -211,6 +241,8 @@ export default function WikiPage() {
               </div>
             </div>
           )}
+
+          <WikiComments pageId={page.id} initialCount={commentCount} />
         </div>
 
         <div className="wiki-col-toc">

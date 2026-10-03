@@ -7,12 +7,23 @@ import { IconStar, IconPin } from './WikiIcons';
 import { formatDate } from '../utils';
 
 const TABS = [
+  { key: 'review', label: '待审核' },
   { key: 'pages', label: '页面' },
   { key: 'drafts', label: '草稿' },
   { key: 'categories', label: '分类' },
   { key: 'history', label: '历史版本' },
-  { key: 'stats', label: '数据统计' }
+  { key: 'stats', label: '数据统计' },
+  { key: 'review-config', label: '审核设置' }
 ];
+
+const TAB_KEYS = TABS.map(t => t.key);
+
+/** 从 URL hash 取子页（#wiki/review → review） */
+function initialTab() {
+  if (typeof window === 'undefined') return 'pages';
+  const m = window.location.hash.match(/^#wiki\/([\w-]+)/);
+  return m && TAB_KEYS.includes(m[1]) ? m[1] : 'pages';
+}
 
 const STATUS_LABEL = { published: '已发布', draft: '草稿', archived: '已归档' };
 
@@ -24,7 +35,16 @@ const STATUS_LABEL = { published: '已发布', draft: '草稿', archived: '已�
 export default function WikiAdminPanel() {
   const { user } = useAuth();
   const { showToast } = useToast();
-  const [tab, setTab] = useState('pages');
+  const [tab, setTab] = useState(initialTab);
+  const [pendingCount, setPendingCount] = useState(0);
+  const [submissions, setSubmissions] = useState([]);
+  const [subStatus, setSubStatus] = useState('pending');
+  const [subDetail, setSubDetail] = useState(null);      // { submission, current }
+  const [subNote, setSubNote] = useState('');
+  const [subBusy, setSubBusy] = useState(false);
+  const [reviewCfg, setReviewCfg] = useState(null);
+  const [cfgForm, setCfgForm] = useState(null);
+  const [apiKeyInput, setApiKeyInput] = useState('');
 
   const [tree, setTree] = useState([]);
   const [flatCats, setFlatCats] = useState([]);
@@ -77,11 +97,123 @@ export default function WikiAdminPanel() {
     }
   }, [filters, page, showToast]);
 
+  /* ---------- 待审核 / 审核设置 ---------- */
+
+  const loadPendingCount = useCallback(async () => {
+    try {
+      const d = await api.get('/api/wiki/submissions/pending-count');
+      setPendingCount(d.count || 0);
+    } catch (e) { /* 忽略 */ }
+  }, []);
+
+  const loadSubmissions = useCallback(async (status = subStatus) => {
+    setLoading(true);
+    try {
+      const d = await api.get(`/api/wiki/submissions?status=${encodeURIComponent(status)}&limit=50`);
+      setSubmissions(d.items || []);
+      setTotal(d.total || 0);
+    } catch (e) {
+      showToast(e.message || '加载待审列表失败', 'error');
+      setSubmissions([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [subStatus, showToast]);
+
+  const openSubmission = useCallback(async (id) => {
+    try {
+      const d = await api.get(`/api/wiki/submissions/${id}`);
+      setSubDetail(d);
+      setSubNote('');
+    } catch (e) {
+      showToast(e.message || '加载提交详情失败', 'error');
+    }
+  }, [showToast]);
+
+  const review = async (action) => {
+    if (!subDetail?.submission) return;
+    const id = subDetail.submission.id;
+    if (action === 'reject' && !subNote.trim()) return showToast('驳回请填写理由，便于提交人修改', 'error');
+    setSubBusy(true);
+    try {
+      const d = await api.post(`/api/wiki/submissions/${id}/${action}`, { note: subNote.trim() });
+      showToast(d.message || (action === 'approve' ? '已通过' : '已驳回'), 'success');
+      setSubDetail(null);
+      await Promise.all([loadSubmissions(), loadPendingCount(), loadPages()]);
+    } catch (e) {
+      showToast(e.message || '操作失败', 'error');
+    } finally {
+      setSubBusy(false);
+    }
+  };
+
+  const loadReviewConfig = useCallback(async () => {
+    try {
+      const d = await api.get('/api/wiki/review-config');
+      setReviewCfg(d.config);
+      setCfgForm(d.config);
+      setApiKeyInput('');
+    } catch (e) {
+      showToast(e.message || '加载审核配置失败', 'error');
+    }
+  }, [showToast]);
+
+  const saveReviewConfig = async () => {
+    if (!cfgForm) return;
+    setSubBusy(true);
+    try {
+      const body = {
+        enabled: cfgForm.enabled, autoApprove: cfgForm.autoApprove, autoReject: cfgForm.autoReject,
+        approveThreshold: Number(cfgForm.approveThreshold), rejectThreshold: Number(cfgForm.rejectThreshold),
+        maxPerDay: Number(cfgForm.maxPerDay), model: cfgForm.model, baseUrl: cfgForm.baseUrl
+      };
+      if (apiKeyInput.trim()) body.apiKey = apiKeyInput.trim();
+      const d = await api.put('/api/wiki/review-config', body);
+      setReviewCfg(d.config); setCfgForm(d.config); setApiKeyInput('');
+      showToast('审核配置已保存', 'success');
+    } catch (e) {
+      showToast(e.message || '保存失败', 'error');
+    } finally {
+      setSubBusy(false);
+    }
+  };
+
+  const clearApiKey = async () => {
+    if (!confirm('确定清空 GLM API Key？清空后自动审核会跳过，所有投稿转人工。')) return;
+    setSubBusy(true);
+    try {
+      const d = await api.put('/api/wiki/review-config', { apiKey: null });
+      setReviewCfg(d.config); setCfgForm(d.config);
+      showToast('已清空 API Key', 'success');
+    } catch (e) {
+      showToast(e.message || '清空失败', 'error');
+    } finally {
+      setSubBusy(false);
+    }
+  };
+
+  const testGlm = async () => {
+    setSubBusy(true);
+    try {
+      const d = await api.post('/api/wiki/review-config/test', {});
+      if (d.ok) showToast(`连通正常：${d.result.model} 判定 ${d.result.decision}（${d.result.ms}ms）`, 'success');
+      else showToast(`测试失败：${d.result?.error || '未知错误'}`, 'error');
+    } catch (e) {
+      showToast(e.message || '测试失败', 'error');
+    } finally {
+      setSubBusy(false);
+    }
+  };
+
   useEffect(() => { loadCats(); }, [loadCats]);
+  useEffect(() => { loadPendingCount(); }, [loadPendingCount]);
   useEffect(() => { loadPages(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [filters, page]);
   useEffect(() => {
     if (tab === 'stats') api.get('/api/wiki/stats').then(d => setStats(d.stats)).catch(() => {});
     if (tab === 'history') api.get('/api/wiki/admin/revisions?limit=80').then(d => setRevisions(d.revisions || [])).catch(() => {});
+    if (tab === 'review') loadSubmissions();
+    if (tab === 'review-config') loadReviewConfig();
+    /* eslint-disable-next-line react-hooks/exhaustive-deps */
   }, [tab]);
 
   const publish = async (id) => {
@@ -163,11 +295,178 @@ export default function WikiAdminPanel() {
 
       <div className="flex" style={{ gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
         {TABS.map(t => (
-          <button key={t.key} className={`btn btn-sm ${tab === t.key ? 'btn-primary' : 'btn-secondary'}`} onClick={() => { setTab(t.key); if (t.key === 'drafts') { setFilters(f => ({ ...f, status: 'draft' })); setPage(1); } }}>
-            {t.label}
+          <button
+            key={t.key}
+            className={`btn btn-sm ${tab === t.key ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => {
+              setTab(t.key);
+              if (window.location.hash !== `#wiki/${t.key}`) window.history.replaceState(null, '', `#wiki/${t.key}`);
+              if (t.key === 'drafts') { setFilters(f => ({ ...f, status: 'draft' })); setPage(1); }
+            }}
+          >
+            {t.label}{t.key === 'review' && pendingCount > 0 ? ` (${pendingCount})` : ''}
           </button>
         ))}
       </div>
+
+      {tab === 'review' && (
+        <>
+          <div className="flex" style={{ gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+            {[['pending', '待审核'], ['approved', '已通过'], ['rejected', '未通过'], ['all', '全部']].map(([k, label]) => (
+              <button key={k} className={`btn btn-sm ${subStatus === k ? 'btn-primary' : 'btn-secondary'}`} onClick={() => { setSubStatus(k); setSubDetail(null); loadSubmissions(k); }}>{label}</button>
+            ))}
+            <span className="text-secondary" style={{ fontSize: 12.5, alignSelf: 'center' }}>
+              共 {total} 条{subStatus === 'pending' && pendingCount !== total ? `（当前待审 ${pendingCount}）` : ''}
+            </span>
+          </div>
+
+          {loading ? (
+            <div className="text-secondary" style={{ fontSize: 13 }}>加载中…</div>
+          ) : submissions.length === 0 ? (
+            <div className="empty-state"><p>这里没有需要处理的投稿</p></div>
+          ) : (
+            <div className="flex-col" style={{ gap: 10 }}>
+              {submissions.map(s => (
+                <div key={s.id} className="wiki-admin-row">
+                  <div className="war-main">
+                    <b>{s.title}</b>
+                    <span className={`badge ${s.status === 'pending' ? 'badge-warning' : s.status === 'approved' ? 'badge-success' : 'badge-danger'}`} style={{ marginLeft: 8 }}>
+                      {s.status === 'pending' ? '待审核' : s.status === 'approved' ? '已通过' : '未通过'}
+                    </span>
+                    <div className="text-secondary" style={{ fontSize: 12.5, marginTop: 4 }}>
+                      {s.kind === 'new' ? '新建页面' : `修改「${s.page_title || '页面'}」`} · 提交人 <b>{s.submitter_nickname || s.submitter_username || '—'}</b> · {formatDate(s.created_at, true)}
+                      {s.category_name ? ` · 分类 ${s.category_name}` : ''} · 正文 {s.content_length || 0} 字
+                    </div>
+                    {s.auto && (
+                      <div className="text-secondary" style={{ fontSize: 12, marginTop: 4 }}>
+                        自动审核：
+                        {s.auto.skipped ? `已跳过（${s.auto.skipped}）`
+                          : s.auto.ok ? `${s.auto.decision === 'approve' ? '建议通过' : s.auto.decision === 'reject' ? '建议驳回' : '转人工'}（置信度 ${s.auto.score}${s.auto.categories?.length ? ' · ' + s.auto.categories.join('/') : ''}）${s.auto.reasons?.length ? '：' + s.auto.reasons.join('；') : ''}`
+                            : `失败（${s.auto.error || '未知'}）`}
+                      </div>
+                    )}
+                    {s.review_note && <div className="text-secondary" style={{ fontSize: 12, marginTop: 4 }}>审核意见：{s.review_note}</div>}
+                  </div>
+                  <div className="flex" style={{ gap: 6 }}>
+                    <button className="btn btn-primary btn-sm" onClick={() => openSubmission(s.id)}>查看/审核</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {subDetail && (
+            <div className="card" style={{ padding: 16, marginTop: 16 }}>
+              <div className="wiki-section-head">
+                <h3 style={{ fontSize: 15 }}>审核：{subDetail.submission.title}</h3>
+                <button className="btn btn-secondary btn-sm" onClick={() => setSubDetail(null)}>关闭</button>
+              </div>
+              <div className="text-secondary" style={{ fontSize: 12.5, marginBottom: 10 }}>
+                {subDetail.submission.kind === 'new' ? '新建页面' : `修改「${subDetail.current?.title || ''}」`}
+                {subDetail.auto_test_note}
+              </div>
+
+              {/* 待审内容 */}
+              <div style={{ marginBottom: 8, fontWeight: 600, fontSize: 13.5 }}>待审内容</div>
+              <div className="wiki-content" style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 12, maxHeight: 420, overflow: 'auto' }}
+                dangerouslySetInnerHTML={{ __html: subDetail.submission.content }} />
+
+              {/* 当前线上内容（修改类才有） */}
+              {subDetail.current && (
+                <>
+                  <div style={{ margin: '14px 0 8px', fontWeight: 600, fontSize: 13.5 }}>当前线上内容（对比）</div>
+                  <div className="wiki-content" style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 12, maxHeight: 260, overflow: 'auto', opacity: .85 }}
+                    dangerouslySetInnerHTML={{ __html: subDetail.current.content }} />
+                </>
+              )}
+
+              <div className="form-group" style={{ marginTop: 14 }}>
+                <label className="form-label">审核意见（驳回时必填，会通知提交人）</label>
+                <textarea className="form-textarea" style={{ minHeight: 64 }} value={subNote} onChange={e => setSubNote(e.target.value)} placeholder="例如：数据来源不明，请补充出处" />
+              </div>
+              <div className="flex" style={{ gap: 8, flexWrap: 'wrap' }}>
+                <button className="btn btn-primary btn-sm" disabled={subBusy || subDetail.submission.status !== 'pending'} onClick={() => review('approve')}>通过并发布</button>
+                <button className="btn btn-danger btn-sm" disabled={subBusy || subDetail.submission.status !== 'pending'} onClick={() => review('reject')}>驳回</button>
+                {subDetail.submission.status !== 'pending' && <span className="text-secondary" style={{ fontSize: 12.5, alignSelf: 'center' }}>该提交已处理过</span>}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {tab === 'review-config' && (
+        <div className="card" style={{ padding: 16 }}>
+          {!cfgForm ? (
+            <div className="text-secondary" style={{ fontSize: 13 }}>加载中…</div>
+          ) : (
+            <>
+              <p className="text-secondary" style={{ fontSize: 12.5, lineHeight: 1.8 }}>
+                普通用户的投稿先进入待审队列，线上内容不变；管理员通过后才发布。<strong>所有管理员共用这一套配置</strong>，
+                API Key 保存在服务端、接口不会回显明文。自动审核只在"未配置 Key / 调用失败 / 返回不可解析"时保守地转人工，<strong>绝不会因为报错而放行</strong>。
+              </p>
+
+              <div className="flex-col" style={{ gap: 12, marginTop: 12 }}>
+                <label className="flex" style={{ gap: 8, alignItems: 'center', fontSize: 14 }}>
+                  <input type="checkbox" checked={!!cfgForm.enabled} onChange={e => setCfgForm(f => ({ ...f, enabled: e.target.checked }))} /> 启用 GLM 自动审核
+                </label>
+                <label className="flex" style={{ gap: 8, alignItems: 'center', fontSize: 14 }}>
+                  <input type="checkbox" checked={!!cfgForm.autoApprove} onChange={e => setCfgForm(f => ({ ...f, autoApprove: e.target.checked }))} /> 高置信且无违规时自动通过
+                </label>
+                <label className="flex" style={{ gap: 8, alignItems: 'center', fontSize: 14 }}>
+                  <input type="checkbox" checked={!!cfgForm.autoReject} onChange={e => setCfgForm(f => ({ ...f, autoReject: e.target.checked }))} /> 明确违规时自动驳回
+                </label>
+
+                <div className="grid grid-2" style={{ gap: 12 }}>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label">自动通过置信度阈值（0–1）</label>
+                    <input className="form-input" type="number" step="0.05" min="0" max="1" value={cfgForm.approveThreshold}
+                      onChange={e => setCfgForm(f => ({ ...f, approveThreshold: e.target.value }))} />
+                  </div>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label">自动驳回置信度阈值（0–1）</label>
+                    <input className="form-input" type="number" step="0.05" min="0" max="1" value={cfgForm.rejectThreshold}
+                      onChange={e => setCfgForm(f => ({ ...f, rejectThreshold: e.target.value }))} />
+                  </div>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label">模型名</label>
+                    <input className="form-input" value={cfgForm.model} onChange={e => setCfgForm(f => ({ ...f, model: e.target.value }))} placeholder="glm-4-flash" />
+                  </div>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label">每人每日提交上限（0 = 不限）</label>
+                    <input className="form-input" type="number" min="0" value={cfgForm.maxPerDay}
+                      onChange={e => setCfgForm(f => ({ ...f, maxPerDay: e.target.value }))} />
+                  </div>
+                  <div className="form-group" style={{ marginBottom: 0, gridColumn: '1 / -1' }}>
+                    <label className="form-label">API 地址</label>
+                    <input className="form-input" value={cfgForm.baseUrl} onChange={e => setCfgForm(f => ({ ...f, baseUrl: e.target.value }))} />
+                  </div>
+                  <div className="form-group" style={{ marginBottom: 0, gridColumn: '1 / -1' }}>
+                    <label className="form-label">
+                      GLM API Key
+                      {reviewCfg?.apiKeyConfigured
+                        ? <span className="text-secondary" style={{ fontWeight: 400, marginLeft: 8 }}>已配置（末四位 {reviewCfg.apiKeyTail}）</span>
+                        : <span className="text-secondary" style={{ fontWeight: 400, marginLeft: 8 }}>未配置 → 自动审核会跳过，全部转人工</span>}
+                    </label>
+                    <div className="flex" style={{ gap: 8 }}>
+                      <input className="form-input" type="password" value={apiKeyInput} autoComplete="new-password"
+                        onChange={e => setApiKeyInput(e.target.value)} placeholder={reviewCfg?.apiKeyConfigured ? '留空 = 不修改' : '粘贴智谱 API Key'} />
+                      {reviewCfg?.apiKeyConfigured && (
+                        <button className="btn btn-secondary btn-sm" onClick={clearApiKey} disabled={subBusy}>清空</button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex" style={{ gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
+                <button className="btn btn-primary btn-sm" onClick={saveReviewConfig} disabled={subBusy}>保存配置</button>
+                <button className="btn btn-secondary btn-sm" onClick={testGlm} disabled={subBusy || !reviewCfg?.apiKeyConfigured}>测试连通</button>
+                <span className="text-secondary" style={{ fontSize: 12.5, alignSelf: 'center' }}>prompt 版本：{reviewCfg?.promptVersion}</span>
+              </div>
+            </>
+          )}
+        </div>
+      )}
 
       {(tab === 'pages' || tab === 'drafts') && (
         <>

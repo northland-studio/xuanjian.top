@@ -179,6 +179,68 @@
 .wiki-panel-chev svg { display: block; }
 /* 展开态箭头翻转 180°：SVG 本身恒朝下，开合由父级旋转表达 */
 .wiki-panel.is-open .wiki-panel-chev { transform: rotate(180deg); }
+
+/* ---------- 开放编辑：提交审核提示 / 待审状态 ---------- */
+.wiki-submit-notice {
+  margin: 12px 0; padding: 10px 14px; border-radius: 10px;
+  border: 1px solid var(--border); border-left: 3px solid var(--primary);
+  background: var(--input-bg); color: var(--text-secondary);
+  font-size: 13px; line-height: 1.75;
+}
+.wiki-submit-notice strong { color: var(--text); }
+.wiki-pending-banner {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  margin: 0 0 14px; padding: 8px 12px; border-radius: 10px;
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--primary) 30%, transparent);
+  font-size: 13px; color: var(--text);
+}
+
+/* ---------- 页面评论 ---------- */
+.wiki-comments { margin-top: 26px; }
+.wiki-comments-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; flex-wrap: wrap; margin-bottom: 12px;
+}
+.wiki-comments-head h2 { font-size: 18px; margin: 0; }
+.wiki-comment-form { display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px; }
+.wiki-comment-form textarea {
+  width: 100%; min-height: 84px; resize: vertical;
+  padding: 10px 12px; border-radius: 10px;
+  border: 1px solid var(--border); background: var(--input-bg); color: var(--text);
+  font-family: inherit; font-size: 14px; line-height: 1.7;
+}
+.wiki-comment-form textarea:focus { outline: none; border-color: var(--primary); }
+.wiki-comment-actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.wiki-comment-actions .text-secondary { font-size: 12px; }
+.wiki-comment-list { display: flex; flex-direction: column; gap: 12px; }
+.wiki-comment {
+  display: flex; gap: 10px; padding: 12px 14px;
+  border: 1px solid var(--border); border-radius: 10px; background: var(--card);
+}
+.wiki-comment-avatar {
+  width: 34px; height: 34px; border-radius: 50%; flex: 0 0 auto;
+  object-fit: cover; background: var(--input-bg);
+}
+.wiki-comment-main { min-width: 0; flex: 1 1 auto; }
+.wiki-comment-meta {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  font-size: 12.5px; color: var(--text-secondary); margin-bottom: 4px;
+}
+.wiki-comment-meta b { color: var(--text); font-size: 13px; }
+.wiki-comment-body {
+  font-size: 14px; line-height: 1.8; color: var(--text);
+  white-space: pre-wrap; overflow-wrap: anywhere;
+}
+.wiki-comment-del {
+  border: none; background: none; color: var(--text-secondary);
+  font-size: 12px; cursor: pointer; padding: 2px 6px; border-radius: 6px;
+}
+.wiki-comment-del:hover { color: var(--danger); background: var(--input-bg); }
+@media (max-width: 780px) {
+  .wiki-comment { padding: 10px 12px; }
+  .wiki-comment-form textarea { min-height: 72px; font-size: 15px; }
+}
 /* .wiki-toc-mobile 的默认隐藏规则：桌面端（>1080px）不显示可折叠目录。
    必须放在响应式段之前：旧实现在文件末尾又写了一次 display:none，
    顺序上盖掉了 ≤1080px 媒体查询里的 display:block，折叠目录于是永远不显示。 */
