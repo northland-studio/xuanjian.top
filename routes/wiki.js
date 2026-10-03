@@ -334,8 +334,8 @@ router.put('/review-config', authMiddleware, adminMiddleware, async (req, res) =
     try {
         const b = req.body || {};
         const patch = {};
-        for (const k of ['enabled', 'autoApprove', 'autoReject']) if (b[k] !== undefined) patch[k] = !!b[k];
-        for (const k of ['approveThreshold', 'rejectThreshold', 'maxPerDay', 'maxContentLength']) if (b[k] !== undefined) patch[k] = Number(b[k]);
+        for (const k of ['enabled', 'autoApprove', 'autoReject', 'rewardEnabled', 'rewardShadow']) if (b[k] !== undefined) patch[k] = !!b[k];
+        for (const k of ['approveThreshold', 'rejectThreshold', 'maxPerDay', 'maxContentLength', 'rewardMax', 'rewardDailyMax']) if (b[k] !== undefined) patch[k] = Number(b[k]);
         for (const k of ['model', 'baseUrl']) if (b[k] !== undefined) patch[k] = String(b[k]).trim();
         if (b.apiKey !== undefined) patch.apiKey = b.apiKey === null ? null : String(b.apiKey).trim();
         const cfg = await glm.saveConfig(patch);
@@ -555,21 +555,46 @@ async function notifyAdminsOfSubmission(sub) {
     }
 }
 
-/** 通知提交人审核结果 */
-async function notifySubmitterReviewed(sub, approved, auto = false) {
+/** 通知提交人审核结果（带贡献点回赠） */
+async function notifySubmitterReviewed(sub, approved, auto = false, points = 0) {
     try {
+        const rewardText = points > 0 ? `，并回赠 ${points} 贡献点` : '';
         await createNotification({
             userId: sub.submitter_id,
             type: 'wiki',
             title: approved ? '你的 Wiki 投稿已通过' : '你的 Wiki 投稿未通过',
             content: approved
-                ? `「${sub.title}」${auto ? '已通过自动审核并发布' : '已通过审核并发布'}`
+                ? `「${sub.title}」${auto ? '已通过自动审核并发布' : '已通过审核并发布'}${rewardText}`
                 : `「${sub.title}」未通过：${sub.review_note || '未说明原因'}${auto ? '（自动审核）' : ''}`,
             url: sub.page_slug ? `/wiki/${sub.page_slug}` : '/wiki'
         });
     } catch (e) {
         logger.error('通知提交人失败:', e.message);
     }
+}
+
+/**
+ * 贡献点回赠统一入口（人工通过时 / 事后补发）。
+ * 只在管理员点了"通过"或"补发"时调用——自动通过不直接发分（AI 只给建议）。
+ */
+async function grantReward(sub, { reviewerId, points, note = '' }) {
+    const cfg = await glm.getConfig();
+    if (!cfg.rewardEnabled) return { skipped: '贡献点回赠已关闭' };
+    const auto = safeJson(sub.auto_review) || {};
+    const aiPoints = auto && auto.reward ? auto.reward.points : null;
+    const aiReason = auto && auto.reward ? auto.reward.reason : '';
+    return wiki.awardSubmissionPoints({
+        submissionId: sub.id,
+        userId: sub.submitter_id,
+        pageId: sub.page_id,
+        points,
+        aiPoints,
+        aiReason,
+        reviewerId,
+        note,
+        maxPoints: cfg.rewardMax,
+        dailyMax: cfg.rewardDailyMax
+    });
 }
 
 /** 我的提交记录 */
@@ -613,31 +638,64 @@ router.get('/submissions', authMiddleware, adminMiddleware, async (req, res) => 
     }
 });
 
-/** 提交单详情（含待审正文与"当前线上正文"，供对比） */
+/** 提交单详情（含待审正文与"当前线上正文"，供对比；附作者回赠情况给管理员参考） */
 router.get('/submissions/:id', authMiddleware, adminMiddleware, async (req, res) => {
     try {
         const sub = await wiki.getSubmissionById(req.params.id);
         if (!sub) return res.status(404).json({ error: '提交不存在' });
         const page = sub.page_id ? await wiki.getPageById(sub.page_id) : null;
+        const [author_stats, reward] = await Promise.all([
+            wiki.getAuthorRewardStats(sub.submitter_id).catch(() => null),
+            wiki.getRewardBySubmission(sub.id).catch(() => null)
+        ]);
         res.json({
             ok: true,
             submission: { ...sub, auto: sub.auto_review ? summarizeAuto(safeJson(sub.auto_review)) : null },
-            current: page ? { title: page.title, content: page.content, summary: page.summary, category_id: page.category_id, slug: page.slug } : null
+            current: page ? { title: page.title, content: page.content, summary: page.summary, category_id: page.category_id, slug: page.slug } : null,
+            author_stats,
+            reward
         });
     } catch (e) {
         fail(res, e, '获取提交详情失败');
     }
 });
 
-/** 通过 */
+/** 通过（可同时发放贡献点回赠；AI 建议只作参考，最终值由管理员定） */
 router.post('/submissions/:id/approve', authMiddleware, adminMiddleware, async (req, res) => {
     try {
         const out = await wiki.approveSubmission(req.params.id, req.userId, req.body?.note || '');
-        await notifySubmitterReviewed(out.submission, true, false);
-        logger.info(`Wiki 投稿通过：#${out.submission.id}「${out.submission.title}」（审核人 ${req.userId}）`);
-        res.json({ ok: true, message: '已通过并发布', page: out.page, submission: publicSubmission(out.submission) });
+        let reward = null;
+        const points = Number(req.body?.points);
+        if (Number.isFinite(points) && points > 0) {
+            reward = await grantReward(out.submission, { reviewerId: req.userId, points });
+        }
+        await notifySubmitterReviewed(out.submission, true, false, reward?.awarded || 0);
+        logger.info(`Wiki 投稿通过：#${out.submission.id}「${out.submission.title}」（审核人 ${req.userId}）回赠 ${reward?.awarded || 0} 点`);
+        res.json({
+            ok: true,
+            message: reward && reward.awarded > 0 ? `已通过并发布，回赠 ${reward.awarded} 贡献点` : '已通过并发布',
+            page: out.page, submission: publicSubmission(out.submission), reward
+        });
     } catch (e) {
         fail(res, e, '审核通过失败');
+    }
+});
+
+/** 补发贡献点（自动通过的投稿事后由管理员补分；幂等，已发过会返回 already） */
+router.post('/submissions/:id/reward', authMiddleware, adminMiddleware, async (req, res) => {
+    try {
+        const sub = await wiki.getSubmissionById(req.params.id);
+        if (!sub) return res.status(404).json({ error: '提交不存在' });
+        if (sub.status !== 'approved') return res.status(400).json({ error: '只有已通过的投稿才能补发奖励' });
+        const points = Number(req.body?.points);
+        if (!Number.isFinite(points) || points <= 0) return res.status(400).json({ error: '请填写要补发的贡献点' });
+        const reward = await grantReward(sub, { reviewerId: req.userId, points, note: '事后补发' });
+        if (reward && reward.already) return res.json({ ok: true, message: '该投稿已经发过奖励，未重复发放', reward });
+        await notifySubmitterReviewed(sub, true, false, reward?.awarded || 0);
+        logger.info(`Wiki 投稿补发奖励：#${sub.id}「${sub.title}」→ ${reward?.awarded || 0} 点（操作者 ${req.userId}）`);
+        res.json({ ok: true, message: `已补发 ${reward?.awarded || 0} 贡献点`, reward });
+    } catch (e) {
+        fail(res, e, '补发奖励失败');
     }
 });
 
