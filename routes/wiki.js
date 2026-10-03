@@ -467,6 +467,8 @@ function summarizeAuto(auto) {
         score: auto.score,
         categories: auto.categories || [],
         reasons: auto.reasons || [],
+        // 贡献点建议必须一起转发：漏掉这个字段会让审核台一直显示"未评估"（曾踩过这个坑）
+        reward: auto.reward || null,
         model: auto.model,
         ms: auto.ms
     };
