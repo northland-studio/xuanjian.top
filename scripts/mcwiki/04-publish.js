@@ -32,6 +32,7 @@ const valOf = (name) => {
 const DRY = has('--dry-run') || !has('--write');
 const UPDATE = has('--update');
 const ONLY = (valOf('only') || '').split(',').map((s) => s.trim()).filter(Boolean);
+const ONLY_FILE = valOf('only-file');
 const CATEGORY_SLUG = valOf('category') || 'minecraft-zhi-shi';
 
 let db;
@@ -99,7 +100,14 @@ async function main() {
   const withImage = Object.values(imageItems).filter((v) => v && v.cdn).length;
 
   let files = fs.existsSync(DATA_DIR) ? fs.readdirSync(DATA_DIR).filter((f) => f.endsWith('.json')) : [];
-  if (ONLY.length) files = files.filter((f) => ONLY.includes(path.basename(f, '.json')));
+  // --only 适合少量页；批量场景用 --only-file（一行一个 key，或逗号分隔），
+  // 因为超长命令行会被 shell/ssh 截断（踩过一次：74 个 key 只传到 26 个）。
+  let onlySet = ONLY;
+  if (ONLY_FILE) {
+    const txt = fs.readFileSync(ONLY_FILE, 'utf8').replace(/^\uFEFF/, '');
+    onlySet = txt.split(/[\r\n,]+/).map((s) => s.trim()).filter(Boolean);
+  }
+  if (onlySet.length) files = files.filter((f) => onlySet.includes(path.basename(f, '.json')));
   if (!files.length) throw new Error(`没有可发布的改写产物：${DATA_DIR}`);
 
   console.log(`模式：${DRY ? 'DRY-RUN（不写库）' : 'WRITE'}   分类：${cat.name}（#${cat.id}）   作者：${admin.username}（#${admin.id}）`);
@@ -152,11 +160,17 @@ async function main() {
       sanitizeWarning: content.length - clean.length > content.length * 0.25
     };
 
-    const existing = await db.get('SELECT id, title, slug, status FROM wiki_pages WHERE title = ?', [title]);
+    const existing = await db.get('SELECT id, title, slug, status, content FROM wiki_pages WHERE title = ?', [title]);
 
     if (existing && !UPDATE) {
       report.skipped.push({ key, title, slug: existing.slug, reason: '同名页面已存在（--update 可覆盖更新）' });
       console.log(`– ${pad(key, 22)} 已存在，跳过（#${existing.id} /wiki/${existing.slug}）`);
+      continue;
+    }
+    // 幂等：正文逐字节相同就不写库（避免重复执行时刷出一堆无意义的版本记录）
+    if (existing && existing.content === clean) {
+      report.skipped.push({ key, title, slug: existing.slug, reason: '内容无变化' });
+      console.log(`= ${pad(key, 22)} 内容无变化，跳过`);
       continue;
     }
 
@@ -197,7 +211,14 @@ async function main() {
     for (const item of targets) {
       try {
         const meta = JSON.parse(fs.readFileSync(path.join(DATA_DIR, item.key + '.json'), 'utf8').replace(/^\uFEFF/, ''));
-        const { html, targetIds } = await wiki.resolveWikiLinks(meta.content);
+        // 必须和主循环完全一致地重建正文：内链目标先归一到入库标题，再补主图，
+        // 否则这一遍会把主图洗掉（曾经就是这里把 74 页的 <figure> 弄没了）。
+        const rawFix = normalizeLinks(String(meta.content || '').trim());
+        const imgFix = imageItems[item.key];
+        const bodyFix = imgFix && imgFix.cdn && !/^\s*<figure/i.test(rawFix)
+          ? figureBlock({ ...imgFix, title: item.title }) + rawFix
+          : rawFix;
+        const { html, targetIds } = await wiki.resolveWikiLinks(bodyFix);
         const content = wiki.sanitizeContent(html) + sourceFooter(meta);
         const ts = typeof db.getLocalTimestamp === 'function' ? db.getLocalTimestamp() : new Date().toISOString();
         await db.run('UPDATE wiki_pages SET content = ?, updated_at = ? WHERE id = ?', [content, ts, item.id]);
