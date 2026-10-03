@@ -195,3 +195,39 @@ node scripts/seed-wiki.js --no-images   # 跳过图片上传（图片位置留�
 - 部署顺序：**先跑迁移**（`node scripts/migrate-wiki-review.js`，幂等）再上新代码。
 - 每人每日提交上限 `maxPerDay`（默认 5）在审核设置里可调；0 = 不限。
 - 投稿只影响 SSG 的"审核通过"时刻（`createPage/updatePage` 自带 `invalidateSsg`），评论不影响 SSG。
+
+---
+
+## 12. 贡献点回赠（AI 建议 + 人工发放）
+
+审核通过时可以给作者发贡献点作为创作激励。**AI 只出建议值，发不发、发多少由管理员在审核台定。**
+
+### 数据（`scripts/migrate-wiki-reward.js`）
+
+`wiki_rewards`：每次发放一条，`submission_id` 上有**唯一索引**（幂等的根）。
+`points` 是实发值，`ai_points` / `ai_reason` 是 AI 建议，**分开存**——影子模式就是靠这两列比对校准。
+贡献点沿用既有经济：`users.contribution` + `contribution_logs`（type 用既有的 `reward`，不新建账本）。
+
+### 规则
+
+| 规则 | 说明 |
+|---|---|
+| 幂等 | 同一提交只发一次；重复点「通过」不重复发分（第二次 409） |
+| 单次上限 | `rewardMax`（默认 10），超出自动夹紧 |
+| 每日上限 | `rewardDailyMax`（默认 20，按作者当天累计），超出夹到剩余额度并标记 capped |
+| 驳回不发 | 只记 0，不写发放记录 |
+| 自动通过不发 | AI 自动通过的投稿**不自动发分**；「已通过」列表提示「未发放（AI 建议 N 分）」，可按「补发奖励」补（同一幂等入口） |
+
+### prompt 里放什么（重要）
+
+**只放"标尺"，不放"账本"**：分档标准（错别字 0–1 / 补事实 2–3 / 新增小节 4–6 / 成篇条目 7–10）+
+2–3 个 few-shot 示例 + 本次单次上限。**不**把余额、排行、全站总额塞进 prompt——
+那会让模型按作者身份区别对待，同样的投稿得不同分，破坏可复现性（prompt 有版本号 `wiki-review-v1`）。
+
+"账本"放在审核台给人看：`GET /api/wiki/submissions/:id` 带 `author_stats`
+（作者近 30 天/今日得分、全站近 30 天均分）与已有 `reward` 记录。
+
+### 影子模式
+
+`rewardShadow` 默认 **true**：AI 建议只在审核台展示、**不预填**发放框，仍由管理员定分并留痕。
+建议先跑一段时间比对「AI 建议分布 vs 人工实发」，吻合后再关掉影子模式（把建议值设为默认）。

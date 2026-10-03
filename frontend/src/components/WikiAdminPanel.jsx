@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
@@ -41,10 +41,12 @@ export default function WikiAdminPanel() {
   const [subStatus, setSubStatus] = useState('pending');
   const [subDetail, setSubDetail] = useState(null);      // { submission, current }
   const [subNote, setSubNote] = useState('');
+  const [subPoints, setSubPoints] = useState('0');
   const [subBusy, setSubBusy] = useState(false);
   const [reviewCfg, setReviewCfg] = useState(null);
   const [cfgForm, setCfgForm] = useState(null);
   const [apiKeyInput, setApiKeyInput] = useState('');
+  const reviewCfgRef = useRef(null);
 
   const [tree, setTree] = useState([]);
   const [flatCats, setFlatCats] = useState([]);
@@ -125,6 +127,12 @@ export default function WikiAdminPanel() {
       const d = await api.get(`/api/wiki/submissions/${id}`);
       setSubDetail(d);
       setSubNote('');
+      // 贡献点回赠：影子模式下不预填 AI 建议值（仍由管理员定分），只在旁边展示建议
+      const aiPts = d?.submission?.auto?.reward?.points;
+      const shadow = reviewCfgRef.current?.rewardShadow !== false;
+      const max = reviewCfgRef.current?.rewardMax ?? 10;
+      const preset = (!shadow && Number.isFinite(Number(aiPts))) ? Math.min(Number(aiPts), max) : 0;
+      setSubPoints(String(preset));
     } catch (e) {
       showToast(e.message || '加载提交详情失败', 'error');
     }
@@ -136,12 +144,36 @@ export default function WikiAdminPanel() {
     if (action === 'reject' && !subNote.trim()) return showToast('驳回请填写理由，便于提交人修改', 'error');
     setSubBusy(true);
     try {
-      const d = await api.post(`/api/wiki/submissions/${id}/${action}`, { note: subNote.trim() });
+      const body = { note: subNote.trim() };
+      if (action === 'approve') {
+        const pts = Math.max(0, Math.round(Number(subPoints) || 0));
+        if (pts > 0) body.points = pts;
+      }
+      const d = await api.post(`/api/wiki/submissions/${id}/${action}`, body);
       showToast(d.message || (action === 'approve' ? '已通过' : '已驳回'), 'success');
       setSubDetail(null);
       await Promise.all([loadSubmissions(), loadPendingCount(), loadPages()]);
     } catch (e) {
       showToast(e.message || '操作失败', 'error');
+    } finally {
+      setSubBusy(false);
+    }
+  };
+
+  /** 自动通过的投稿事后补发贡献点 */
+  const grantReward = async () => {
+    if (!subDetail?.submission) return;
+    const id = subDetail.submission.id;
+    const pts = Math.max(0, Math.round(Number(subPoints) || 0));
+    if (pts <= 0) return showToast('请填写要补发的贡献点', 'error');
+    setSubBusy(true);
+    try {
+      const d = await api.post(`/api/wiki/submissions/${id}/reward`, { points: pts });
+      showToast(d.message || '已补发', 'success');
+      setSubDetail(null);
+      await Promise.all([loadSubmissions(), loadPendingCount()]);
+    } catch (e) {
+      showToast(e.message || '补发失败', 'error');
     } finally {
       setSubBusy(false);
     }
@@ -165,7 +197,9 @@ export default function WikiAdminPanel() {
       const body = {
         enabled: cfgForm.enabled, autoApprove: cfgForm.autoApprove, autoReject: cfgForm.autoReject,
         approveThreshold: Number(cfgForm.approveThreshold), rejectThreshold: Number(cfgForm.rejectThreshold),
-        maxPerDay: Number(cfgForm.maxPerDay), model: cfgForm.model, baseUrl: cfgForm.baseUrl
+        maxPerDay: Number(cfgForm.maxPerDay), model: cfgForm.model, baseUrl: cfgForm.baseUrl,
+        rewardEnabled: cfgForm.rewardEnabled !== false, rewardShadow: cfgForm.rewardShadow !== false,
+        rewardMax: Number(cfgForm.rewardMax ?? 10), rewardDailyMax: Number(cfgForm.rewardDailyMax ?? 20)
       };
       if (apiKeyInput.trim()) body.apiKey = apiKeyInput.trim();
       const d = await api.put('/api/wiki/review-config', body);
@@ -207,11 +241,12 @@ export default function WikiAdminPanel() {
 
   useEffect(() => { loadCats(); }, [loadCats]);
   useEffect(() => { loadPendingCount(); }, [loadPendingCount]);
+  useEffect(() => { reviewCfgRef.current = reviewCfg; }, [reviewCfg]);
   useEffect(() => { loadPages(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [filters, page]);
   useEffect(() => {
     if (tab === 'stats') api.get('/api/wiki/stats').then(d => setStats(d.stats)).catch(() => {});
     if (tab === 'history') api.get('/api/wiki/admin/revisions?limit=80').then(d => setRevisions(d.revisions || [])).catch(() => {});
-    if (tab === 'review') loadSubmissions();
+    if (tab === 'review') { loadSubmissions(); if (!reviewCfg) loadReviewConfig(); }
     if (tab === 'review-config') loadReviewConfig();
     /* eslint-disable-next-line react-hooks/exhaustive-deps */
   }, [tab]);
@@ -346,6 +381,13 @@ export default function WikiAdminPanel() {
                       </div>
                     )}
                     {s.review_note && <div className="text-secondary" style={{ fontSize: 12, marginTop: 4 }}>审核意见：{s.review_note}</div>}
+                    {s.status === 'approved' && (
+                      <div className="text-secondary" style={{ fontSize: 12, marginTop: 4 }}>
+                        回赠：{s.reward_points != null
+                          ? `已发放 ${s.reward_points} 分`
+                          : (s.auto?.reward ? `未发放（AI 建议 ${s.auto.reward.points} 分，可在详情里补发）` : '未发放')}
+                      </div>
+                    )}
                   </div>
                   <div className="flex" style={{ gap: 6 }}>
                     <button className="btn btn-primary btn-sm" onClick={() => openSubmission(s.id)}>查看/审核</button>
@@ -384,10 +426,47 @@ export default function WikiAdminPanel() {
                 <label className="form-label">审核意见（驳回时必填，会通知提交人）</label>
                 <textarea className="form-textarea" style={{ minHeight: 64 }} value={subNote} onChange={e => setSubNote(e.target.value)} placeholder="例如：数据来源不明，请补充出处" />
               </div>
+
+              {/* 贡献点回赠：AI 只给建议，实际发放由这里的人决定 */}
+              {reviewCfg?.rewardEnabled && (
+                <div className="card" style={{ padding: 12, marginBottom: 12, background: 'var(--input-bg)' }}>
+                  <div style={{ fontWeight: 700, fontSize: 13.5, marginBottom: 6 }}>贡献点回赠</div>
+                  <div className="text-secondary" style={{ fontSize: 12.5, lineHeight: 1.8 }}>
+                    AI 建议：{subDetail.submission.auto?.reward
+                      ? `${subDetail.submission.auto.reward.points} 分（${subDetail.submission.auto.reward.reason || '无理由'}）`
+                      : (subDetail.submission.auto?.skipped ? `未评估（${subDetail.submission.auto.skipped}）` : '未评估')}
+                    {reviewCfg.rewardShadow ? '　·　当前是影子模式：建议值只作参考，不自动预填、不自动发放' : ''}
+                    <br />
+                    作者回赠情况：近 30 天 {subDetail.author_stats?.points30 ?? 0} 分 / {subDetail.author_stats?.times30 ?? 0} 次 · 今日 {subDetail.author_stats?.pointsToday ?? 0} 分
+                    （每日上限 {reviewCfg.rewardDailyMax || '不限'}，单次上限 {reviewCfg.rewardMax}）· 全站近 30 天均分 {subDetail.author_stats?.siteAvg ?? 0}
+                    {subDetail.reward ? `　·　本条已发放 ${subDetail.reward.points} 分` : ''}
+                  </div>
+                  <div className="flex" style={{ gap: 8, alignItems: 'center', marginTop: 8, flexWrap: 'wrap' }}>
+                    <label className="form-label" style={{ margin: 0 }}>本次发放</label>
+                    <input
+                      className="form-input"
+                      style={{ width: 96 }}
+                      type="number" min="0" max={reviewCfg.rewardMax}
+                      value={subPoints}
+                      onChange={e => setSubPoints(e.target.value)}
+                      disabled={subDetail.submission.status !== 'pending' && subDetail.submission.status !== 'approved'}
+                    />
+                    <button type="button" className="btn btn-secondary btn-sm" onClick={() => setSubPoints(String(Math.max(0, Math.round(Number(subDetail.submission.auto?.reward?.points) || 0))))}>
+                      采用 AI 建议
+                    </button>
+                    <button type="button" className="btn btn-secondary btn-sm" onClick={() => setSubPoints('0')}>清零</button>
+                    {subDetail.reward && <span className="text-secondary" style={{ fontSize: 12 }}>已发过后不会重复发放</span>}
+                  </div>
+                </div>
+              )}
+
               <div className="flex" style={{ gap: 8, flexWrap: 'wrap' }}>
                 <button className="btn btn-primary btn-sm" disabled={subBusy || subDetail.submission.status !== 'pending'} onClick={() => review('approve')}>通过并发布</button>
                 <button className="btn btn-danger btn-sm" disabled={subBusy || subDetail.submission.status !== 'pending'} onClick={() => review('reject')}>驳回</button>
-                {subDetail.submission.status !== 'pending' && <span className="text-secondary" style={{ fontSize: 12.5, alignSelf: 'center' }}>该提交已处理过</span>}
+                {subDetail.submission.status === 'approved' && reviewCfg?.rewardEnabled && !subDetail.reward && (
+                  <button className="btn btn-secondary btn-sm" disabled={subBusy} onClick={grantReward}>补发奖励</button>
+                )}
+                {subDetail.submission.status !== 'pending' && <span className="text-secondary" style={{ fontSize: 12.5, alignSelf: 'center' }}>该提交已处理过{subDetail.submission.status === 'approved' && !subDetail.reward ? '（可在此补发奖励）' : ''}</span>}
               </div>
             </div>
           )}
@@ -415,6 +494,12 @@ export default function WikiAdminPanel() {
                 <label className="flex" style={{ gap: 8, alignItems: 'center', fontSize: 14 }}>
                   <input type="checkbox" checked={!!cfgForm.autoReject} onChange={e => setCfgForm(f => ({ ...f, autoReject: e.target.checked }))} /> 明确违规时自动驳回
                 </label>
+                <label className="flex" style={{ gap: 8, alignItems: 'center', fontSize: 14 }}>
+                  <input type="checkbox" checked={cfgForm.rewardEnabled !== false} onChange={e => setCfgForm(f => ({ ...f, rewardEnabled: e.target.checked }))} /> 审核通过时发放贡献点回赠
+                </label>
+                <label className="flex" style={{ gap: 8, alignItems: 'center', fontSize: 14 }}>
+                  <input type="checkbox" checked={cfgForm.rewardShadow !== false} onChange={e => setCfgForm(f => ({ ...f, rewardShadow: e.target.checked }))} /> 影子模式（AI 只给建议、审核台不预填，仍由管理员定分）
+                </label>
 
                 <div className="grid grid-2" style={{ gap: 12 }}>
                   <div className="form-group" style={{ marginBottom: 0 }}>
@@ -435,6 +520,16 @@ export default function WikiAdminPanel() {
                     <label className="form-label">每人每日提交上限（0 = 不限）</label>
                     <input className="form-input" type="number" min="0" value={cfgForm.maxPerDay}
                       onChange={e => setCfgForm(f => ({ ...f, maxPerDay: e.target.value }))} />
+                  </div>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label">单次回赠上限（贡献点）</label>
+                    <input className="form-input" type="number" min="0" value={cfgForm.rewardMax ?? 10}
+                      onChange={e => setCfgForm(f => ({ ...f, rewardMax: e.target.value }))} />
+                  </div>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label">同一作者每日回赠上限（0 = 不限）</label>
+                    <input className="form-input" type="number" min="0" value={cfgForm.rewardDailyMax ?? 20}
+                      onChange={e => setCfgForm(f => ({ ...f, rewardDailyMax: e.target.value }))} />
                   </div>
                   <div className="form-group" style={{ marginBottom: 0, gridColumn: '1 / -1' }}>
                     <label className="form-label">API 地址</label>
