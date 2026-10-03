@@ -52,6 +52,9 @@ frontend/dist-final-*/
 frontend/dist-ssr-*/
 frontend/prerender/
 
+# 生电条目导入的中间产物（源站抓取素材 / 素材卡 / 改写产物 / 报告）：体积不小且可重新生成
+data/mcwiki/
+
 .deploy/
 
 .xjn/
