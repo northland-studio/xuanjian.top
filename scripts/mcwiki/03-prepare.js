@@ -87,6 +87,15 @@ function main() {
   index.sort((a, b) => a.group.localeCompare(b.group) || a.title.localeCompare(b.title));
   fs.writeFileSync(path.join(PREP_DIR, '_index.json'), JSON.stringify({ generatedAt: new Date().toISOString(), count: index.length, note: 'title 为最终入库标题（已去 Tutorial: 前缀），改写时的 [[内链]] 一律用这个 title', pages: index }, null, 1), 'utf8');
   fs.writeFileSync(path.join(OUT_DIR, 'title-map.json'), JSON.stringify(titleMap, null, 1), 'utf8');
+  // 来源索引：发布阶段拼页脚时要引用**具体来源条目**（URL + revid），
+  // 改写产物里没有这些字段，所以单独落一份小映射表。
+  const sources = {};
+  for (const f of files) {
+    const raw = JSON.parse(fs.readFileSync(path.join(RAW_DIR, f), 'utf8'));
+    if (DROP.has(raw.title)) continue;
+    sources[raw.key] = { sourceTitle: raw.title, sourceUrl: raw.sourceUrl, revid: raw.revid, finalTitle: finalTitle(raw.title) };
+  }
+  fs.writeFileSync(path.join(OUT_DIR, 'sources.json'), JSON.stringify(sources, null, 1), 'utf8');
   const thin = index.filter((i) => i.thin).map((i) => i.title);
   console.log(`素材卡 ${index.length} 张，共 ${(bytes / 1024).toFixed(0)}KB（平均 ${(bytes / index.length / 1024).toFixed(1)}KB/页）`);
   if (thin.length) console.log(`素材过薄（改写阶段建议跳过）：${thin.join('、')}`);

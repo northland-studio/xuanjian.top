@@ -44,6 +44,7 @@ import WikiPage from './pages/WikiPage';
 import WikiCategory from './pages/WikiCategory';
 import WikiSearch from './pages/WikiSearch';
 import WikiEditor from './pages/WikiEditor';
+import MySubmissions from './pages/MySubmissions';
 import WikiHistory from './pages/WikiHistory';
 import Privacy from './pages/Privacy';
 
@@ -67,6 +68,7 @@ function MainSite() {
         <Route path="/wiki/category/:slug" element={<WikiCategory />} />
         <Route path="/wiki/editor" element={<WikiEditor />} />
         <Route path="/wiki/editor/:id" element={<WikiEditor />} />
+        <Route path="/wiki/my-submissions" element={<MySubmissions />} />
         <Route path="/wiki/:slug/history" element={<WikiHistory />} />
         <Route path="/wiki/:slug" element={<WikiPage />} />
         <Route path="/post/:id" element={<PostDetail />} />

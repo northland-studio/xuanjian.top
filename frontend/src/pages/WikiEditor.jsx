@@ -99,7 +99,7 @@ export default function WikiEditor() {
   }, [form.title, slugLocked, suggestSlug]);
 
   const save = async (forcedStatus) => {
-    if (!isAdmin) return showToast('需要管理员权限', 'error');
+    if (!user) return showToast('请先登录后再编辑', 'error');
     if (!form.title.trim()) return showToast('请填写标题', 'error');
     if (!form.content.trim()) return showToast('正文不能为空', 'error');
     setSaving(true);
@@ -119,10 +119,12 @@ export default function WikiEditor() {
       };
       if (id) {
         const d = await api.put(`/api/wiki/${id}`, body);
+        if (d.pending) return handlePending(d);
         setMeta(d.page);
         showToast('已保存（已生成新版本）', 'success');
       } else {
         const d = await api.post('/api/wiki', body);
+        if (d.pending) return handlePending(d);
         showToast('页面已创建', 'success');
         navigate(`/wiki/editor/${d.page.id}`);
       }
@@ -131,6 +133,23 @@ export default function WikiEditor() {
     } finally {
       setSaving(false);
     }
+  };
+
+  /** 普通用户的投稿结果：自动通过就直接跳过去，否则提示排队中 */
+  const handlePending = (d) => {
+    if (d.decision === 'auto_approved') {
+      showToast('已通过自动审核并发布', 'success');
+      const slug = d.submission?.page_slug;
+      navigate(slug ? `/wiki/${slug}` : '/wiki');
+      return;
+    }
+    if (d.decision === 'auto_rejected') {
+      const why = (d.auto?.reasons || []).join('；') || '未通过自动审核';
+      showToast(`未通过自动审核：${why}（可修改后重新提交）`, 'error');
+      return;
+    }
+    showToast('已提交，等待管理员审核。审核结果会通过站内通知告诉你。', 'success');
+    navigate('/wiki/my-submissions');
   };
 
   const publish = async () => {
@@ -217,11 +236,12 @@ export default function WikiEditor() {
   };
 
   if (authLoading || loading) return <div className="loading"><div className="spinner" />加载中…</div>;
-  if (!isAdmin) {
+  if (!user) {
     return (
       <div className="empty-state" style={{ padding: 60 }}>
-        <p>Wiki 编辑仅对管理员开放</p>
-        <Link to="/wiki" className="btn btn-secondary mt-3">返回 Wiki</Link>
+        <p>编辑 Wiki 需要先登录</p>
+        <Link to="/login" className="btn btn-primary mt-3">去登录</Link>
+        <Link to="/wiki" className="btn btn-secondary mt-3" style={{ marginLeft: 8 }}>返回 Wiki</Link>
       </div>
     );
   }
@@ -242,13 +262,31 @@ export default function WikiEditor() {
           <div className="flex" style={{ gap: 8, flexWrap: 'wrap' }}>
             {meta && <span className={`badge ${meta.status === 'published' ? 'badge-success' : 'badge-warning'}`}>{meta.status === 'published' ? '已发布' : meta.status === 'draft' ? '草稿' : '已归档'}</span>}
             <button className="btn btn-secondary btn-sm" onClick={doPreview} disabled={!form.content.trim() || previewLoading}>{previewLoading ? '预览中…' : '预览'}</button>
-            <button className="btn btn-secondary btn-sm" onClick={() => save()} disabled={saving}>{saving ? '保存中…' : '保存'}</button>
-            <button className="btn btn-primary btn-sm" onClick={publish} disabled={saving}>发布</button>
-            {id && <button className="btn btn-secondary btn-sm" onClick={archive}>归档</button>}
-            {id && isSuper && <button className="btn btn-danger btn-sm" onClick={remove}>彻底删除</button>}
+            {isAdmin ? (
+              <>
+                <button className="btn btn-secondary btn-sm" onClick={() => save()} disabled={saving}>{saving ? '保存中…' : '保存'}</button>
+                <button className="btn btn-primary btn-sm" onClick={publish} disabled={saving}>发布</button>
+                {id && <button className="btn btn-secondary btn-sm" onClick={archive}>归档</button>}
+                {id && isSuper && <button className="btn btn-danger btn-sm" onClick={remove}>彻底删除</button>}
+              </>
+            ) : (
+              <button className="btn btn-primary btn-sm" onClick={() => save()} disabled={saving}>
+                {saving ? '提交中…' : '提交审核'}
+              </button>
+            )}
             {id && <Link to={`/wiki/${meta?.slug}/history`} className="btn btn-secondary btn-sm">历史版本</Link>}
           </div>
         </div>
+
+        {!isAdmin && (
+          <div className="wiki-submit-notice">
+            你的编辑会先提交给管理员审核，通过后才会发布到线上。<strong>审核期间线上内容保持不变</strong>；
+            审核结果会通过站内通知告诉你。提交内容会发送给自动审核服务（GLM）做初步判断，未通过自动审核时会给出理由。
+          </div>
+        )}
+        {!isAdmin && meta && meta.my_pending_status === 'pending' && (
+          <div className="wiki-submit-notice">你在这个页面还有一条待审提交，管理员处理后才能再次提交同一页的修改。</div>
+        )}
 
         <div className="grid grid-2" style={{ gap: 16, marginTop: 14 }}>
           <div className="form-group" style={{ marginBottom: 0 }}>
@@ -284,15 +322,19 @@ export default function WikiEditor() {
         </div>
 
         <div className="flex" style={{ gap: 18, flexWrap: 'wrap', alignItems: 'center', margin: '10px 0 16px' }}>
-          <label className="flex" style={{ gap: 6, alignItems: 'center', fontSize: 14 }}>
-            <input type="checkbox" checked={form.is_featured} onChange={e => setForm(f => ({ ...f, is_featured: e.target.checked }))} /> 设为精选
-          </label>
-          <label className="flex" style={{ gap: 6, alignItems: 'center', fontSize: 14 }}>
-            <input type="checkbox" checked={form.is_pinned} onChange={e => setForm(f => ({ ...f, is_pinned: e.target.checked }))} /> 置顶
-          </label>
-          <label className="flex" style={{ gap: 6, alignItems: 'center', fontSize: 14 }}>
-            <input type="checkbox" checked={form.notify} onChange={e => setForm(f => ({ ...f, notify: e.target.checked }))} /> 发布时通知全员
-          </label>
+          {isAdmin && (
+            <>
+              <label className="flex" style={{ gap: 6, alignItems: 'center', fontSize: 14 }}>
+                <input type="checkbox" checked={form.is_featured} onChange={e => setForm(f => ({ ...f, is_featured: e.target.checked }))} /> 设为精选
+              </label>
+              <label className="flex" style={{ gap: 6, alignItems: 'center', fontSize: 14 }}>
+                <input type="checkbox" checked={form.is_pinned} onChange={e => setForm(f => ({ ...f, is_pinned: e.target.checked }))} /> 置顶
+              </label>
+              <label className="flex" style={{ gap: 6, alignItems: 'center', fontSize: 14 }}>
+                <input type="checkbox" checked={form.notify} onChange={e => setForm(f => ({ ...f, notify: e.target.checked }))} /> 发布时通知全员
+              </label>
+            </>
+          )}
           <label className="flex" style={{ gap: 6, alignItems: 'center', fontSize: 14 }}>
             封面：
             <input type="file" accept="image/*" onChange={e => uploadCover(e.target.files?.[0])} disabled={uploading} />

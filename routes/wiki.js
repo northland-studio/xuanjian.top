@@ -13,9 +13,13 @@ const jwt = require('jsonwebtoken');
 const logger = require('../lib/logger');
 const db = require('../database');
 const wiki = require('../lib/wiki');
+const glm = require('../lib/glm');
 const { authMiddleware, adminMiddleware, superAdminMiddleware } = require('../middleware/auth');
 const { createNotification } = require('./notifications');
 const router = express.Router();
+
+// 自动审核的“审核人”占位 id：0 表示不是人点的通过/驳回
+const AUTO_REVIEWER_ID = 0;
 
 const MAX_CONTENT_LENGTH = 400000;
 
@@ -174,11 +178,15 @@ router.get('/admin/revisions', authMiddleware, adminMiddleware, async (req, res)
     }
 });
 
-/** 按 id 取页面（编辑器用） */
-router.get('/id/:id', authMiddleware, adminMiddleware, async (req, res) => {
+/** 按 id 取页面（编辑器用）：登录即可读已发布页；草稿/归档仍然只有管理员能看 */
+router.get('/id/:id', authMiddleware, async (req, res) => {
     try {
         const page = await wiki.getPageById(req.params.id);
         if (!page) return res.status(404).json({ error: '页面不存在' });
+        const isAdminUser = Number(req.userLevel) >= 1;
+        if (page.status !== 'published' && !isAdminUser) {
+            return res.status(404).json({ error: '页面不存在' });
+        }
         const breadcrumb = await wiki.categoryBreadcrumb(page.category_id);
         res.json({ ok: true, page, breadcrumb });
     } catch (e) {
@@ -234,20 +242,37 @@ function validatePayload(body, { requireContent = true } = {}) {
     }
 }
 
-/** 新建页面 */
-router.post('/', authMiddleware, adminMiddleware, async (req, res) => {
+/** 新建页面：管理员直接发布；普通用户走审核通道（线上内容不动） */
+router.post('/', authMiddleware, async (req, res) => {
     try {
         validatePayload(req.body);
-        const page = await wiki.createPage(req.body || {}, req.userId);
-        if (page.status === 'published' && req.body?.notify) await notifyWikiPublish(page, req.userId);
-        res.status(201).json({ ok: true, message: '页面已创建', page });
+        const body = req.body || {};
+        if (req.userLevel >= 1) {
+            const page = await wiki.createPage({ ...body, status: body.status || 'published' }, req.userId);
+            if (page.status === 'published' && body.notify) await notifyWikiPublish(page, req.userId);
+            return res.status(201).json({ ok: true, message: '页面已创建', page });
+        }
+        const out = await submitForReview({
+            kind: 'new', body, userId: req.userId,
+            categoryId: body.category_id ? Number(body.category_id) : null
+        });
+        await notifyAdminsOfSubmission(out.submission);
+        res.status(202).json({
+            ok: true,
+            pending: true,
+            decision: out.decision,
+            auto: summarizeAuto(out.auto),
+            message: out.decision === 'auto_approved' ? '提交已通过自动审核并发布'
+                : out.decision === 'auto_rejected' ? '提交未通过自动审核，已通知你' : '提交成功，等待管理员审核',
+            submission: publicSubmission(out.submission)
+        });
     } catch (e) {
         fail(res, e, '创建页面失败');
     }
 });
 
-/** 编辑器预览：只渲染（内链 + 短代码 + 消毒），不落库 */
-router.post('/preview', authMiddleware, adminMiddleware, async (req, res) => {
+/** 编辑器预览：只渲染（内链 + 短代码 + 消毒），不落库——普通用户编辑时也要能预览 */
+router.post('/preview', authMiddleware, async (req, res) => {
     try {
         const raw = String(req.body?.content || '');
         if (raw.length > MAX_CONTENT_LENGTH) return res.status(400).json({ error: '正文过长' });
@@ -295,13 +320,77 @@ router.delete('/categories/:id', authMiddleware, superAdminMiddleware, async (re
     }
 });
 
-/** 更新页面 */
-router.put('/:id', authMiddleware, adminMiddleware, async (req, res) => {
+/** 读取自动审核配置（apiKey 只回显是否已配置 + 末 4 位） */
+router.get('/review-config', authMiddleware, adminMiddleware, async (req, res) => {
+    try {
+        res.json({ ok: true, config: glm.publicConfig(await glm.getConfig()) });
+    } catch (e) {
+        fail(res, e, '获取审核配置失败');
+    }
+});
+
+/** 保存自动审核配置（apiKey 传空字符串 = 不改动；传 null = 清空） */
+router.put('/review-config', authMiddleware, adminMiddleware, async (req, res) => {
+    try {
+        const b = req.body || {};
+        const patch = {};
+        for (const k of ['enabled', 'autoApprove', 'autoReject']) if (b[k] !== undefined) patch[k] = !!b[k];
+        for (const k of ['approveThreshold', 'rejectThreshold', 'maxPerDay', 'maxContentLength']) if (b[k] !== undefined) patch[k] = Number(b[k]);
+        for (const k of ['model', 'baseUrl']) if (b[k] !== undefined) patch[k] = String(b[k]).trim();
+        if (b.apiKey !== undefined) patch.apiKey = b.apiKey === null ? null : String(b.apiKey).trim();
+        const cfg = await glm.saveConfig(patch);
+        logger.info(`Wiki 审核配置已更新（操作者 ${req.userId}）：enabled=${cfg.enabled} autoApprove=${cfg.autoApprove} model=${cfg.model} key=${cfg.apiKey ? '已配置' : '空'}`);
+        res.json({ ok: true, message: '配置已保存', config: glm.publicConfig(cfg) });
+    } catch (e) {
+        fail(res, e, '保存审核配置失败');
+    }
+});
+
+/** 测试 GLM 连通性 */
+router.post('/review-config/test', authMiddleware, adminMiddleware, async (req, res) => {
+    try {
+        const r = await glm.testConnection();
+        res.json({ ok: r.ok, result: r });
+    } catch (e) {
+        fail(res, e, '测试失败');
+    }
+});
+
+/** 更新页面：管理员直接保存；普通用户提交待审修改 */
+router.put('/:id', authMiddleware, async (req, res) => {
     try {
         validatePayload(req.body, { requireContent: false });
         const id = parseInt(req.params.id, 10);
-        const page = await wiki.updatePage(id, req.body || {}, req.userId, req.body?.revision_note);
-        res.json({ ok: true, message: '页面已保存', page });
+        const body = req.body || {};
+        const page = await wiki.getPageById(id);
+        if (!page) return res.status(404).json({ error: '页面不存在' });
+
+        if (req.userLevel >= 1) {
+            const saved = await wiki.updatePage(id, body, req.userId, body.revision_note);
+            return res.json({ ok: true, message: '页面已保存', page: saved });
+        }
+
+        // 普通用户：正文缺省时用当前线上内容兜底（允许只改标题/摘要/分类）
+        const out = await submitForReview({
+            kind: 'edit', pageId: id, pageTitle: page.title,
+            categoryId: body.category_id !== undefined ? Number(body.category_id) : page.category_id,
+            body: {
+                title: body.title !== undefined ? body.title : page.title,
+                summary: body.summary !== undefined ? body.summary : page.summary,
+                content: body.content !== undefined ? body.content : page.content
+            },
+            userId: req.userId
+        });
+        await notifyAdminsOfSubmission(out.submission);
+        res.status(202).json({
+            ok: true,
+            pending: true,
+            decision: out.decision,
+            auto: summarizeAuto(out.auto),
+            message: out.decision === 'auto_approved' ? '修改已通过自动审核并生效'
+                : out.decision === 'auto_rejected' ? '修改未通过自动审核，已通知你' : '修改已提交，等待管理员审核',
+            submission: publicSubmission(out.submission)
+        });
     } catch (e) {
         fail(res, e, '保存页面失败');
     }
@@ -364,6 +453,264 @@ router.post('/:id/revisions/:revisionId/restore', authMiddleware, adminMiddlewar
 });
 
 /* ==================================================================
+ * 开放编辑：提交 / 审核 / 自动审核配置
+ * ================================================================== */
+
+/** 送进模型的内容只做审核，不下发原始 JSON */
+function summarizeAuto(auto) {
+    if (!auto) return null;
+    return {
+        ok: !!auto.ok,
+        skipped: auto.skipped || null,
+        error: auto.error || null,
+        decision: auto.decision,
+        score: auto.score,
+        categories: auto.categories || [],
+        reasons: auto.reasons || [],
+        model: auto.model,
+        ms: auto.ms
+    };
+}
+
+/** 给提交者看的提交单（不含正文，避免把待审内容当已发布内容下发） */
+function publicSubmission(sub) {
+    if (!sub) return null;
+    return {
+        id: sub.id, kind: sub.kind, title: sub.title, status: sub.status,
+        page_id: sub.page_id, page_slug: sub.page_slug || null,
+        review_note: sub.review_note || '', created_at: sub.created_at, reviewed_at: sub.reviewed_at,
+        auto: sub.auto_review ? summarizeAuto(safeJson(sub.auto_review)) : null
+    };
+}
+
+function safeJson(s) {
+    try { return typeof s === 'string' ? JSON.parse(s) : s; } catch (e) { return null; }
+}
+
+/** 每人每日提交上限 */
+async function assertSubmitAllowed(userId) {
+    const cfg = await glm.getConfig();
+    const max = Number(cfg.maxPerDay) || 0;
+    if (max > 0) {
+        const n = await wiki.countSubmissionsToday(userId);
+        if (n >= max) {
+            throw Object.assign(new Error(`今天已提交 ${n} 篇，达到每日上限（${max} 篇），请明天再来或联系管理员`), { status: 429 });
+        }
+    }
+    return cfg;
+}
+
+/**
+ * 建提交 + 触发自动审核 + 按配置决定自动通过/驳回。
+ * 自动审核任何异常都只是"转人工"，绝不放行。
+ */
+async function submitForReview({ kind, pageId = null, categoryId = null, body, userId, pageTitle = '' }) {
+    const cfg = await assertSubmitAllowed(userId);
+    const sub = await wiki.createSubmission({
+        pageId, kind, submitterId: userId, categoryId,
+        title: body.title, content: body.content, summary: body.summary
+    });
+
+    let auto = null;
+    try {
+        auto = await glm.reviewContent({
+            title: sub.title, summary: sub.summary, content: sub.content, kind, pageTitle: pageTitle || sub.page_title || ''
+        });
+        await wiki.attachAutoReview(sub.id, auto);
+    } catch (e) {
+        logger.error('自动审核异常（已转人工）:', e.message);
+    }
+
+    let decision = 'pending';
+    if (auto && auto.ok) {
+        if (cfg.autoApprove && auto.decision === 'approve' && auto.score >= cfg.approveThreshold) {
+            await wiki.approveSubmission(sub.id, AUTO_REVIEWER_ID, `GLM 自动通过（${auto.model} · 置信度 ${auto.score}）`);
+            decision = 'auto_approved';
+        } else if (cfg.autoReject && auto.decision === 'reject' && auto.score >= cfg.rejectThreshold) {
+            const why = (auto.reasons || []).join('；') || `命中类别 ${(auto.categories || []).join('、')}`;
+            await wiki.rejectSubmission(sub.id, AUTO_REVIEWER_ID, `GLM 自动驳回：${why}`);
+            decision = 'auto_rejected';
+        }
+    }
+    return { submission: await wiki.getSubmissionById(sub.id), decision, auto };
+}
+
+/** 通知所有管理员有待审投稿 */
+async function notifyAdminsOfSubmission(sub) {
+    try {
+        const admins = await db.all('SELECT id FROM users WHERE level >= 1');
+        const who = sub.submitter_nickname || sub.submitter_username || `用户#${sub.submitter_id}`;
+        for (const a of admins) {
+            if (Number(a.id) === Number(sub.submitter_id)) continue;
+            await createNotification({
+                userId: a.id,
+                type: 'wiki',
+                title: sub.kind === 'new' ? 'Wiki 待审核新页面' : 'Wiki 待审核修改',
+                content: `「${sub.title}」由 ${who} 提交，等待审核`,
+                url: '/admin#wiki/review'
+            });
+        }
+    } catch (e) {
+        logger.error('通知管理员失败:', e.message);
+    }
+}
+
+/** 通知提交人审核结果 */
+async function notifySubmitterReviewed(sub, approved, auto = false) {
+    try {
+        await createNotification({
+            userId: sub.submitter_id,
+            type: 'wiki',
+            title: approved ? '你的 Wiki 投稿已通过' : '你的 Wiki 投稿未通过',
+            content: approved
+                ? `「${sub.title}」${auto ? '已通过自动审核并发布' : '已通过审核并发布'}`
+                : `「${sub.title}」未通过：${sub.review_note || '未说明原因'}${auto ? '（自动审核）' : ''}`,
+            url: sub.page_slug ? `/wiki/${sub.page_slug}` : '/wiki'
+        });
+    } catch (e) {
+        logger.error('通知提交人失败:', e.message);
+    }
+}
+
+/** 我的提交记录 */
+router.get('/submissions/mine', authMiddleware, async (req, res) => {
+    try {
+        const out = await wiki.listSubmissions({
+            status: req.query.status || 'all',
+            limit: req.query.limit || 20,
+            page: req.query.page || 1,
+            submitterId: req.userId
+        });
+        res.json({ ok: true, total: out.total, items: out.items.map(publicSubmission) });
+    } catch (e) {
+        fail(res, e, '获取提交记录失败');
+    }
+});
+
+/** 待审数量（后台红点 / 导航提示） */
+router.get('/submissions/pending-count', authMiddleware, adminMiddleware, async (req, res) => {
+    try {
+        res.json({ ok: true, count: await wiki.pendingSubmissionCount() });
+    } catch (e) {
+        fail(res, e, '获取待审数量失败');
+    }
+});
+
+/** 待审队列 */
+router.get('/submissions', authMiddleware, adminMiddleware, async (req, res) => {
+    try {
+        const out = await wiki.listSubmissions({
+            status: req.query.status || 'pending',
+            limit: req.query.limit || 20,
+            page: req.query.page || 1
+        });
+        res.json({
+            ok: true, total: out.total, page: out.page, limit: out.limit,
+            items: out.items.map((s) => ({ ...s, auto: s.auto_review ? summarizeAuto(safeJson(s.auto_review)) : null }))
+        });
+    } catch (e) {
+        fail(res, e, '获取待审列表失败');
+    }
+});
+
+/** 提交单详情（含待审正文与"当前线上正文"，供对比） */
+router.get('/submissions/:id', authMiddleware, adminMiddleware, async (req, res) => {
+    try {
+        const sub = await wiki.getSubmissionById(req.params.id);
+        if (!sub) return res.status(404).json({ error: '提交不存在' });
+        const page = sub.page_id ? await wiki.getPageById(sub.page_id) : null;
+        res.json({
+            ok: true,
+            submission: { ...sub, auto: sub.auto_review ? summarizeAuto(safeJson(sub.auto_review)) : null },
+            current: page ? { title: page.title, content: page.content, summary: page.summary, category_id: page.category_id, slug: page.slug } : null
+        });
+    } catch (e) {
+        fail(res, e, '获取提交详情失败');
+    }
+});
+
+/** 通过 */
+router.post('/submissions/:id/approve', authMiddleware, adminMiddleware, async (req, res) => {
+    try {
+        const out = await wiki.approveSubmission(req.params.id, req.userId, req.body?.note || '');
+        await notifySubmitterReviewed(out.submission, true, false);
+        logger.info(`Wiki 投稿通过：#${out.submission.id}「${out.submission.title}」（审核人 ${req.userId}）`);
+        res.json({ ok: true, message: '已通过并发布', page: out.page, submission: publicSubmission(out.submission) });
+    } catch (e) {
+        fail(res, e, '审核通过失败');
+    }
+});
+
+/** 驳回 */
+router.post('/submissions/:id/reject', authMiddleware, adminMiddleware, async (req, res) => {
+    try {
+        const sub = await wiki.rejectSubmission(req.params.id, req.userId, req.body?.note || '');
+        await notifySubmitterReviewed(sub, false, false);
+        logger.info(`Wiki 投稿驳回：#${sub.id}「${sub.title}」（审核人 ${req.userId}）理由：${sub.review_note}`);
+        res.json({ ok: true, message: '已驳回并通知提交人', submission: publicSubmission(sub) });
+    } catch (e) {
+        fail(res, e, '驳回失败');
+    }
+});
+
+/* ==================================================================
+ * 页面评论
+ * ================================================================== */
+
+/** 评论列表（公开） */
+router.get('/pages/:id/comments', optionalAuthMiddleware, async (req, res) => {
+    try {
+        const out = await wiki.listComments(req.params.id, { limit: req.query.limit || 50, page: req.query.page || 1 });
+        res.json({ ok: true, total: out.total, page: out.page, limit: out.limit, items: out.items });
+    } catch (e) {
+        fail(res, e, '获取评论失败');
+    }
+});
+
+/** 发表评论（登录即可；简单频率限制：1 分钟 5 条） */
+router.post('/pages/:id/comments', authMiddleware, async (req, res) => {
+    try {
+        const recent = await db.get(
+            `SELECT COUNT(*) AS c FROM wiki_comments
+              WHERE user_id = ? AND created_at > DATETIME('now', 'localtime', '-1 minute')`,
+            [req.userId]
+        );
+        if (recent.c >= 5) return res.status(429).json({ error: '评论太快了，请稍后再试' });
+
+        const { comment, page } = await wiki.addComment({
+            pageId: req.params.id, userId: req.userId, content: req.body?.content
+        });
+        if (page.author_id && Number(page.author_id) !== Number(req.userId)) {
+            await createNotification({
+                userId: page.author_id,
+                type: 'wiki',
+                title: '你的 Wiki 页面有新评论',
+                content: `「${page.title}」：${String(comment.content).slice(0, 60)}`,
+                actorId: req.userId,
+                url: `/wiki/${page.slug}#comments`
+            });
+        }
+        res.status(201).json({ ok: true, message: '评论已发布', comment });
+    } catch (e) {
+        fail(res, e, '发表评论失败');
+    }
+});
+
+/** 删除自己的评论（管理员可删任何评论） */
+router.delete('/comments/:id', authMiddleware, async (req, res) => {
+    try {
+        const c = await wiki.getCommentById(req.params.id);
+        if (!c) return res.status(404).json({ error: '评论不存在' });
+        const isOwner = Number(c.user_id) === Number(req.userId);
+        if (!isOwner && req.userLevel < 1) return res.status(403).json({ error: '只能删除自己的评论' });
+        await wiki.setCommentStatus(c.id, 'hidden');
+        res.json({ ok: true, message: '评论已删除' });
+    } catch (e) {
+        fail(res, e, '删除评论失败');
+    }
+});
+
+/* ==================================================================
  * 动态 slug 路径（放最后）
  * ================================================================== */
 
@@ -416,12 +763,19 @@ router.get('/:slug', optionalAuthMiddleware, async (req, res) => {
 
         if (page.status === 'published' && !admin) wiki.bumpViews(page.id, clientKey(req));
 
-        const [content_html, breadcrumb, related, neighbors] = await Promise.all([
+        const [content_html, breadcrumb, related, neighbors, comment_count] = await Promise.all([
             wiki.renderContent(page.content),
             wiki.categoryBreadcrumb(page.category_id),
             wiki.relatedPages(page.id, 8),
-            wiki.getNeighbors(page)
+            wiki.getNeighbors(page),
+            wiki.commentCount(page.id)
         ]);
+
+        // 待审信息：管理员看到"这一页有待审修改"，提交者看到"我的投稿在排队"
+        const pending_review = admin ? await wiki.pendingSubmissionForPage(page.id) : null;
+        const my_pending = req.userId
+            ? await wiki.myPendingSubmission({ pageId: page.id, submitterId: req.userId }).catch(() => null)
+            : null;
 
         res.json({
             ok: true,
@@ -430,7 +784,12 @@ router.get('/:slug', optionalAuthMiddleware, async (req, res) => {
             breadcrumb,
             related,
             neighbors,
-            can_edit: admin
+            comment_count,
+            can_edit: !!req.userId,
+            can_review: admin,
+            is_admin: admin,
+            pending_review,
+            my_pending
         });
     } catch (e) {
         fail(res, e, '获取页面失败');

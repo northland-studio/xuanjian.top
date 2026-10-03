@@ -21,6 +21,7 @@ const ROOT = path.join(__dirname, '..', '..');
 const DATA_DIR = process.env.MCWIKI_ADAPTED || path.join(ROOT, 'data', 'mcwiki', 'adapted');
 const REPORT = path.join(ROOT, 'data', 'mcwiki', 'publish-report.json');
 const IMAGE_MANIFEST = process.env.MCWIKI_IMAGES || path.join(ROOT, 'data', 'mcwiki', 'images.json');
+const SOURCE_INDEX = process.env.MCWIKI_SOURCES || path.join(ROOT, 'data', 'mcwiki', 'sources.json');
 
 const args = process.argv.slice(2);
 const has = (f) => args.includes(f);
@@ -38,7 +39,7 @@ const CATEGORY_SLUG = valOf('category') || 'minecraft-zhi-shi';
 let db;
 let wiki;
 
-/** 统一的来源与许可页脚 */
+/** 统一的来源与许可页脚（引用具体来源条目页，而不是站点首页） */
 function sourceFooter(meta) {
   const src = meta.sourceUrl || 'https://zh.minecraft.wiki/';
   const title = meta.sourceTitle || meta.title;
@@ -99,6 +100,21 @@ async function main() {
   }
   const withImage = Object.values(imageItems).filter((v) => v && v.cdn).length;
 
+  // 来源索引（key → 源条目标题/URL/revid）：页脚要引具体条目页
+  let sourceIndex = {};
+  if (fs.existsSync(SOURCE_INDEX)) {
+    try { sourceIndex = JSON.parse(fs.readFileSync(SOURCE_INDEX, 'utf8').replace(/^\uFEFF/, '')); } catch (e) { /* 忽略 */ }
+  }
+  const footMetaOf = (meta, key) => {
+    const s = sourceIndex[key] || {};
+    return {
+      ...meta,
+      sourceTitle: meta.sourceTitle || s.sourceTitle,
+      sourceUrl: meta.sourceUrl || s.sourceUrl,
+      revid: meta.revid || s.revid
+    };
+  };
+
   let files = fs.existsSync(DATA_DIR) ? fs.readdirSync(DATA_DIR).filter((f) => f.endsWith('.json')) : [];
   // --only 适合少量页；批量场景用 --only-file（一行一个 key，或逗号分隔），
   // 因为超长命令行会被 shell/ssh 截断（踩过一次：74 个 key 只传到 26 个）。
@@ -141,7 +157,7 @@ async function main() {
     if (title.length > 200) { report.failed.push({ key, stage: 'validate', error: '标题过长' }); console.log(`✗ ${pad(key, 22)} 标题过长`); continue; }
     if (summary.length > 500) { report.failed.push({ key, stage: 'validate', error: '摘要过长' }); console.log(`✗ ${pad(key, 22)} 摘要过长`); continue; }
 
-    const content = body + sourceFooter(meta);
+    const content = body + sourceFooter(footMetaOf(meta, key));
     const clean = wiki.sanitizeContent(content);
 
     // 体检指标
@@ -219,7 +235,7 @@ async function main() {
           ? figureBlock({ ...imgFix, title: item.title }) + rawFix
           : rawFix;
         const { html, targetIds } = await wiki.resolveWikiLinks(bodyFix);
-        const content = wiki.sanitizeContent(html) + sourceFooter(meta);
+        const content = wiki.sanitizeContent(html) + sourceFooter(footMetaOf(meta, item.key));
         const ts = typeof db.getLocalTimestamp === 'function' ? db.getLocalTimestamp() : new Date().toISOString();
         await db.run('UPDATE wiki_pages SET content = ?, updated_at = ? WHERE id = ?', [content, ts, item.id]);
         await db.run("UPDATE wiki_revisions SET content = ? WHERE page_id = ? AND revision_note = '创建页面'", [content, item.id]);

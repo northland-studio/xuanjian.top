@@ -60,6 +60,9 @@ export default function Admin() {
     if (h) {
       if (h.includes('mod-servers') || h === 'mod') return 'mod';
       if (ALL_TAB_KEYS.includes(h)) return h;
+      // 支持子页深链：#wiki/review → wiki 分组（子页由组件自己解析）
+      const base = h.split('/')[0];
+      if (ALL_TAB_KEYS.includes(base)) return base;
     }
     try {
       const last = localStorage.getItem(LAST_TAB_KEY);
@@ -83,7 +86,10 @@ export default function Admin() {
   useEffect(() => {
     const onHash = () => {
       const h = window.location.hash.replace(/^#/, '');
-      if (h && ALL_TAB_KEYS.includes(h)) setTab(h);
+      if (!h) return;
+      if (ALL_TAB_KEYS.includes(h)) return setTab(h);
+      const base = h.split('/')[0];
+      if (ALL_TAB_KEYS.includes(base)) setTab(base);
     };
     window.addEventListener('hashchange', onHash);
     return () => window.removeEventListener('hashchange', onHash);
