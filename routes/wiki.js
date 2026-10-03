@@ -10,16 +10,29 @@
  */
 const express = require('express');
 const jwt = require('jsonwebtoken');
+const rateLimit = require('express-rate-limit');
 const logger = require('../lib/logger');
 const db = require('../database');
 const wiki = require('../lib/wiki');
 const glm = require('../lib/glm');
+const wikiRender = require('../lib/wiki-render');
 const { authMiddleware, adminMiddleware, superAdminMiddleware } = require('../middleware/auth');
 const { createNotification } = require('./notifications');
 const router = express.Router();
 
 // 自动审核的“审核人”占位 id：0 表示不是人点的通过/驳回
 const AUTO_REVIEWER_ID = 0;
+
+// 词条卡片出图的限流与内存缓存（渲染是 CPU 活，别让人刷）
+const cardLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 60,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: '出图太频繁了，请稍后再试' }
+});
+const cardCache = new Map();
+const CARD_CACHE_MAX = 120;
 
 const MAX_CONTENT_LENGTH = 400000;
 
@@ -710,6 +723,36 @@ router.post('/submissions/:id/reject', authMiddleware, adminMiddleware, async (r
         res.json({ ok: true, message: '已驳回并通知提交人', submission: publicSubmission(sub) });
     } catch (e) {
         fail(res, e, '驳回失败');
+    }
+});
+
+/* ==================================================================
+ * 词条卡片（群聊出图，给 QQ 机器人用）
+ * ================================================================== */
+
+/**
+ * GET /api/wiki/card/:slug.png
+ * 公开只读（内容本就是已发布的公开词条，QQ 取图不带请求头，与 #help 卡片一致）。
+ * 只出已发布页；按 slug+updated_at 内存缓存；1 分钟 60 次限流。
+ */
+router.get('/card/:slug.png', cardLimiter, async (req, res) => {
+    try {
+        const slug = String(req.params.slug || '').trim();
+        const page = await wiki.getPageBySlug(slug);   // 默认不含未发布
+        if (!page || page.status !== 'published') return res.status(404).json({ error: '词条不存在' });
+        const key = `${page.slug}:${page.updated_at}`;
+        let buf = cardCache.get(key);
+        if (!buf) {
+            buf = await wikiRender.renderWikiCard(page);
+            cardCache.set(key, buf);
+            if (cardCache.size > CARD_CACHE_MAX) cardCache.delete(cardCache.keys().next().value);
+        }
+        res.set('Content-Type', 'image/png');
+        res.set('Cache-Control', 'public, max-age=3600');
+        res.set('X-Content-Type-Options', 'nosniff');
+        res.send(buf);
+    } catch (e) {
+        fail(res, e, '生成词条卡片失败');
     }
 });
 
