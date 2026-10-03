@@ -81,8 +81,11 @@ async function main() {
 
   const cat = await wiki.getCategoryBySlug(CATEGORY_SLUG);
   if (!cat) throw new Error(`分类不存在：${CATEGORY_SLUG}`);
-  const admin = await db.get('SELECT id, username FROM users WHERE level = 0 ORDER BY id LIMIT 1');
-  if (!admin) throw new Error('找不到管理员账号（level = 0）');
+  // 署名：默认用 1 号用户（玄剑公会官方账号），可用 --user=<id> 或 MCWIKI_AUTHOR_ID 覆盖
+  const wantUser = Number(valOf('user') || process.env.MCWIKI_AUTHOR_ID || 1);
+  const admin = (await db.get('SELECT id, username FROM users WHERE id = ?', [wantUser]))
+    || (await db.get('SELECT id, username FROM users WHERE level = 0 ORDER BY id LIMIT 1'));
+  if (!admin) throw new Error(`找不到署名账号（--user=${wantUser}）`);
 
   // 主图清单（可选）：由 06-images.js 产出；不存在就纯文字发布
   let imageItems = {};
