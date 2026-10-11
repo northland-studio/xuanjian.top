@@ -181,6 +181,8 @@ app.use('/api/pay', payRoutes);
 app.use('/api/mc', mcRoutes);
 app.use('/api/donation', donationRoutes);
 app.use('/api/wiki', wikiRoutes);
+// 「紫雪坊市公会集市」（贡献点集市：店铺/商品/订单/核销/分户账，设计见 docs/MARKET.md）
+app.use('/api/market', require('./routes/market'));
 
 // ============ React前端（frontend/dist）托管 ============
 const frontendDist = path.join(__dirname, 'frontend', 'dist');
@@ -258,6 +260,13 @@ try {
     setInterval(runChatCleanup, 60 * 60 * 1000);
 } catch (e) {
     logger.error('聊天清理任务注册失败:', e.message);
+}
+
+// 集市定时任务（续费/宽限期/到期订单/自动确认收货/提醒），默认每 10 分钟一轮；表不存在时自动跳过
+try {
+    require('./lib/market-jobs').startScheduler();
+} catch (e) {
+    logger.error('集市定时任务注册失败:', e.message);
 }
 
 module.exports = app;
