@@ -181,8 +181,11 @@ app.use('/api/pay', payRoutes);
 app.use('/api/mc', mcRoutes);
 app.use('/api/donation', donationRoutes);
 app.use('/api/wiki', wikiRoutes);
-// 「紫雪坊市公会集市」（贡献点集市：店铺/商品/订单/核销/分户账，设计见 docs/MARKET.md）
-app.use('/api/market', require('./routes/market'));
+// 「紫雪坊市公会集市」（贡献点集市：店铺/商品/订单/核销/收入分户账，设计见 docs/MARKET.md）
+const marketRoutes = require('./routes/market');
+app.use('/api/market', marketRoutes);
+// 集市短链：/q/<code> → 店铺/商品/地图页（二维码扫出来的地址）
+app.use('/q', marketRoutes.shortRouter);
 
 // ============ React前端（frontend/dist）托管 ============
 const frontendDist = path.join(__dirname, 'frontend', 'dist');

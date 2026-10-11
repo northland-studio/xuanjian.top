@@ -58,6 +58,10 @@ data/mcwiki/
 # 数据库备份（迁移脚本自动生成，体积大且可随时重跑生成）
 data/backups/
 
+# 集市出图样例（scripts/test-market-qr.js 生成的示例海报/地图画，可重新生成）
+data/market-poster-*.png
+data/market-map-art.png
+
 .deploy/
 
 .xjn/

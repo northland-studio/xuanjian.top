@@ -2,14 +2,16 @@
  * 「紫雪坊市公会集市」路由
  *
  * 三段：
- *   /api/market/**                公开与买家（浏览、下单、确认收货、退款、评价、收藏、地图）
+ *   /api/market/**                公开与买家（浏览、下单、确认收货、退款、评价、收藏、地图、二维码/海报）
  *   /api/market/merchant/**       商家（店铺资料、商品、订单、核销、履约、退款处理、经营账、档案）
  *   /api/market/admin/**          管理员（审核、费率税务配置、争议裁决、人工退款、财政分户账、档案、审计、任务触发）
+ *   /q/:code                      短链跳转（二维码扫出来的就是这个地址）
  *
  * 约定：
  *   - 所有"谁能看/谁能改"的判断都在后端；前端隐藏按钮只是体验
  *   - 富文本描述复用 wiki 的白名单清洗（sanitize-html），不新造清洗器
  *   - 图片只收 URL（复用 /api/upload/image 上传，不在集市里再写一套存储）
+ *   - 出图（二维码/海报/地图画）复用 lib/pay-render.js 的 sharp 管线，见 lib/market-render.js
  */
 const express = require('express');
 const db = require('../database');
@@ -18,10 +20,13 @@ const market = require('../lib/market');
 const settle = require('../lib/market-settle');
 const jobs = require('../lib/market-jobs');
 const notify = require('../lib/market-notify');
+const render = require('../lib/market-render');
 const wiki = require('../lib/wiki');
 const { authMiddleware, adminMiddleware, optionalAuthMiddleware } = require('../middleware/auth');
 
 const router = express.Router();
+/** 短链跳转（挂在站点根 /q，不带 /api 前缀） */
+const shortRouter = express.Router();
 
 function fail(res, e, fallback) {
     const status = e && e.status ? e.status : 500;
@@ -223,6 +228,105 @@ router.get('/map', optionalAuthMiddleware, async (req, res) => {
         });
         res.json({ ok: true, points, servers, dimensions, mapRange: cfg.mapRange, backgrounds: cfg.mapBackgrounds || {} });
     } catch (e) { fail(res, e, '加载地图数据失败'); }
+});
+
+/* ==================================================================
+ * 扫码 / 出图（短链二维码、分享海报、地图画）
+ * ================================================================== */
+
+/** 短链二维码 PNG（公开：短链本身就是公开地址；不存在的短链返回 404，避免变成任意生成器） */
+router.get(/^\/qr\/(.+)\.png$/, async (req, res) => {
+    try {
+        const code = String(req.params[0] || '').slice(0, 40);
+        const link = await db.get('SELECT code, target_type, target_id FROM market_short_links WHERE code = ? AND disabled = 0', [code]);
+        if (!link) return res.status(404).json({ error: '短链不存在' });
+        const png = await render.shortQrPng(code);
+        res.set('Content-Type', 'image/png');
+        res.set('Cache-Control', 'public, max-age=86400');
+        res.send(png);
+    } catch (e) { fail(res, e, '生成二维码失败'); }
+});
+
+/** 分享海报 PNG（店铺 / 商品公开信息 + 二维码，**不含核销码**） */
+router.get(/^\/poster\/(.+)\.png$/, async (req, res) => {
+    try {
+        const code = String(req.params[0] || '').slice(0, 40);
+        const link = await db.get('SELECT * FROM market_short_links WHERE code = ? AND disabled = 0', [code]);
+        if (!link) return res.status(404).json({ error: '短链不存在' });
+        let d = null;
+        if (link.target_type === 'store') {
+            const s = await db.get('SELECT * FROM market_stores WHERE id = ?', [link.target_id]);
+            if (!s) return res.status(404).json({ error: '店铺不存在' });
+            const loc = await db.get(`SELECT server_name, dimension, x, y, z FROM market_store_locations WHERE store_id = ? AND is_public = 1 ORDER BY id LIMIT 1`, [s.id]);
+            d = {
+                kind: 'store', code, title: s.name, storeName: '',
+                subtitle: s.intro, tags: (() => { try { return JSON.parse(s.tags || '[]'); } catch (e) { return []; } })(),
+                intro: s.notice || s.intro,
+                rating: s.rating_count > 0 ? Math.round((s.rating_sum / s.rating_count) * 10) / 10 : 0,
+                sales: s.sales_count,
+                location: loc ? `${loc.server_name || '115'} ${market.DIMENSIONS[loc.dimension] || loc.dimension} X ${loc.x} Y ${loc.y} Z ${loc.z}` : ''
+            };
+        } else if (link.target_type === 'product') {
+            const p = await db.get('SELECT * FROM market_products WHERE id = ?', [link.target_id]);
+            if (!p) return res.status(404).json({ error: '商品不存在' });
+            const s = await db.get('SELECT name FROM market_stores WHERE id = ?', [p.store_id]);
+            d = {
+                kind: 'product', code, title: p.title, storeName: s ? s.name : '',
+                subtitle: p.summary, price: p.price, stock: p.stock, intro: p.spec
+            };
+        } else {
+            return res.status(400).json({ error: '该短链类型不支持出海报' });
+        }
+        const png = await render.sharePosterPng(d);
+        res.set('Content-Type', 'image/png');
+        res.set('Cache-Control', 'public, max-age=600');
+        res.send(png);
+    } catch (e) { fail(res, e, '生成海报失败'); }
+});
+
+/** 地图画 PNG（把当前公开落点按百分比刻度画成一张图，可用于游戏内地图画/宣传） */
+router.get('/map/art.png', async (req, res) => {
+    try {
+        const cfg = await market.getConfig();
+        const where = ['l.is_public = 1', `s.status IN ('active','grace')`];
+        const params = [];
+        if (req.query.server) { where.push('l.server_key = ?'); params.push(String(req.query.server)); }
+        if (req.query.dimension) { where.push('l.dimension = ?'); params.push(String(req.query.dimension)); }
+        const rows = await db.all(
+            `SELECT l.x, l.z, l.server_key, l.dimension, s.name AS store_name
+               FROM market_store_locations l JOIN market_stores s ON s.id = l.store_id
+              WHERE ${where.join(' AND ')} ORDER BY l.id LIMIT 300`, params);
+        const points = rows.map(r => {
+            const p = market.projectToMap(r.server_key, r.dimension, r.x, r.z, cfg);
+            return { px: p.x, py: p.y, label: r.store_name, highlight: !p.inside };
+        });
+        const title = `紫雪坊市 · 店铺地图${req.query.server ? ` · ${req.query.server}` : ''}${req.query.dimension ? ` · ${market.DIMENSIONS[req.query.dimension] || req.query.dimension}` : ''}`;
+        const png = await render.renderMapArt({ points, title });
+        res.set('Content-Type', 'image/png');
+        res.set('Cache-Control', 'public, max-age=300');
+        res.send(png);
+    } catch (e) { fail(res, e, '生成地图画失败'); }
+});
+
+/** 短链跳转：/q/<code> → 对应页面（二维码扫出来的地址） */
+shortRouter.get('/:code', async (req, res) => {
+    try {
+        const link = await db.get('SELECT * FROM market_short_links WHERE code = ? AND disabled = 0', [String(req.params.code || '').slice(0, 40)]);
+        if (!link) return res.status(404).send('短链不存在或已失效');
+        const map = {
+            store: `/market/store/${link.target_id}`,
+            product: `/market/product/${link.target_id}`,
+            order: '/market/orders',
+            map: '/market/map'
+        };
+        const to = map[link.target_type];
+        if (!to) return res.status(404).send('短链目标类型不支持');
+        await db.run('UPDATE market_short_links SET hit_count = COALESCE(hit_count, 0) + 1 WHERE id = ?', [link.id]).catch(() => { });
+        res.redirect(302, to);
+    } catch (e) {
+        logger.error('[market] 短链跳转失败:', e.message);
+        res.status(500).send('短链跳转失败');
+    }
 });
 
 /* ==================================================================
@@ -1374,3 +1478,4 @@ router.get('/admin/reconcile', authMiddleware, adminMiddleware, async (req, res)
 });
 
 module.exports = router;
+module.exports.shortRouter = shortRouter;
