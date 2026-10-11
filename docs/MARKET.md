@@ -6,8 +6,28 @@
 
 - 后端：`lib/market*.js` + `routes/market.js`（挂在 `/api/market`），短链在 `/q/:code`
 - 数据：`scripts/migrate-marketplace.js`（18 张 `market_*` 表 + 两处既有白名单扩展）
-- 前端：`frontend/src/pages/Market*.jsx`
-- 联调：`scripts/test-market-e2e.js`（后端 E2E）、`scripts/test-market-qr.js`（二维码解码）
+- 前端：`frontend/src/pages/Market*.jsx`、`frontend/src/components/MarketAdminPanel.jsx`、
+  `frontend/src/components/MarketIcons.jsx`（内联 SVG 图标）、`frontend/src/market/helpers.js`、
+  `frontend/src/styles/market.css`
+- 联调：`scripts/test-market-e2e.js`（后端 E2E）、`scripts/test-market-qr.js`（二维码解码）、
+  `scripts/test-market-isolation.js`（系统账号隔离）
+
+## 0. 入口与页面
+
+| 位置 | 说明 |
+| --- | --- |
+| 导航栏「经济 → 集市」 | 唯一入口，**不在导航下再分级**（集市内部页面靠页面里的快捷入口与页签切换） |
+| `/market` | 集市首页（店铺 / 商品两个页签、分类与排序、搜索、快捷入口） |
+| `/market/store/:id`、`/market/product/:id` | 店铺详情、商品详情与下单 |
+| `/market/orders` | 我的订单（核销码 / 确认收货 / 退款 / 争议 / 评价） |
+| `/market/merchant` | 商家后台（开店 / 商品 / 订单 / 核销台 / 退款 / 账务 / 评价管理） |
+| `/market/map` | 店铺地图（可按服务器与维度筛选、导出地图画） |
+| `/admin#market` | **集市管理不单独设页**，统一并入管理后台的「集市管理」页签（经济分组） |
+| 头像菜单 | 只保留「管理后台」一个入口（支付管理与集市管理都在该后台的页签里） |
+
+页面上所有图标均为内联 SVG（`components/MarketIcons.jsx`，写法对齐 `WikiIcons.jsx`）：
+不使用 emoji 或 `★☆✓✕⚠` 等字形。分类图标按**分类 slug** 由前端映射，数据库 `icon` 字段留空
+（原生 `<option>` 里也放不了 SVG），迁移脚本会幂等清掉历史种子里写入的 emoji 图标。
 
 ---
 
@@ -293,6 +313,20 @@ DB_FILE=data/wiki-mobile-test.db node scripts/test-market-isolation.js 3998
 
 覆盖：转账双向拦截、四个榜单/报表、五个成员搜索入口、集市内部仍可见托管账号（对账需要）。
 
+前端：
+
+```bash
+cd frontend
+npm run build            # 客户端产物（另见 scripts/build-frontend.sh 会一并构建 SSR 产物）
+npm run lint             # oxlint：仓库基线 86 warnings / 0 errors
+npx oxlint src/pages/Market*.jsx src/components/MarketAdminPanel.jsx src/components/MarketIcons.jsx
+                         # 集市相关文件单独跑：0 warnings / 0 errors
+```
+
+部署脚本：`scripts/deploy-market-20261011.sh`（后端 + 迁移）、
+`scripts/deploy-market-isolation-20261011.sh`（系统账号隔离加固）、
+`scripts/deploy-market-frontend-20261011.sh` 与 `…-frontend2-20261011.sh`（前端产物 + SSG 重建）。
+
 ---
 
 ## 13. 已知限制与后续
@@ -300,5 +334,8 @@ DB_FILE=data/wiki-mobile-test.db node scripts/test-market-isolation.js 3998
 - **不做**游戏内交货校验：官网只能记录「商家核销 + 买家确认」，这是业务事实的边界。
 - 平台服务费/抽成**永不实现**（用户明确要求）。
 - 商品位置是店铺级位置，不做「按商品分别设坐标」。
-- 地图底图需要管理员自行上传图片并配置世界坐标范围（`mapBackgrounds`），当前只支持一层底图。
+- 地图底图需要管理员自行上传图片并配置世界坐标范围（`mapBackgrounds`），当前只支持一层底图；
+  地图画预览反映的是**已保存**的范围，刚改完范围需先保存再看。
+- 官网其余页面历史上用过 emoji（如库存页 📦、排行榜奖牌、皮肤浮窗的 × 收起按钮），
+  本次只保证集市相关页面全部 SVG；那些属于既有界面，未一并改动。
 - 站内聊天/机器人通知尚未接入集市事件（现有三路通知已够用，机器人推送可按需再加）。
