@@ -89,7 +89,7 @@ router.get('/admin/search-users', authMiddleware, adminMiddleware, async (req, r
         const like = `%${q}%`;
         const rows = await db.all(
             `SELECT id, username, nickname, avatar, contribution FROM users
-             WHERE username LIKE ? OR nickname LIKE ? OR CAST(id AS TEXT) = ? OR game_id LIKE ?
+             WHERE COALESCE(level, 0) >= 0 AND (username LIKE ? OR nickname LIKE ? OR CAST(id AS TEXT) = ? OR game_id LIKE ?)
              ORDER BY contribution DESC LIMIT 20`,
             [like, like, q, like]
         );

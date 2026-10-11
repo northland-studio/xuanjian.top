@@ -140,14 +140,15 @@ router.get('/mentions', authMiddleware, async (req, res) => {
             const like = `%${q}%`;
             rows = await db.all(
                 `SELECT id, username, nickname, avatar FROM users
-                 WHERE username LIKE ? OR nickname LIKE ?
+                 WHERE COALESCE(level, 0) >= 0 AND (username LIKE ? OR nickname LIKE ?)
                  ORDER BY id DESC LIMIT 20`,
                 [like, like]
             );
         } else {
-            // 无关键词时返回最近活跃/最近注册的用户
+            // 无关键词时返回最近活跃/最近注册的用户（排除系统账号，如集市托管 market_escrow）
             rows = await db.all(
                 `SELECT id, username, nickname, avatar FROM users
+                 WHERE COALESCE(level, 0) >= 0
                  ORDER BY id DESC LIMIT 20`
             );
         }

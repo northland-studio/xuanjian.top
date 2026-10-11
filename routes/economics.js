@@ -143,7 +143,7 @@ router.get('/overview', async (req, res) => {
         // ---- 贡献点分布 Top10 ----
         const topHolders = await db.all(
             `SELECT username, nickname, COALESCE(contribution,0) AS contribution
-             FROM users WHERE contribution > 0
+             FROM users WHERE contribution > 0 AND COALESCE(level, 0) >= 0
              ORDER BY contribution DESC LIMIT 10`
         );
 
@@ -284,17 +284,18 @@ router.get('/export', async (req, res) => {
             [startStr, endStr]
         );
 
-        // 2. 当前流通总量 + 持有人
+        // 2. 当前流通总量 + 持有人（系统账号如集市托管 market_escrow 不计入会员经济口径）
         const supply = await db.get(
             `SELECT COALESCE(SUM(contribution), 0) AS total_supply,
                     COUNT(CASE WHEN COALESCE(contribution,0) > 0 THEN 1 END) AS holders
-             FROM users`
+             FROM users WHERE COALESCE(level, 0) >= 0`
         );
 
         // 3. 全员账户余额（仅余额，不含消费明细）
         const accounts = await db.all(
             `SELECT username, nickname, COALESCE(contribution, 0) AS contribution
              FROM users
+             WHERE COALESCE(level, 0) >= 0
              ORDER BY contribution DESC, id ASC`
         );
 

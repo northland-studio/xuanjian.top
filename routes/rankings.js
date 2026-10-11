@@ -12,7 +12,7 @@ router.get('/contribution', async (req, res) => {
                     (SELECT name FROM titles WHERE id = equipped_title) as title_name,
                     (SELECT color FROM titles WHERE id = equipped_title) as title_color
              FROM users 
-             WHERE contribution > 0
+             WHERE contribution > 0 AND COALESCE(level, 0) >= 0
              ORDER BY contribution DESC 
              LIMIT ?`,
             [parseInt(limit)]

@@ -1045,7 +1045,8 @@ router.get('/members', authMiddleware, async (req, res) => {
                 `SELECT id, username, nickname, avatar,
                         CASE WHEN COALESCE(qq,'') <> '' THEN 1 ELSE 0 END AS qq_bound
                  FROM users
-                 WHERE username <> 'guild_treasury' AND (username LIKE ? OR nickname LIKE ? OR qq = ?)
+                 WHERE username <> 'guild_treasury' AND COALESCE(level, 0) >= 0
+                   AND (username LIKE ? OR nickname LIKE ? OR qq = ?)
                  ORDER BY (nickname = ? OR username = ?) DESC, id ASC LIMIT 20`,
                 [like, like, q, q, q]
             );
@@ -1054,7 +1055,8 @@ router.get('/members', authMiddleware, async (req, res) => {
             logger.warn('pay: 成员搜索回退（users.qq 不可用）:', e.message);
             rows = await db.all(
                 `SELECT id, username, nickname, avatar, 0 AS qq_bound
-                 FROM users WHERE username <> 'guild_treasury' AND (username LIKE ? OR nickname LIKE ?)
+                 FROM users WHERE username <> 'guild_treasury' AND COALESCE(level, 0) >= 0
+                   AND (username LIKE ? OR nickname LIKE ?)
                  ORDER BY (nickname = ? OR username = ?) DESC, id ASC LIMIT 20`,
                 [like, like, q, q]
             );

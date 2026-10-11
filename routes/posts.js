@@ -225,7 +225,7 @@ router.post('/', authMiddleware, async (req, res) => {
 
         if (type === 'daily' || type === 'decision') {
             const typeText = type === 'daily' ? '日报' : '决策';
-            const allUsers = await db.all('SELECT id FROM users WHERE id != ?', [req.userId]);
+            const allUsers = await db.all('SELECT id FROM users WHERE id != ? AND COALESCE(level, 0) >= 0', [req.userId]);
             for (const u of allUsers) {
                 await createNotification({
                     userId: u.id,

@@ -198,7 +198,7 @@ router.get('/query', async (req, res) => {
         const users = await db.all(
             `SELECT id, username, nickname, avatar, game_id, contribution, is_frozen
              FROM users
-             WHERE username LIKE ? OR nickname LIKE ? OR CAST(id AS TEXT) = ?
+             WHERE COALESCE(level, 0) >= 0 AND (username LIKE ? OR nickname LIKE ? OR CAST(id AS TEXT) = ?)
              ORDER BY contribution DESC LIMIT 30`,
             [like, like, keyword]
         );
@@ -238,8 +238,8 @@ router.get('/verify', async (req, res) => {
             return res.json({ valid: verifyCodeForUser(code, uid), user: { id: user.id, username: user.username, nickname: user.nickname } });
         }
 
-        // 未指定 userId：扫描全部用户比对（用户量小，仅查询场景）
-        const all = await db.all('SELECT id, username, nickname FROM users');
+        // 未指定 userId：扫描全部会员比对（用户量小，仅查询场景）；系统账号（集市托管 level=-1）不参与
+        const all = await db.all('SELECT id, username, nickname FROM users WHERE COALESCE(level, 0) >= 0');
         const target = all.find(u => verifyCodeForUser(code, u.id));
         if (target) {
             return res.json({ valid: true, user: target });
@@ -255,7 +255,7 @@ router.get('/verify', async (req, res) => {
 router.get('/export', async (req, res) => {
     try {
         const users = await db.all(
-            'SELECT id FROM users ORDER BY id ASC'
+            'SELECT id FROM users WHERE COALESCE(level, 0) >= 0 ORDER BY id ASC'
         );
         const archives = [];
         for (const u of users) {

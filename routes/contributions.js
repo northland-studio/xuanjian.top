@@ -30,9 +30,19 @@ router.post('/transfer', authMiddleware, async (req, res) => {
             return res.status(400).json({ error: `单次转账不能超过 ${DAILY_TRANSFER_LIMIT}` });
         }
 
-        const target = await db.get('SELECT id, nickname, username FROM users WHERE id = ?', [toId]);
+        const target = await db.get('SELECT id, nickname, username, level FROM users WHERE id = ?', [toId]);
         if (!target) {
             return res.status(404).json({ error: '目标用户不存在' });
+        }
+        // 系统账号（如集市托管 market_escrow，level = -1）不能作为转账对象：
+        // 转进去的钱不属于任何会员，还会把集市托管余额搞乱（托管余额必须等于在途订单合计）
+        if ((target.level ?? 0) < 0) {
+            return res.status(400).json({ error: '该账号是系统账号，不能作为转账对象' });
+        }
+        // 反向也一样：系统账号不能主动转出（托管余额只允许集市订单流程改动）
+        const senderLevel = (await db.get('SELECT level FROM users WHERE id = ?', [req.userId]));
+        if (senderLevel && (senderLevel.level ?? 0) < 0) {
+            return res.status(403).json({ error: '系统账号不能发起转账' });
         }
 
         // 当日已转出统计

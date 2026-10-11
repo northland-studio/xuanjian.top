@@ -239,7 +239,7 @@ router.get('/query', async (req, res) => {
         const keyword = username.trim();
         const like = `%${keyword}%`;
         const users = await db.all(
-            'SELECT id, username, nickname, avatar, is_frozen, contribution FROM users WHERE username LIKE ? OR nickname LIKE ? OR CAST(id AS TEXT) = ? ORDER BY contribution DESC LIMIT 20',
+            'SELECT id, username, nickname, avatar, is_frozen, contribution FROM users WHERE COALESCE(level, 0) >= 0 AND (username LIKE ? OR nickname LIKE ? OR CAST(id AS TEXT) = ?) ORDER BY contribution DESC LIMIT 20',
             [like, like, keyword]
         );
 

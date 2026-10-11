@@ -386,12 +386,12 @@ router.get('/profile', playerAuth, async (req, res) => {
         const user = req.modUser;
         const uid = user.id;
 
-        // 排名（按贡献点倒序）
+        // 排名（按贡献点倒序）——系统账号（集市托管 level=-1）不计入
         const rankRow = await db.get(
-            'SELECT COUNT(*) + 1 AS rank FROM users WHERE COALESCE(contribution,0) > COALESCE(?,0)',
+            'SELECT COUNT(*) + 1 AS rank FROM users WHERE COALESCE(contribution,0) > COALESCE(?,0) AND COALESCE(level, 0) >= 0',
             [user.contribution || 0]
         );
-        const totalRow = await db.get('SELECT COUNT(*) AS c FROM users WHERE is_frozen = 0');
+        const totalRow = await db.get('SELECT COUNT(*) AS c FROM users WHERE is_frozen = 0 AND COALESCE(level, 0) >= 0');
 
         // 今日签到 + 连续天数
         const today = (await db.get(`SELECT DATE('now','localtime') AS d`)).d;
