@@ -618,13 +618,14 @@ async function rebuildWhitelist({ table, column, types, columns, probeType, prob
         console.log(`✓ 已删除公会财政账号 market_treasury（id=${tr.id}，连带清理引用行 ${cleaned} 条，审计已留痕）`);
     }
 
-    // 分类种子
+    // 分类种子（icon 一律留空：图标由前端 components/MarketIcons.jsx 按 slug 映射为 SVG，
+    // 不在数据库里塞 emoji——原生 <option> 里也放不了 SVG）
     const catCount = await db.get(`SELECT COUNT(*) AS c FROM market_categories`);
     if (Number(catCount.c) === 0) {
         const seeds = [
-            ['store', '杂货铺', 'general', '🏪', 1], ['store', '装备与工具', 'gear', '⚔', 2],
-            ['store', '建材与装饰', 'build', '🧱', 3], ['store', '农牧渔获', 'farm', '🌾', 4],
-            ['store', '服务与代工', 'service', '🛠', 5],
+            ['store', '杂货铺', 'general', '', 1], ['store', '装备与工具', 'gear', '', 2],
+            ['store', '建材与装饰', 'build', '', 3], ['store', '农牧渔获', 'farm', '', 4],
+            ['store', '服务与代工', 'service', '', 5],
             ['product', '方块与建材', 'blocks', '', 1], ['product', '工具与装备', 'tools', '', 2],
             ['product', '食物与作物', 'food', '', 3], ['product', '矿物与材料', 'materials', '', 4],
             ['product', '怪物掉落', 'drops', '', 5], ['product', '附魔与药水', 'enchants', '', 6],
@@ -639,6 +640,21 @@ async function rebuildWhitelist({ table, column, types, columns, probeType, prob
     } else {
         console.log(`· 分类已有 ${catCount.c} 条，跳过种子`);
     }
+
+    // 分类图标清理：早期种子往 icon 字段里写过 emoji（🏪 ⚔ 🧱 🌾 🛠），
+    // 现在图标统一由前端按 slug 渲染 SVG，这里把 emoji 图标清空（保留管理员自己填的文字图标）。
+    const EMOJI_RE = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{FE0F}\u{2190}-\u{21FF}\u{2605}\u{2606}\u{2713}\u{2715}\u{2717}\u{26A0}]/u;
+    const withIcon = await db.all(`SELECT id, icon FROM market_categories WHERE COALESCE(icon, '') <> ''`);
+    let cleared = 0;
+    for (const c of withIcon) {
+        if (EMOJI_RE.test(String(c.icon))) {
+            await db.run('UPDATE market_categories SET icon = ? WHERE id = ?', ['', c.id]);
+            cleared++;
+        }
+    }
+    console.log(cleared > 0
+        ? `✓ 已清除 ${cleared} 个分类里的 emoji 图标（图标改由前端按 slug 渲染 SVG）`
+        : '· 分类图标无需清理');
 
     // 汇总
     const tables = await db.all(`SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'market_%' ORDER BY name`);

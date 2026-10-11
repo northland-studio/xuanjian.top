@@ -35,6 +35,10 @@ const API_BASE = detectApiBase();
 // 平台信息（供原生能力模块使用）
 export const platformInfo = native;
 
+// API 基址（同源为 ''，原生壳为线上绝对地址）
+// 供需要自定义请求头 / 原生 fetch 的场景复用（例如集市下单要带 Idempotency-Key）
+export const apiBase = API_BASE;
+
 // SSR 环境（Node）没有 localStorage，统一兜底，避免服务端渲染抛 ReferenceError
 const hasStorage = typeof localStorage !== 'undefined';
 const storage = {

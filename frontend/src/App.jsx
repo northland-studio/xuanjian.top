@@ -47,6 +47,12 @@ import WikiEditor from './pages/WikiEditor';
 import MySubmissions from './pages/MySubmissions';
 import WikiHistory from './pages/WikiHistory';
 import Privacy from './pages/Privacy';
+import Market from './pages/Market';
+import MarketStore from './pages/MarketStore';
+import MarketProduct from './pages/MarketProduct';
+import MarketMap from './pages/MarketMap';
+import MarketOrders from './pages/MarketOrders';
+import MarketMerchant from './pages/MarketMerchant';
 
 // 主站路由：统一包裹在 Layout（含主站导航/页脚）内
 function MainSite() {
@@ -92,6 +98,14 @@ function MainSite() {
         <Route path="/economics" element={<Economics />} />
         <Route path="/donation" element={<Donation />} />
         <Route path="/mods" element={<Mods />} />
+        {/* 紫雪坊市（公会集市）：静态段优先于 :id，避免 /market/map 被当成店铺 ID
+            管理端不单独设页，统一挂在管理后台 /admin#market（见 pages/Admin.jsx 的「集市管理」） */}
+        <Route path="/market" element={<Market />} />
+        <Route path="/market/map" element={<MarketMap />} />
+        <Route path="/market/orders" element={<MarketOrders />} />
+        <Route path="/market/merchant" element={<MarketMerchant />} />
+        <Route path="/market/store/:id" element={<MarketStore />} />
+        <Route path="/market/product/:id" element={<MarketProduct />} />
         <Route path="/chat" element={<ChatPage />} />
         <Route path="/chat/:userId" element={<ChatPage />} />
         <Route path="/projections" element={<Projections />} />
