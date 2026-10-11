@@ -283,6 +283,27 @@ async function cleanup() {
     check('非买家不能评价（403）', revOther.status === 403);
     const storeRating = await get('SELECT rating_sum, rating_count FROM market_stores WHERE id = ?', [storeAId]);
     check('店铺评分累计正确（5 星 1 条）', storeRating.rating_sum === 5 && storeRating.rating_count === 1);
+    // 评价管理：店主回复 / 隐藏 / 恢复
+    const revId = rev.json.review.id;
+    const revList = await api('GET', `/api/market/merchant/reviews?store_id=${storeAId}`, merchantId);
+    check('店主可查看本店评价列表', revList.status === 200 && (revList.json.items || []).some(r => r.id === revId));
+    const revListOther = await api('GET', `/api/market/merchant/reviews?store_id=${storeAId}`, otherId);
+    check('非店主看不了本店评价（403）', revListOther.status === 403);
+    const reply = await api('POST', `/api/market/merchant/reviews/${revId}/reply`, merchantId, { reply: '谢谢支持，欢迎再来！' });
+    check('店主可回复评价', reply.status === 200 && reply.json.review.reply.includes('谢谢支持'));
+    const replyDenied = await api('POST', `/api/market/merchant/reviews/${revId}/reply`, otherId, { reply: '越权' });
+    check('非店主不能回复（403）', replyDenied.status === 403);
+    const hidden = await api('POST', `/api/market/merchant/reviews/${revId}/status`, merchantId, { status: 'hidden', reason: '联调隐藏' });
+    const afterHide = await get('SELECT rating_sum, rating_count FROM market_stores WHERE id = ?', [storeAId]);
+    const pubStore = await api('GET', `/api/market/stores/${storeAId}`, null);
+    check('隐藏评价后店铺均分同步扣减', hidden.status === 200 && afterHide.rating_sum === 0 && afterHide.rating_count === 0,
+        `均分 ${afterHide.rating_sum}/${afterHide.rating_count}`);
+    check('隐藏的评价不再出现在公开店铺页', (pubStore.json.reviews || []).every(r => r.id !== revId));
+    const shown = await api('POST', `/api/market/merchant/reviews/${revId}/status`, merchantId, { status: 'visible' });
+    const afterShow = await get('SELECT rating_sum, rating_count FROM market_stores WHERE id = ?', [storeAId]);
+    check('恢复评价后均分恢复', shown.status === 200 && afterShow.rating_sum === 5 && afterShow.rating_count === 1);
+    const replyEv = await get('SELECT COUNT(*) AS c FROM market_notify_events WHERE event_type = ?', ['review_reply']);
+    check('回复评价会生成通知事件', replyEv.c >= 1);
     const fav = await api('POST', '/api/market/favorites', buyerId, { target_type: 'product', target_id: pid });
     const favList = await api('GET', '/api/market/favorites', buyerId);
     check('收藏商品成功并可查询', fav.status === 201 && favList.json.products.some(p => p.id === pid));

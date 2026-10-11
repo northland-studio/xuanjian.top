@@ -504,6 +504,80 @@ router.post('/reviews', authMiddleware, async (req, res) => {
     } catch (e) { fail(res, e, '提交评价失败'); }
 });
 
+/** 店铺评价列表（店主/管理员：含被隐藏的评价，用于回复与申诉） */
+router.get('/merchant/reviews', authMiddleware, async (req, res) => {
+    try {
+        const store = await ownerStore(req, res);
+        if (!store) return;
+        const { limit, page, offset } = pageParams(req.query);
+        const total = await db.get(`SELECT COUNT(*) AS c FROM market_reviews WHERE store_id = ?`, [store.id]);
+        const items = await db.all(
+            `SELECT r.*, u.nickname AS buyer_nickname, u.username AS buyer_username, u.avatar AS buyer_avatar,
+                    o.order_no, p.title AS product_title
+               FROM market_reviews r
+               LEFT JOIN users u ON u.id = r.buyer_id
+               LEFT JOIN market_orders o ON o.id = r.order_id
+               LEFT JOIN market_products p ON p.id = r.product_id
+              WHERE r.store_id = ? ORDER BY r.id DESC LIMIT ? OFFSET ?`,
+            [store.id, limit, offset]);
+        res.json({ ok: true, total: total.c, page, limit, items, store: { id: store.id, name: store.name, rating_sum: store.rating_sum, rating_count: store.rating_count } });
+    } catch (e) { fail(res, e, '加载评价失败'); }
+});
+
+/** 店主回复评价（买家会收到站内 + 邮件通知） */
+router.post('/merchant/reviews/:id/reply', authMiddleware, async (req, res) => {
+    try {
+        const review = await db.get('SELECT * FROM market_reviews WHERE id = ?', [req.params.id]);
+        if (!review) return res.status(404).json({ error: '评价不存在' });
+        const store = await db.get('SELECT * FROM market_stores WHERE id = ?', [review.store_id]);
+        const isAdmin = Number(req.userLevel) >= 1;
+        if (!store || (Number(store.owner_id) !== Number(req.userId) && !isAdmin)) return res.status(403).json({ error: '无权回复该店铺的评价' });
+        const reply = String(req.body?.reply || '').slice(0, 500);
+        await db.run('UPDATE market_reviews SET reply = ? WHERE id = ?', [reply, review.id]);
+        await market.audit(req.userId, 'review_reply', 'review', review.id, { reply: review.reply }, { reply }, '');
+        if (reply) {
+            await notify.emit({
+                eventKey: `review_reply:${review.id}:${reply.length}`,
+                eventType: 'review_reply', userId: review.buyer_id, storeId: review.store_id, orderId: review.order_id,
+                payload: {
+                    title: '店主回复了你的评价',
+                    content: `店铺「${store.name}」回复：${reply}`,
+                    url: `/market/store/${store.id}`, rows: [['店铺', store.name], ['回复', reply]]
+                }
+            });
+        }
+        res.json({ ok: true, review: await db.get('SELECT * FROM market_reviews WHERE id = ?', [review.id]) });
+    } catch (e) { fail(res, e, '回复评价失败'); }
+});
+
+/** 店主隐藏/恢复评价（只影响展示与店铺均分，不删除记录；隐藏后均分同步扣减） */
+router.post('/merchant/reviews/:id/status', authMiddleware, async (req, res) => {
+    try {
+        const review = await db.get('SELECT * FROM market_reviews WHERE id = ?', [req.params.id]);
+        if (!review) return res.status(404).json({ error: '评价不存在' });
+        const store = await db.get('SELECT * FROM market_stores WHERE id = ?', [review.store_id]);
+        const isAdmin = Number(req.userLevel) >= 1;
+        if (!store || (Number(store.owner_id) !== Number(req.userId) && !isAdmin)) return res.status(403).json({ error: '无权处理该店铺的评价' });
+        const want = req.body?.status === 'hidden' ? 'hidden' : 'visible';
+        if (want === review.status) return res.json({ ok: true, review, unchanged: true });
+        await db.transaction(async () => {
+            await db.run('UPDATE market_reviews SET status = ? WHERE id = ?', [want, review.id]);
+            if (want === 'hidden') {
+                await db.run(
+                    `UPDATE market_stores SET rating_sum = MAX(0, rating_sum - ?), rating_count = MAX(0, rating_count - 1), updated_at = ? WHERE id = ?`,
+                    [review.rating, market.now(), review.store_id]);
+            } else {
+                await db.run(
+                    `UPDATE market_stores SET rating_sum = rating_sum + ?, rating_count = rating_count + 1, updated_at = ? WHERE id = ?`,
+                    [review.rating, market.now(), review.store_id]);
+            }
+        });
+        await market.audit(req.userId, want === 'hidden' ? 'review_hide' : 'review_show', 'review', review.id,
+            { status: review.status }, { status: want }, String(req.body?.reason || '').slice(0, 200));
+        res.json({ ok: true, review: await db.get('SELECT * FROM market_reviews WHERE id = ?', [review.id]) });
+    } catch (e) { fail(res, e, '处理评价失败'); }
+});
+
 /** 收藏 */
 router.get('/favorites', authMiddleware, async (req, res) => {
     try {
