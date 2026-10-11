@@ -4,6 +4,7 @@ import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/UI';
 import { IconArrowLeft, IconClose, IconWarn, Stars } from '../components/MarketIcons';
+import MarketCodeQr from '../components/MarketCodeQr';
 import { requireLogin, formatDate } from '../utils';
 import '../styles/market.css';
 
@@ -49,13 +50,26 @@ function Dialog({ title, children, onClose, footer, wide }) {
 }
 
 function VerifyCodeBlock({ code, order }) {
-  const qrTarget = order?.short_code || order?.order_no;
+  const full = /^BW-/i.test(String(code || '').trim());
   return (
     <div className="mk-code-box">
       <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>核销码</div>
       <div className="mk-code-value">{code || '——'}</div>
-      <div className="mk-code-warn"><IconWarn size={15} />只显示这一次，请立即交给商家或截图保存</div>
-      {qrTarget ? <img className="mk-code-qr" src={`/api/market/qr/${qrTarget}.png`} alt="核销码二维码" /> : null}
+      {full ? (
+        <>
+          <div className="mk-code-warn"><IconWarn size={15} />只显示这一次，请立即交给商家或截图保存</div>
+          <MarketCodeQr code={code} storeId={order?.store_id} />
+          <div className="mk-note" style={{ marginTop: 6 }}>
+            商家用手机扫这个码，会直接打开核销台并填入核销码；再次「重新生成」会让这一条立即作废。
+          </div>
+        </>
+      ) : (
+        <div className="mk-note" style={{ marginTop: 6 }}>
+          为了保护买家，完整核销码只在「下单成功」与「重新生成」时各显示一次，系统只保存哈希与末四位，任何人都查不回原文。
+          如果你没记下或已给错码，点下面的「重新生成核销码」，新的完整码与二维码会立刻显示出来，
+          <strong>给商家时一定要用最新那一次</strong>（旧码会立即失效）。
+        </div>
+      )}
     </div>
   );
 }
@@ -214,12 +228,12 @@ function OrderCard({ order, statusLabel, onChanged }) {
                       className="btn btn-secondary btn-sm"
                       disabled={busy}
                       onClick={() => {
-                        if (!confirm('完整核销码只在生成时显示。重新生成会作废旧码并返回新码，确定继续？')) return;
+                        if (!confirm('重新生成后，你之前抄给商家的旧核销码会【立即失效】，商家拿旧码核销会提示「核销码无效」。\n\n确定要重新生成吗？')) return;
                         doAction(async () => {
                           const r = await api.post(`/api/market/orders/${order.id}/regen-code`, {});
                           setCode(r.verify_code);
                           setDialog('code');
-                        }, '已重新生成核销码（旧码作废）');
+                        }, '已重新生成核销码（旧码已作废，请把新码给商家）');
                       }}
                     >
                       重新生成核销码

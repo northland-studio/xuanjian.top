@@ -143,6 +143,7 @@ export default function MarketMerchant() {
   const [orderPage, setOrderPage] = useState(1);
   // 核销
   const [verifyCode, setVerifyCode] = useState('');
+  const verifyInputRef = useRef(null);
   const [verifyOut, setVerifyOut] = useState(null);
   // 退款
   const [refunds, setRefunds] = useState([]);
@@ -163,6 +164,28 @@ export default function MarketMerchant() {
   useEffect(() => {
     api.get('/api/market/config').then(setCfg).catch(() => {});
   }, []);
+
+  /**
+   * 扫码深链：/market/merchant?store_id=X&code=BW-XXXX-XXXXXX
+   * 买家的「核销码二维码」扫出来就是这个地址（明文码在买家浏览器本地生成，不回传服务端）。
+   * 这里只做「选中店铺 + 预填核销码 + 切到核销台 + 聚焦输入框」，**不会自动核销**，商家必须自己核对后再点。
+   */
+  const deepLinkApplied = useRef(false);
+  useEffect(() => {
+    if (deepLinkApplied.current || !stores.length) return;
+    const sp = new URLSearchParams(window.location.search);
+    const code = (sp.get('code') || '').trim().toUpperCase();
+    const sid = Number(sp.get('store_id'));
+    if (!code && !sid) return;
+    deepLinkApplied.current = true;
+    if (sid && stores.some(s => Number(s.id) === sid)) setStoreId(sid);
+    if (/^BW-/.test(code)) {
+        setVerifyCode(code);
+        setTab('verify');
+        showToast('已填入扫码得到的核销码，核对后再点「核销」', 'success');
+        setTimeout(() => verifyInputRef.current?.focus(), 200);
+    }
+  }, [stores, showToast]);
 
   const loadStores = useCallback(async () => {
     setLoading(true);
@@ -1025,6 +1048,7 @@ export default function MarketMerchant() {
               <p className="mk-note" style={{ marginBottom: 10 }}>输入买家出示的核销码（形如 BW-XXXX-XXXXXX），核销后请在游戏内交付，再让买家确认收货。</p>
               <form className="mk-search" onSubmit={doVerify}>
                 <input
+                  ref={verifyInputRef}
                   className="form-input"
                   value={verifyCode}
                   onChange={e => setVerifyCode(e.target.value.toUpperCase())}
@@ -1033,6 +1057,9 @@ export default function MarketMerchant() {
                 />
                 <button className="btn btn-primary" type="submit" disabled={busy}>{busy ? '核销中...' : '核销'}</button>
               </form>
+              <p className="mk-note" style={{ marginTop: 8 }}>
+                核销码只对「本店 + 该订单」有效：别的店铺核销会被拒绝，买家重新生成后旧码立即失效，所以对不上时先问买家是不是重新生成过。
+              </p>
               {verifyOut && (
                 <div className={`mk-verify-out ${verifyOut.ok ? 'ok' : 'bad'}`}>
                   {verifyOut.ok ? <IconCheck size={15} /> : <IconClose size={15} />}{verifyOut.message}

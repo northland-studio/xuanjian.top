@@ -114,8 +114,28 @@ async function ensureShortLink(targetType, targetId) {
         fs.writeFileSync(path.join(ROOT, 'data', 'market-poster-product.png'), prodPoster);
     }
 
-    // 3 地图画
-    console.log('\n—— 3. 地图画 ——');
+    // 3 核销码二维码（买家下单后出示、商家扫码进核销台）
+    console.log('\n—— 3. 核销码二维码（扫码进核销台）——');
+    {
+        // 复用前端的纯函数（frontend 是 ESM，Windows 下动态 import 必须用 file:// URL）
+        const vc = await import(require('url').pathToFileURL(path.join(ROOT, 'frontend', 'src', 'market', 'verify-code.js')).href).catch(() => null);
+        if (vc) {
+            const code = 'BW-K3MT-EAYF3P';
+            check('完整核销码被识别', vc.isFullVerifyCode(code) === true);
+            check('末四位提示文本不会被当成核销码', vc.isFullVerifyCode('末四位 VXLE（完整核销码只在生成时显示）') === false);
+            check('小写/带空格也能归一化', vc.isFullVerifyCode('  bw-k3mt-eayf3p ') === true);
+            const url = vc.verifyScanUrl(' bw-k3mt-eayf3p ', 21, 'https://xuanjian.top');
+            check('扫码地址 = 商家后台核销台深链', url === 'https://xuanjian.top/market/merchant?store_id=21&code=BW-K3MT-EAYF3P', url);
+            const qr = await render.qrPng(url, { width: 352 });
+            const decoded = decodePng(qr);
+            check('核销码二维码可被真实解码且内容一致', decoded === url, decoded || '解码失败');
+        } else {
+            check('能加载前端 verify-code.js（用于核对扫码地址）', false, '动态 import 失败');
+        }
+    }
+
+    // 4 地图画
+    console.log('\n—— 4. 地图画 ——');
     const mapPng = await render.renderMapArt({
         points: [{ px: 20, py: 30, label: 'A' }, { px: 80, py: 70, label: 'B', highlight: true }],
         title: '紫雪坊市 · 店铺地图（自检）'
@@ -124,9 +144,9 @@ async function ensureShortLink(targetType, targetId) {
     check('地图画出图 640×640', mapPngInfo.width === 640 && mapPngInfo.height === 640, `${mapPngInfo.width}×${mapPngInfo.height}`);
     fs.writeFileSync(path.join(ROOT, 'data', 'market-map-art.png'), mapPng);
 
-    // 4 HTTP 接口
+    // 5 HTTP 接口
     if (BASE) {
-        console.log('\n—— 4. HTTP 接口 ——');
+        console.log('\n—— 5. HTTP 接口 ——');
         const r1 = await fetch(`${BASE}/api/market/qr/${storeCode}.png`);
         const b1 = Buffer.from(await r1.arrayBuffer());
         check('GET /api/market/qr/<code>.png 200 + PNG', r1.status === 200 && b1.slice(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])), `HTTP ${r1.status}`);

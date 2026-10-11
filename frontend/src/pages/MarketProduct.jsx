@@ -4,12 +4,12 @@ import { api, apiBase, getToken } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/UI';
 import { IconArrowLeft, IconClose, IconMinus, IconPlus, IconWarn, Stars, StarToggle } from '../components/MarketIcons';
+import MarketCodeQr from '../components/MarketCodeQr';
 import { requireLogin, formatDate, stripHtml } from '../utils';
 import '../styles/market.css';
 
 /** 下单成功后必须显著展示明文核销码（只返回一次） */
 function VerifyCodeModal({ code, order, onClose }) {
-  const qrTarget = order?.short_code || order?.order_no;
   return (
     <div className="modal-overlay">
       <div className="modal-content" style={{ maxWidth: 420 }}>
@@ -22,10 +22,15 @@ function VerifyCodeModal({ code, order, onClose }) {
             <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>核销码（交给商家核销）</div>
             <div className="mk-code-value">{code || '——'}</div>
             <div className="mk-code-warn"><IconWarn size={15} />只显示这一次，请立即记录或截图保存</div>
-            {qrTarget ? (
-              <img className="mk-code-qr" src={`/api/market/qr/${qrTarget}.png`} alt="核销码二维码" />
+            <MarketCodeQr code={code} storeId={order?.store_id} />
+            {code ? (
+              <div className="mk-note" style={{ marginTop: 6 }}>
+                商家用手机扫这个码，会直接打开核销台并填入核销码
+              </div>
             ) : null}
-            {qrTarget ? <div className="mk-note" style={{ marginTop: 6 }}>商家也可扫码核销</div> : null}
+            <div className="mk-note" style={{ marginTop: 6 }}>
+              在你确认收货之前，这笔钱由托管账号代持；如果之后在「我的订单」里重新生成核销码，<strong>这一条立即作废</strong>，请以最新一次为准。
+            </div>
           </div>
           {order && (
             <div className="mk-stat-grid">
