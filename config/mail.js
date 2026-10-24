@@ -6,17 +6,137 @@ if (!process.env.SMTP_PASS) {
     process.exit(1);
 }
 
-const transporter = nodemailer.createTransport({
-    host: 'smtp.exmail.qq.com',
-    port: 465,
-    secure: true,
-    auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS
-    }
-});
+/**
+ * 发信配置（全部可用环境变量覆盖：换邮箱服务商/端口不需要改代码）
+ *   SMTP_HOST / SMTP_PORT / SMTP_SECURE   默认 腾讯企业邮 smtp.exmail.qq.com:465（隐式 TLS）
+ *   SMTP_USER / SMTP_PASS                 发信账号（企业邮要用「客户端专用密码」，不是网页登录密码）
+ *   SMTP_FALLBACK_USER / SMTP_FALLBACK_PASS（/HOST/PORT）  可选备用账号：
+ *       主账号出现认证失败时自动改用它，避免一个邮箱被停/换密导致全站邮件一起挂掉
+ */
+const SMTP_HOST = process.env.SMTP_HOST || 'smtp.exmail.qq.com';
+const SMTP_PORT = Number(process.env.SMTP_PORT || 465);
+const SMTP_SECURE = String(process.env.SMTP_SECURE || '').toLowerCase() === 'false' ? false : SMTP_PORT === 465;
+const FB_USER = process.env.SMTP_FALLBACK_USER || '';
+const FB_PASS = process.env.SMTP_FALLBACK_PASS || '';
+const FB_HOST = process.env.SMTP_FALLBACK_HOST || SMTP_HOST;
+const FB_PORT = Number(process.env.SMTP_FALLBACK_PORT || SMTP_PORT);
+
+function buildTransport(host, port, user, pass) {
+    return nodemailer.createTransport({
+        host, port, secure: port === 465,
+        auth: { user, pass },
+        connectionTimeout: 15000,
+        greetingTimeout: 15000,
+        socketTimeout: 20000
+    });
+}
+
+const transporter = buildTransport(SMTP_HOST, SMTP_PORT, process.env.SMTP_USER, process.env.SMTP_PASS);
+const fallbackTransporter = (FB_USER && FB_PASS) ? buildTransport(FB_HOST, FB_PORT, FB_USER, FB_PASS) : null;
 
 const FROM_EMAIL = `"玄剑公会" <${process.env.SMTP_USER}>`;
+const FB_FROM_EMAIL = FB_USER ? `"玄剑公会" <${FB_USER}>` : FROM_EMAIL;
+
+/**
+ * 发信运行状态（给启动自检与后台「邮件状态」用）
+ * 2026-10-17 事故：腾讯企业邮把旧密码整批作废，三套服务全部 535 认证失败，
+ * 但只有在真正发信（验证码/通知）时才报错，于是静默挂了几天。这里把最近成功/失败/错误记下来可查。
+ */
+const state = {
+    lastOkAt: null,
+    lastErrorAt: null,
+    lastError: '',
+    lastTransport: '',
+    sent: 0,
+    failed: 0
+};
+
+const rawError = (e) => String((e && (e.response || e.message)) || e || '');
+/** 认证类错误：只有这一类换备用账号才有意义（收件人被拒等换了也没用） */
+const isAuthError = (e) => /535|EAUTH|Invalid login|authentication failed|Login fail/i.test(rawError(e));
+const stamp = () => new Date().toISOString().replace('T', ' ').slice(0, 19);
+
+/** 统一发信入口：主账号失败且属认证问题 → 用备用账号重试一次；对外抛友好错误，技术细节进日志与状态 */
+async function deliver(to, subject, html) {
+    const options = { from: FROM_EMAIL, to, subject, html };
+    try {
+        const info = await transporter.sendMail(options);
+        state.sent++;
+        state.lastOkAt = stamp();
+        state.lastTransport = 'primary';
+        return info;
+    } catch (e) {
+        const first = rawError(e);
+        logger.error(`邮件发送失败（${process.env.SMTP_USER} → ${to}）: ${first}`);
+        const authFail = isAuthError(e);
+        if (fallbackTransporter && authFail) {
+            logger.warn(`主发信账号认证失败，改用备用账号 ${FB_USER} 重试`);
+            try {
+                const info = await fallbackTransporter.sendMail({ ...options, from: FB_FROM_EMAIL });
+                state.sent++;
+                state.lastOkAt = stamp();
+                state.lastTransport = 'fallback';
+                return info;
+            } catch (e2) {
+                const second = rawError(e2);
+                logger.error(`备用发信账号也失败（${FB_USER} → ${to}）: ${second}`);
+                state.failed++;
+                state.lastErrorAt = stamp();
+                state.lastError = `primary: ${first} ｜ fallback: ${second}`;
+                const err = new Error('邮件服务暂时不可用（SMTP 认证失败），请稍后再试或联系管理员');
+                err.smtpRaw = state.lastError;
+                throw err;
+            }
+        }
+        state.failed++;
+        state.lastErrorAt = stamp();
+        state.lastError = first;
+        const err = new Error(authFail
+            ? '邮件服务暂时不可用（SMTP 认证失败），请稍后再试或联系管理员'
+            : '邮件发送失败，请稍后再试或联系管理员');
+        err.smtpRaw = first;
+        throw err;
+    }
+}
+
+/** 现场自检（不发信）：返回主/备账号的登录结果，供启动自检与后台状态页用 */
+async function verifyTransport() {
+    const one = async (name, tr, user) => {
+        if (!tr) return { name, user, ok: false, skipped: true };
+        try {
+            await tr.verify();
+            return { name, user, ok: true };
+        } catch (e) {
+            return { name, user, ok: false, error: rawError(e) };
+        }
+    };
+    const primary = await one('primary', transporter, process.env.SMTP_USER);
+    const fallback = fallbackTransporter ? await one('fallback', fallbackTransporter, FB_USER) : null;
+    const ok = primary.ok || !!(fallback && fallback.ok);
+    if (!ok) {
+        state.lastErrorAt = stamp();
+        state.lastError = [primary.error, fallback && fallback.error].filter(Boolean).join(' ｜ ');
+        logger.error(`邮件通道自检失败：${state.lastError}`);
+    } else {
+        state.lastOkAt = stamp();
+        logger.info(`邮件通道自检通过（${primary.ok ? process.env.SMTP_USER : FB_USER}）`);
+    }
+    return { ok, primary, fallback, at: stamp() };
+}
+
+/** 后台展示用摘要（不含任何密钥） */
+function smtpSummary() {
+    return {
+        host: SMTP_HOST,
+        port: SMTP_PORT,
+        secure: SMTP_SECURE,
+        user: process.env.SMTP_USER || '',
+        userDomain: String(process.env.SMTP_USER || '').split('@')[1] || '',
+        hasFallback: !!fallbackTransporter,
+        fallbackUser: FB_USER || '',
+        state: { ...state }
+    };
+}
 
 const SITE_URL = process.env.SITE_URL || 'https://xuanjian.top';
 const LOGO_URL = 'https://xuanjian.top/icon.png';
@@ -108,13 +228,7 @@ function getEmailTemplate(options) {
 }
 
 async function sendEmail(to, subject, html) {
-    const mailOptions = {
-        from: FROM_EMAIL,
-        to,
-        subject,
-        html
-    };
-    return await transporter.sendMail(mailOptions);
+    return await deliver(to, subject, html);
 }
 
 async function sendVerificationCode(email, code) {
@@ -390,6 +504,7 @@ async function sendGenericNotification(email, opt) {
 
 module.exports = {
     transporter,
+    fallbackTransporter,
     sendEmail,
     getEmailTemplate,
     sendVerificationCode,
@@ -399,5 +514,8 @@ module.exports = {
     sendTaskResult,
     sendBindConfirm,
     sendAbnormalLoginAlert,
-    sendGenericNotification
+    sendGenericNotification,
+    // 运维自检：启动时探一次 + 后台「邮件状态」页可手动探
+    verifyTransport,
+    smtpSummary
 };
