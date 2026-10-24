@@ -18,8 +18,7 @@ const AVATAR = 'https://cdn.xuanjian.top/xjj.png';
 function XjjAvatar({ className }) {
     return (
         <span className={`${className} rag-avatar-fallback`} style={{ backgroundImage: `url("${AVATAR}")` }} aria-hidden="true">
-            <i>姬</i>
-        </span>
+</span>
     );
 }
 

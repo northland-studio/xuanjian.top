@@ -199,6 +199,7 @@ router.get('/admin/config', ...adminOnly, async (req, res) => {
         res.json({
             ok: true,
             config: out,
+            defaults: config.DEFAULTS,
             secrets: {
                 hasMasterKey: secrets.hasMasterKey,
                 embedding: secrets.embedding,
@@ -212,9 +213,51 @@ router.get('/admin/config', ...adminOnly, async (req, res) => {
     }
 });
 
+/** 数字型配置的范围校验：越界直接 400，而不是存进去再出事 */
+function validateNumericPatch(patch) {
+    const RANGES = {
+        'rag.chunkSize': [120, 2000],
+        'rag.chunkOverlap': [0, 400],
+        'rag.vectorTopK': [1, 200],
+        'rag.ftsTopK': [1, 200],
+        'rag.rrfK': [1, 200],
+        'rag.finalChunkCount': [1, 20],
+        'rag.maxContextChars': [500, 20000],
+        'rag.maxOutputTokens': [64, 4000],
+        'rag.conversationIdleTimeout': [60, 86400],
+        'rag.conversationMaxTurns': [0, 20],
+        'rag.logRetentionDays': [1, 365],
+        'rag.guestPerMinute': [1, 120],
+        'rag.guestPerDay': [1, 5000],
+        'rag.userPerMinute': [1, 120],
+        'rag.userPerDay': [1, 5000],
+        'rag.botPerMinute': [1, 600],
+        'rag.botPerDay': [1, 20000],
+        'rag.maxQuestionLength': [20, 2000],
+        'rag.maxConcurrent': [1, 32],
+        'rag.dailyBudget': [0, 1000],
+        'rag.costAlertThreshold': [0, 1],
+        'rag.circuitFailThreshold': [1, 50],
+        'rag.circuitCooldownSeconds': [30, 86400],
+        'embedding.dimension': [256, 4096],
+        'embedding.batchSize': [1, 64],
+        'embedding.maxCharsPerBatch': [500, 50000]
+    };
+    for (const [k, v] of Object.entries(patch || {})) {
+        if (!(k in RANGES)) continue;
+        const n = Number(v);
+        if (!Number.isFinite(n)) return `${k} 必须是数字`;
+        const [min, max] = RANGES[k];
+        if (n < min || n > max) return `${k} 需在 ${min} ~ ${max} 之间（当前 ${n}）`;
+    }
+    return null;
+}
+
 router.put('/admin/config', ...superOnly, async (req, res) => {
     try {
         const patch = (req.body && req.body.config) || {};
+        const invalid = validateNumericPatch(patch);
+        if (invalid) return res.status(400).json({ ok: false, error: invalid });
         const before = await config.getAll();
         const written = await config.setMany(patch);
         await ragAsk.audit(req.userId, 'rag.config.update', {

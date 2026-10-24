@@ -446,7 +446,6 @@ h5.rag-md-h, h6.rag-md-h { font-size: 13.5px; }
   flex: none;
   overflow: hidden;
 }
-.rag-avatar-fallback > i { font-style: normal; line-height: 1; text-shadow: 0 1px 2px rgba(0,0,0,.25); }
 .rag-fab-avatar.rag-avatar-fallback { width: 34px; height: 34px; font-size: 15px; }
 .rag-avatar.rag-avatar-fallback { width: 40px; height: 40px; font-size: 17px; }
 .rag-msg-avatar.rag-avatar-fallback { width: 28px; height: 28px; font-size: 13px; }

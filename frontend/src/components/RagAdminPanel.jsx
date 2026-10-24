@@ -6,6 +6,7 @@
  */
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../api';
+import RagSettingsPanel from './RagSettingsPanel';
 
 const SUB_TABS = [
   { key: 'overview', label: '概览与健康' },
@@ -212,97 +213,15 @@ export default function RagAdminPanel({ showToast, isSuper }) {
     };
 
     /* ---------------- 模型配置 ---------------- */
-    const configView = () => {
-        if (!config) return <div className="admin-empty">正在读取配置…</div>;
-        const c = config.config || {};
-        const fields = [
-            ['embedding.baseUrl', 'Embedding 端点'],
-            ['embedding.model', 'Embedding 模型'],
-            ['embedding.dimension', '向量维度'],
-            ['llm.baseUrl', 'LLM 端点'],
-            ['llm.model', 'LLM 模型'],
-            ['rag.chunkSize', '分块字符数'],
-            ['rag.chunkOverlap', '分块重叠'],
-            ['rag.vectorTopK', '向量候选数'],
-            ['rag.ftsTopK', '全文候选数'],
-            ['rag.rrfK', 'RRF 常数 k'],
-            ['rag.finalChunkCount', '最终分块数'],
-            ['rag.maxQuestionLength', '问题最大长度'],
-            ['rag.guestPerMinute', '游客每分钟'],
-            ['rag.guestPerDay', '游客每日'],
-            ['rag.userPerMinute', '用户每分钟'],
-            ['rag.userPerDay', '用户每日'],
-            ['rag.botPerMinute', '机器人每分钟'],
-            ['rag.botPerDay', '机器人每日'],
-            ['rag.dailyBudget', '每日预算（元）']
-        ];
-        const secretInputs = [
-            ['embedding.apiKey', 'Embedding API Key', config.secrets && config.secrets.embedding],
-            ['llm.apiKey', 'LLM API Key', config.secrets && config.secrets.llm]
-        ];
-        return (
-            <div className="admin-card">
-                <h3>模型与参数</h3>
-                {!isSuper && <p className="admin-warn">普通管理员只能查看，修改需超级管理员。</p>}
-                <div className="admin-form-grid">
-                    {fields.map(([k, label]) => (
-                        <label key={k} className="admin-field">
-                            <span>{label}</span>
-                            <input
-                                value={draft[k] === undefined ? '' : draft[k]}
-                                disabled={!isSuper}
-                                onChange={(e) => setDraft({ ...draft, [k]: e.target.value })}
-                            />
-                        </label>
-                    ))}
-                </div>
-
-                <h3 style={{ marginTop: 18 }}>API 密钥</h3>
-                <p className="admin-hint">密钥使用 AES-256-GCM 加密存储，仅返回脱敏状态。留空表示不修改。</p>
-                <div className="admin-form-grid">
-                    {secretInputs.map(([k, label, st]) => (
-                        <label key={k} className="admin-field">
-                            <span>
-                                {label}
-                                {st && st.configured ? `（已配置 ${st.masked}，来源 ${st.source}）` : '（未配置）'}
-                            </span>
-                            <input
-                                type="password"
-                                placeholder="输入新密钥（留空不修改）"
-                                disabled={!isSuper}
-                                onChange={(e) => setDraft({ ...draft, [k]: e.target.value })}
-                            />
-                        </label>
-                    ))}
-                </div>
-
-                {isSuper && (
-                    <div className="admin-actions">
-                        <button className="btn btn-primary btn-sm" disabled={loading} onClick={saveConfig}>保存配置</button>
-                        <button className="btn btn-sm btn-ghost" disabled={loading} onClick={connectivity}>连通性测试</button>
-                        <button
-                            className="btn btn-sm btn-ghost"
-                            disabled={loading}
-                            onClick={() =>
-                                run('清空密钥', async () => {
-                                    if (!window.confirm('清空 Embedding 密钥？清空后检索会失败，直到重新配置。')) return;
-                                    await api.post('/api/faq/admin/config/clear-secret', { slot: 'embedding' });
-                                    toast('已清空 Embedding 密钥', 'success');
-                                    await loadConfig();
-                                })
-                            }
-                        >
-                            清空 Embedding 密钥
-                        </button>
-                    </div>
-                )}
-
-                {testResult && testResult.kind === 'connectivity' && (
-                    <pre className="admin-pre">{JSON.stringify({ embedding: testResult.embedding, llm: testResult.llm }, null, 2)}</pre>
-                )}
-            </div>
-        );
-    };
+    const configView = () => (
+        <RagSettingsPanel
+            canEdit={!!isSuper}
+            toast={showToast}
+            onSaved={() => {
+                void loadStatus();
+            }}
+        />
+    );
 
     /* ---------------- 索引管理 ---------------- */
     const indexView = () => (

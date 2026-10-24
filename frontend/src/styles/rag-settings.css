@@ -1,0 +1,270 @@
+/* 玄剑姬 · RAG 设置面板（管理后台内），沿用站点设计令牌与明暗色 */
+
+.rag-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.rag-settings-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 14px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+.rag-settings-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12.5px;
+}
+.rag-settings-actions {
+  display: flex;
+  gap: 8px;
+}
+.rag-dirty {
+  color: var(--warning);
+  font-weight: 600;
+}
+.rag-clean {
+  color: var(--text-secondary);
+}
+.rag-readonly {
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 11.5px;
+}
+
+.rag-alert {
+  padding: 10px 13px;
+  border-radius: var(--radius);
+  font-size: 12.5px;
+  line-height: 1.7;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-secondary);
+}
+.rag-alert-bad {
+  border-color: color-mix(in srgb, var(--danger) 35%, var(--border));
+  background: color-mix(in srgb, var(--danger) 8%, var(--card));
+  color: var(--danger);
+}
+.rag-alert-ok {
+  border-color: color-mix(in srgb, var(--success) 35%, var(--border));
+  background: color-mix(in srgb, var(--success) 8%, var(--card));
+  color: var(--success);
+}
+.rag-alert-warn {
+  border-color: color-mix(in srgb, var(--warning) 40%, var(--border));
+  background: color-mix(in srgb, var(--warning) 10%, var(--card));
+  color: var(--text);
+}
+.rag-alert code {
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  font-size: 12px;
+}
+
+.rag-section {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+}
+.rag-section-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  background: none;
+  border: none;
+  padding: 0;
+  text-align: left;
+  width: 100%;
+  color: inherit;
+  font: inherit;
+}
+.rag-section-head.is-clickable {
+  cursor: pointer;
+}
+.rag-section-head h4 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.rag-toggle {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 1px 6px;
+}
+.rag-section-desc {
+  margin: 5px 0 0;
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--text-secondary);
+}
+
+.rag-field-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(238px, 1fr));
+  gap: 14px 16px;
+  margin-top: 14px;
+}
+.rag-secret-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 14px 16px;
+  margin-top: 12px;
+}
+
+.rag-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.rag-label {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.rag-unit {
+  font-style: normal;
+  font-size: 11px;
+  color: var(--text-secondary);
+  opacity: 0.75;
+}
+.rag-changed {
+  font-size: 10.5px;
+  padding: 0 5px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--warning) 16%, var(--card));
+  color: var(--warning);
+}
+.rag-state {
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+}
+.rag-state-ok {
+  color: var(--success);
+  border-color: color-mix(in srgb, var(--success) 35%, var(--border));
+}
+.rag-state-bad {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 35%, var(--border));
+}
+
+.rag-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  font-size: 13px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--input-bg);
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.16s ease;
+}
+.rag-input:focus {
+  border-color: var(--primary);
+}
+.rag-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.rag-secret-row {
+  display: flex;
+  gap: 8px;
+}
+.rag-secret-row .rag-input {
+  flex: 1;
+}
+
+.rag-hint {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  opacity: 0.9;
+}
+
+.rag-field.is-changed .rag-input {
+  border-color: color-mix(in srgb, var(--warning) 55%, var(--border));
+  background: color-mix(in srgb, var(--warning) 5%, var(--input-bg));
+}
+
+.rag-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--input-bg);
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  cursor: pointer;
+  align-self: flex-start;
+  transition: all 0.16s ease;
+}
+.rag-switch i {
+  width: 30px;
+  height: 16px;
+  border-radius: 999px;
+  background: var(--border);
+  position: relative;
+  transition: background 0.16s ease;
+  flex: none;
+}
+.rag-switch i::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.16s ease;
+}
+.rag-switch.is-on {
+  color: var(--primary);
+  border-color: color-mix(in srgb, var(--primary) 45%, var(--border));
+}
+.rag-switch.is-on i {
+  background: var(--primary);
+}
+.rag-switch.is-on i::after {
+  transform: translateX(14px);
+}
+.rag-switch:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
