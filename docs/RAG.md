@@ -157,3 +157,169 @@ RAG_EMBEDDING_KEY=... RAG_LLM_KEY=... node scripts/rag/test-rag.js
 - 预算熔断：连续失败达到阈值后熔断，冷却期自动恢复；预算超限直接拒绝并提示。
 - 索引失败：任务按 30/60/120s 退避重试，4 次后置 `failed`，可在 Admin 重试。
 - 回滚：RAG 只新增表与文件，回滚只需 `git revert` 相关提交并 `pm2 restart`；如需彻底清理，删除 `rag_*` 表即可（不影响 Wiki 原有功能）。
+
+## 十二、当前部署现状
+
+> 记录截至本文档更新时的真实部署状态，便于交接与排障。
+
+### 官网（https://xuanjian.top）
+
+| 项 | 值 |
+| --- | --- |
+| 服务器 | HK `64.90.13.2`，应用目录 `/var/www/xuanjian-guild` |
+| 进程管理 | pm2 `xuanjian-guild`（`node server.js`） |
+| 反代 | nginx 站点 `xuanjian-guild`，HTTPS（Let's Encrypt） |
+| 数据库 | `/var/www/xuanjian-guild/data/guild.db`（SQLite WAL） |
+| RAG 运行时 | 随 `server.js` 启动：加载 sqlite-vec、启动索引 worker、每小时清理过期会话/日志、每 6 小时一致性核对 |
+| 当前索引 | 334 篇已发布页面全部 `indexed`，约 1669 分块 / 1669 向量，模型 `BAAI/bge-m3`，分块版本 `v1` |
+| 提示词版本 | `rag-prompt-v3`（人设：藏剑阁剑娘） |
+| 密钥 | `RAG_SECRET_KEY` 已生成并写入 `.env`（600）；Embedding/LLM Key 走环境变量或后台加密存储 |
+
+### QQ 机器人（群机器人）
+
+| 项 | 值 |
+| --- | --- |
+| 服务器 | `43.248.3.161:20043`（root，密钥 `id_napcat` 只在 HK 上） |
+| 应用目录 | `/var/www/xuanjian-group-bot`（**不是 git 仓库**，采用打包覆盖部署） |
+| 进程管理 | systemd `xuanjian-group-bot.service`（`node dist/index.js`） |
+| OneBot | NapCat 监听 `127.0.0.1:3001`，机器人以 WS 客户端接入 |
+| 官网对接 | `OFFICIAL_API_BASE=https://xuanjian.top` + `X-Bot-Token`（`OFFICIAL_BOT_TOKEN`） |
+| RAG 开关 | `RAG_ENABLED=on`、`RAG_ALLOWED_GROUPS=860336849`、`RAG_PRIVATE=off` |
+
+### 已上线内容
+
+- 官网右缘抽屉式玄剑姬浮窗（Markdown 渲染、来源链接、会话追问、明暗色适配）
+- `/admin → 玄剑姬 AI` 五个子页：概览与健康 / 模型配置 / 索引管理 / 问答测试台 / 用量与日志
+- QQ 群 `#玄剑姬`、`#问答`、`#rag`、`#ask` 指令与群内 @ 机器人提问
+- Wiki「网站教程」已收录《Wiki 编写指南：从零写一篇能用的词条》（id 353）
+
+## 十三、管理面板说明（/admin → 玄剑姬 AI）
+
+### 子页功能
+
+| 子页 | 内容 |
+| --- | --- |
+| 概览与健康 | 向量/FTS 可用性、提示词版本、熔断状态、索引规模（已发布/已索引/分块/向量/任务）、今日用量与预算、密钥状态、最近失败任务 |
+| 模型配置 | 分组设置表单（模型与端点 / 检索与分块 / 会话与日志 / 限流与输入限制 / 预算与熔断）+ 密钥区；脏值追踪、按组/全部恢复默认、Embedding 变更提示重建 |
+| 索引管理 | 页面索引列表（状态、分块数、hash 对比、更新时间）、单页重建、任务列表与重试、立即处理任务、一致性核对、全量重建 |
+| 问答测试台 | 真实检索 + LLM：回答、真实来源、向量/FTS 候选、RRF 融合结果、参数与耗时；另有「仅检索」接口 `/api/faq/admin/retrieve` |
+| 用量与日志 | 每日用量（按来源）、最近问答日志（状态、耗时、tokens、是否真实用量） |
+
+### 权限矩阵
+
+| 能力 | 普通管理员（≥1） | 超级管理员（≥2） |
+| --- | --- | --- |
+| 查看状态/索引/任务/日志/用量 | 可以 | 可以 |
+| 连通性测试、问答测试、单页重建、重试、核对 | 可以 | 可以 |
+| 修改模型/端点/提示词/限流/预算 | 只读 | 可以 |
+| 配置/更换/清空 API Key | 只读（仅脱敏状态） | 可以 |
+| 全量重建 | 不可见 | 可以（二次确认，互斥） |
+
+服务端一律用 `adminMiddleware` / `superAdminMiddleware` 实时读库校验，不依赖前端隐藏按钮。
+
+### 配置项分组（settings 表，键前缀 `rag.`）
+
+- **模型**：`embedding.provider/baseUrl/model/dimension/batchSize/maxCharsPerBatch`、`llm.provider/baseUrl/model/disableThinking`
+- **检索**：`chunkSize/chunkOverlap/vectorTopK/ftsTopK/rrfK/finalChunkCount/maxContextChars/maxOutputTokens`
+- **会话**：`conversationIdleTimeout/conversationMaxTurns/logRetentionDays`
+- **限流**：`guest|user|bot × PerMinute/PerDay`、`maxQuestionLength`、`maxConcurrent`
+- **预算**：`dailyBudget/costAlertThreshold/circuitBreaker/circuitFailThreshold/circuitCooldownSeconds/allowFtsOnlyFallback`
+
+保存接口带数值范围校验（如 `chunkSize` 仅 120~2000），越界直接 400，不会把非法值写库。
+
+## 十四、机器人部署与验证
+
+### 为什么不用 git
+
+机器人服务器上 `/var/www/xuanjian-group-bot` 不是 git 仓库（历史上是复制部署），因此不能 `git pull`，采用**打包覆盖**：
+
+```bash
+# 本地：打包需要同步的文件
+tar -czf bot-src.tar.gz src package.json package-lock.json tsconfig.json README.md .env.example ecosystem.config.cjs
+
+# 上传后远端：备份 -> 覆盖 -> 构建 -> 配置 env -> 重启
+bash scripts/rag/deploy-bot-tar.sh    # 参见仓库内脚本（含备份与构建校验）
+```
+
+脚本会：备份 `src/dist/.env`（`.bak-时间戳`）→ 解包覆盖 → `npm ci` + `tsc` → 写入 `RAG_*` 环境变量（600）→ `systemctl restart xuanjian-group-bot` → 输出进程与 3001 监听状态。
+
+### 验证清单
+
+```bash
+# 1. 服务与进程
+systemctl is-active xuanjian-group-bot
+ps -eo pid,etime,cmd | grep 'xuanjian-group-bot/dist/index.js' | grep -v grep
+
+# 2. 启动日志
+journalctl -u xuanjian-group-bot -n 30 --no-pager | grep -v '\[pay\]'
+
+# 3. 用机器人自己的 Bot-Token 调官网 RAG 接口
+TOKEN=$(grep '^OFFICIAL_BOT_TOKEN=' .env | cut -d= -f2-)
+curl -s -X POST https://xuanjian.top/api/qqbot/rag/ask \
+  -H 'Content-Type: application/json' -H "X-Bot-Token: $TOKEN" \
+  --data-binary '{"question":"入会需要什么条件","userId":"10001","groupId":"860336849"}'
+# 期望：ok=true；无 ok 之外的诊断字段；无 Token 时返回 401
+
+# 4. 群内实测
+#   #玄剑姬 贡献点怎么获得
+#   @机器人 保证金什么时候退
+```
+
+### 常见问题
+
+- **机器人不回应**：先看 `journalctl` 是否有 NapCat 连接失败；NapCat 侧端口应为 `127.0.0.1:3001`（不是 3000）。
+- **群里说「尚未开放」**：说明该群不在 `RAG_ALLOWED_GROUPS` 中。RAG 白名单**空即禁用**（与 `ALLOWED_GROUPS` 的「空表放行全部」语义不同）。
+- **回答「服务暂时不可用」**：官网 `/api/faq/ask` 异常或限流；到官网 `pm2 logs xuanjian-guild` 查 `[rag]` 日志。
+- **SSH 到机器人服务器偶发超时**：对方 sshd 对短时间高频连接有节流，批量操作时降低频率或改用单连接投递。
+
+## 十五、运维命令速查
+
+```bash
+# ---- 官网 ----
+cd /var/www/xuanjian-guild
+pm2 restart xuanjian-guild --update-env        # 重启（含新 .env）
+pm2 logs xuanjian-guild --lines 100            # 日志（含 [rag] 行）
+node scripts/migrate-rag.js                    # 幂等迁移/补表
+node -e "..."                                  # 需要临时脚本时，写到文件再 node 执行
+
+# 索引状态（在应用目录内执行）
+node scripts/rag/prod-stats.js                 # 页面/分块/向量/任务统计与一致性检查
+node scripts/rag/prod-rebuild.js               # 后台全量重建（输出进度）
+
+# 冒烟
+bash scripts/rag/smoke.sh                      # 站点 + 问答 + 管理鉴权 + 前端产物
+
+# ---- 机器人 ----
+systemctl restart xuanjian-group-bot
+journalctl -u xuanjian-group-bot -f | grep -v '\[pay\]'
+```
+
+## 十六、已知限制与后续可做
+
+| 项 | 现状 | 说明 |
+| --- | --- | --- |
+| 玄剑姬头像 | 指向 `https://cdn.xuanjian.top/xjj.png`，**当前 404** | 前端已做渐变底兜底，不会破图；上传该图后自动生效，无需改代码 |
+| 检索评测 | 24 例（检索命中 18/18、拒答 6/6、引用合法 18/18、草稿泄露 0） | 可扩到 50+ 并加入真实长页面 |
+| 重排模型 | 未引入 | 任务书要求先有评测证明必要 |
+| 流式输出 | 未实现 | 首版刻意用普通请求，便于网站与机器人共用 |
+| 反馈列表页 | 接口 `GET /api/faq/admin/feedback` 已有 | 前端尚未挂页签 |
+| 提示词在线编辑 | 未做可视化编辑器 | 目前通过代码内 `buildSystemPrompt()` + `rag.promptVersion` 管理 |
+| Embedding 依赖 | 硅基流动账户欠费时返回 402（即使 bge-m3 免费） | 需保证账户无欠费；测试脚本会自动降级并明确标注 |
+
+## 十七、变更记录
+
+| 时间 | 变更 |
+| --- | --- |
+| 2026-10-24 | 管理面板样式补全（分段页签/卡片/表格/状态徽标），新增 `styles/rag-admin.css` |
+| 2026-10-24 | 提示词升级 `rag-prompt-v3`：藏剑阁剑娘人设（古灵精怪、爱吃糖醋排骨），人设不凌驾事实 |
+| 2026-10-24 | 官网浮窗改右缘抽屉、Markdown 渲染、头像走 CDN、按钮移到右缘垂直居中 |
+| 2026-10-24 | 游客身份由 IP 改为服务端签发匿名 cookie（修复 Cloudflare 下会话无法复用、限流误伤） |
+| 2026-10-24 | 机器人端部署完成（systemd `xuanjian-group-bot`，RAG 白名单主群 860336849） |
+| 2026-10-24 | 首次全量索引：334 页 / 1669 分块；发布《Wiki 编写指南》并自动入索引 |
+
+## 十八、相关文档
+
+- [WIKI.md](WIKI.md)：Wiki 系统本身（分类、版本、投稿审核）
+- [API.md](API.md)：官网 API 总览
+- [RENDERING.md](RENDERING.md)：SSG / SSR / SPA 三层渲染
+- `/wiki/wiki-bian-xie-zhi-nan-cong-ling-xie-yi-pian-neng-yong-de-ci-tiao`：面向编辑者的《Wiki 编写指南》
