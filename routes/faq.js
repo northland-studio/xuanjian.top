@@ -9,6 +9,7 @@
  *   状态、脱敏配置、连通性测试、问答测试台、索引与任务管理、全量重建、用量与日志
  */
 const express = require('express');
+const crypto = require('node:crypto');
 const rateLimit = require('express-rate-limit');
 const logger = require('../lib/logger');
 const db = require('../database');
@@ -23,12 +24,51 @@ const llm = require('../lib/rag/llm');
 
 const router = express.Router();
 
+/* ---------------- 游客身份（匿名 cookie，避免用 IP 当主体） ---------------- */
+
+const GUEST_COOKIE = 'rag_gid';
+const GUEST_COOKIE_MAX_AGE = 365 * 24 * 3600;
+
+function parseCookies(header) {
+    const out = {};
+    for (const part of String(header || '').split(';')) {
+        const i = part.indexOf('=');
+        if (i < 0) continue;
+        const k = part.slice(0, i).trim();
+        if (k) out[k] = decodeURIComponent(part.slice(i + 1).trim());
+    }
+    return out;
+}
+
+/** 取（必要时签发）匿名访客 ID；只用于会话归属与限流主体，不含任何个人身份 */
+function guestId(req, res) {
+    const existing = parseCookies(req.headers.cookie)[GUEST_COOKIE];
+    if (/^[a-f0-9]{32}$/.test(String(existing || ''))) return existing;
+    const id = crypto.randomBytes(16).toString('hex');
+    const attrs = [`${GUEST_COOKIE}=${id}`, 'Path=/', `Max-Age=${GUEST_COOKIE_MAX_AGE}`, 'HttpOnly', 'SameSite=Lax'];
+    if (req.secure || String(req.headers['x-forwarded-proto'] || '').includes('https')) attrs.push('Secure');
+    res.append('Set-Cookie', attrs.join('; '));
+    return id;
+}
+
+/** 统一主体串：登录用户按 userId，游客按匿名 cookie */
+function subjectOf(req, res) {
+    return req.userId ? 'u:' + req.userId : 'g:' + guestId(req, res);
+}
+
+/** 限流键：与主体一致，避免 Cloudflare 边缘 IP 导致不同用户共享同一桶 */
+function limitKey(req) {
+    if (req.userId) return 'u' + req.userId;
+    const gid = parseCookies(req.headers.cookie)[GUEST_COOKIE];
+    return gid ? 'g' + gid : 'ip' + String(req.ip || 'unknown');
+}
+
 const askLimiter = rateLimit({
     windowMs: 60 * 1000,
     max: 30,
     standardHeaders: true,
     legacyHeaders: false,
-    keyGenerator: (req) => (req.userId ? 'u' + req.userId : String(req.ip || 'unknown')),
+    keyGenerator: limitKey,
     message: { ok: false, error: '请求过于频繁，请稍后再试', errorType: 'rate_limited' }
 });
 
@@ -37,7 +77,7 @@ const feedbackLimiter = rateLimit({
     max: 20,
     standardHeaders: true,
     legacyHeaders: false,
-    keyGenerator: (req) => (req.userId ? 'u' + req.userId : String(req.ip || 'unknown')),
+    keyGenerator: limitKey,
     message: { ok: false, error: '反馈过于频繁' }
 });
 
@@ -63,8 +103,8 @@ router.post('/ask', optionalAuthMiddleware, askLimiter, async (req, res) => {
         const question = req.body && req.body.question;
         const conversationId = req.body && req.body.conversationId;
         const sourceType = req.userId ? 'web_user' : 'web_guest';
-        // 游客以 IP 作为限流主体，登录用户以 userId；均经 HMAC 后才落库
-        const subjectId = req.userId || 'ip:' + (req.ip || 'unknown');
+        // 游客用服务端签发的匿名 cookie 作为主体（不经 IP，避免 Cloudflare 边缘 IP 变化）
+        const subjectId = subjectOf(req, res);
 
         const result = await ragAsk.ask({ question, sourceType, subjectId, conversationId });
         if (!result.ok) {
@@ -97,7 +137,7 @@ router.post('/feedback', optionalAuthMiddleware, feedbackLimiter, async (req, re
     try {
         const { requestId, helpful, reason } = req.body || {};
         if (!requestId) return res.status(400).json({ ok: false, error: '缺少 requestId' });
-        const subjectId = req.userId || 'ip:' + (req.ip || 'unknown');
+        const subjectId = subjectOf(req, res);
         const r = await ragAsk.feedback({
             requestId: String(requestId).slice(0, 64),
             sourceType: req.userId ? 'web_user' : 'web_guest',

@@ -52,7 +52,7 @@ export default function RagAdminPanel({ showToast, isSuper }) {
 
     const loadStatus = useCallback(async () => {
         try {
-            const r = await api('/api/faq/admin/status');
+            const r = await api.get('/api/faq/admin/status');
             setStatus(r);
         } catch (e) {
             toast('读取状态失败：' + e.message, 'error');
@@ -61,7 +61,7 @@ export default function RagAdminPanel({ showToast, isSuper }) {
 
     const loadConfig = useCallback(async () => {
         try {
-            const r = await api('/api/faq/admin/config');
+            const r = await api.get('/api/faq/admin/config');
             setConfig(r);
             setDraft(r.config || {});
         } catch (e) {
@@ -71,7 +71,7 @@ export default function RagAdminPanel({ showToast, isSuper }) {
 
     const loadIndex = useCallback(async () => {
         try {
-            const [p, t] = await Promise.all([api('/api/faq/admin/index?limit=100'), api('/api/faq/admin/tasks?limit=30')]);
+            const [p, t] = await Promise.all([api.get('/api/faq/admin/index?limit=100'), api.get('/api/faq/admin/tasks?limit=30')]);
             setPages(p.pages || []);
             setTasks(t.tasks || []);
         } catch (e) {
@@ -81,7 +81,7 @@ export default function RagAdminPanel({ showToast, isSuper }) {
 
     const loadUsage = useCallback(async () => {
         try {
-            const [u, l] = await Promise.all([api('/api/faq/admin/usage?days=14'), api('/api/faq/admin/logs?limit=40')]);
+            const [u, l] = await Promise.all([api.get('/api/faq/admin/usage?days=14'), api.get('/api/faq/admin/logs?limit=40')]);
             setUsage(u.usage || []);
             setLogs(l.logs || []);
         } catch (e) {
@@ -112,7 +112,7 @@ export default function RagAdminPanel({ showToast, isSuper }) {
 
     const saveConfig = () =>
         run('保存配置', async () => {
-            const r = await api('/api/faq/admin/config', { method: 'PUT', body: { config: draft } });
+            const r = await api.put('/api/faq/admin/config', { config: draft });
             toast(r.needRebuild ? '已保存。注意：Embedding 变更，需要全量重建索引' : '配置已保存', r.needRebuild ? 'warning' : 'success');
             await loadConfig();
             await loadStatus();
@@ -120,27 +120,27 @@ export default function RagAdminPanel({ showToast, isSuper }) {
 
     const connectivity = () =>
         run('连通性测试', async () => {
-            const r = await api('/api/faq/admin/test/connectivity', { method: 'POST', body: {} });
+            const r = await api.post('/api/faq/admin/test/connectivity', {});
             setTestResult({ kind: 'connectivity', ...r });
             toast(r.ok ? '两家模型均连通' : '存在不通的服务，请查看结果', r.ok ? 'success' : 'error');
         });
 
     const testAsk = () =>
         run('测试问答', async () => {
-            const r = await api('/api/faq/admin/test/ask', { method: 'POST', body: { question: testQ } });
+            const r = await api.post('/api/faq/admin/test/ask', { question: testQ });
             setTestResult({ kind: 'ask', ...r });
         });
 
     const rebuildPage = (pageId) =>
         run('单页重建', async () => {
-            await api(`/api/faq/admin/index/${pageId}/rebuild`, { method: 'POST', body: {} });
+            await api.post(`/api/faq/admin/index/${pageId}/rebuild`, {});
             toast('已投递重建任务', 'success');
             await loadIndex();
         });
 
     const processTasks = () =>
         run('处理任务', async () => {
-            const r = await api('/api/faq/admin/process-tasks', { method: 'POST', body: { max: 10 } });
+            const r = await api.post('/api/faq/admin/process-tasks', { max: 10 });
             toast('本次处理 ' + (r.results || []).length + ' 个任务', 'success');
             await loadIndex();
             await loadStatus();
@@ -148,7 +148,7 @@ export default function RagAdminPanel({ showToast, isSuper }) {
 
     const reconcile = () =>
         run('一致性核对', async () => {
-            const r = await api('/api/faq/admin/reconcile', { method: 'POST', body: {} });
+            const r = await api.post('/api/faq/admin/reconcile', {});
             toast('核对完成：' + JSON.stringify(r.result), 'success');
             await loadIndex();
         });
@@ -156,7 +156,7 @@ export default function RagAdminPanel({ showToast, isSuper }) {
     const fullRebuild = () => {
         if (!window.confirm('全量重建会重新 Embedding 所有已发布页面，消耗额度且耗时较长，确认继续？')) return;
         void run('全量重建', async () => {
-            const r = await api('/api/faq/admin/rebuild', { method: 'POST', body: {} });
+            const r = await api.post('/api/faq/admin/rebuild', {});
             toast(r.ok ? '全量重建任务已创建（#' + r.taskId + '）' : r.reason, r.ok ? 'success' : 'error');
         });
     };
@@ -286,7 +286,7 @@ export default function RagAdminPanel({ showToast, isSuper }) {
                             onClick={() =>
                                 run('清空密钥', async () => {
                                     if (!window.confirm('清空 Embedding 密钥？清空后检索会失败，直到重新配置。')) return;
-                                    await api('/api/faq/admin/config/clear-secret', { method: 'POST', body: { slot: 'embedding' } });
+                                    await api.post('/api/faq/admin/config/clear-secret', { slot: 'embedding' });
                                     toast('已清空 Embedding 密钥', 'success');
                                     await loadConfig();
                                 })

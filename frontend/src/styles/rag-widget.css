@@ -1,91 +1,154 @@
-/* 玄剑姬悬浮问答窗：与公屏 ChatBox 完全独立的一套定位与样式 */
+/* 玄剑姬 · 右缘抽屉式问答（沿用站点设计令牌，自动适配 data-theme 明暗色） */
+
+/* ---------- 悬浮按钮：右缘垂直居中，不遮挡右下角内容 ---------- */
 .rag-fab {
   position: fixed;
-  right: 22px;
-  bottom: 24px;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
   z-index: 1200;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
-  padding: 10px 16px;
-  border: 1px solid var(--line, #e3e2df);
-  border-radius: 14px;
-  background: #fff;
-  color: var(--ink-900, #1b1a18);
-  box-shadow: 0 10px 28px rgba(20, 18, 16, 0.14);
+  align-items: center;
+  gap: 4px;
+  padding: 10px 8px 12px;
+  border: 1px solid var(--border);
+  border-right: none;
+  border-radius: var(--radius-lg) 0 0 var(--radius-lg);
+  background: var(--card);
+  color: var(--text);
+  box-shadow: var(--shadow-lg);
   cursor: pointer;
-  transition: transform 0.18s ease, box-shadow 0.18s ease;
+  transition: transform 0.18s ease, opacity 0.18s ease, border-color 0.18s ease;
 }
 .rag-fab:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 14px 34px rgba(20, 18, 16, 0.18);
+  transform: translateY(-50%) translateX(-3px);
+  border-color: var(--primary);
 }
-.rag-fab-name {
-  font-size: 14px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  color: var(--brand, #980b0e);
+.rag-fab.is-hidden {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-50%) translateX(12px);
 }
-.rag-fab-sub {
+.rag-fab-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid var(--border);
+  background: var(--bg);
+}
+.rag-fab-text {
   font-size: 11px;
-  color: var(--ink-400, #8b867f);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--primary);
+  writing-mode: vertical-rl;
+  text-orientation: upright;
 }
 
-.rag-panel {
+/* ---------- 遮罩 ---------- */
+.rag-scrim {
   position: fixed;
-  right: 22px;
-  bottom: 24px;
-  z-index: 1200;
-  width: 380px;
-  max-width: calc(100vw - 28px);
-  height: 560px;
-  max-height: calc(100vh - 60px);
+  inset: 0;
+  z-index: 1190;
+  background: rgba(15, 23, 42, 0.32);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.22s ease;
+}
+.rag-scrim.is-open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* ---------- 右侧抽屉 ---------- */
+.rag-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  z-index: 1201;
+  width: 408px;
+  max-width: 92vw;
+  height: 100vh;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
-  background: #fff;
-  border: 1px solid var(--line, #e3e2df);
-  border-radius: 16px;
-  box-shadow: 0 18px 48px rgba(20, 18, 16, 0.2);
-  overflow: hidden;
+  background: var(--card);
+  color: var(--text);
+  border-left: 1px solid var(--border);
+  box-shadow: -12px 0 40px rgba(15, 23, 42, 0.16);
+  transform: translateX(100%);
+  transition: transform 0.26s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.rag-drawer.is-open {
+  transform: translateX(0);
 }
 
 .rag-head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 10px;
-  padding: 12px 14px;
-  border-bottom: 1px solid var(--line, #eeece8);
-  background: linear-gradient(180deg, #fff 0%, #faf9f7 100%);
+  padding: calc(12px + var(--sat, 0px)) 14px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--card);
+}
+.rag-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  flex: none;
+}
+.rag-head-main {
+  flex: 1;
+  min-width: 0;
 }
 .rag-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-size: 15px;
   font-weight: 700;
-  color: var(--brand, #980b0e);
-  letter-spacing: 0.04em;
+  color: var(--primary);
+}
+.rag-title-tag {
+  font-size: 10.5px;
+  font-weight: 500;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
 }
 .rag-sub {
-  font-size: 11px;
-  color: var(--ink-400, #8b867f);
+  font-size: 11.5px;
+  color: var(--text-secondary);
   margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .rag-head-actions {
   display: flex;
   gap: 6px;
+  flex: none;
 }
 .rag-icon-btn {
   font-size: 11.5px;
   padding: 5px 9px;
-  border: 1px solid var(--line, #e3e2df);
+  border: 1px solid var(--border);
   border-radius: 8px;
-  background: #fff;
-  color: var(--ink-600, #55504a);
+  background: transparent;
+  color: var(--text-secondary);
   cursor: pointer;
+  transition: all 0.16s ease;
 }
 .rag-icon-btn:hover {
-  border-color: var(--brand, #980b0e);
-  color: var(--brand, #980b0e);
+  border-color: var(--primary);
+  color: var(--primary);
 }
 
 .rag-body {
@@ -94,78 +157,161 @@
   padding: 14px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  background: #fcfbf9;
+  gap: 14px;
+  background: var(--bg);
 }
 
 .rag-empty {
-  color: var(--ink-500, #6f6a63);
+  color: var(--text-secondary);
   font-size: 13px;
   line-height: 1.9;
+}
+.rag-empty-hello {
+  color: var(--text);
+  font-weight: 600;
+  margin-bottom: 6px;
 }
 .rag-empty-hint {
   margin-top: 6px;
   font-size: 12px;
-  color: var(--ink-400, #8b867f);
+  opacity: 0.85;
 }
 
+/* ---------- 消息 ---------- */
 .rag-msg {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+.rag-msg-user {
+  justify-content: flex-end;
+}
+.rag-msg-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid var(--border);
+  background: var(--card);
+  flex: none;
+  margin-top: 2px;
+}
+.rag-msg-main {
+  min-width: 0;
+  max-width: 86%;
   display: flex;
   flex-direction: column;
   gap: 6px;
-  max-width: 92%;
-}
-.rag-msg-user {
-  align-self: flex-end;
-  align-items: flex-end;
-}
-.rag-msg-assistant,
-.rag-msg-error {
-  align-self: flex-start;
 }
 .rag-msg-user .rag-text {
-  background: var(--brand, #980b0e);
+  background: var(--primary);
   color: #fff;
-  border-radius: 12px 12px 2px 12px;
+  border-radius: var(--radius) var(--radius) 2px var(--radius);
   padding: 9px 12px;
   font-size: 13.5px;
   line-height: 1.7;
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-.rag-msg-assistant .rag-text {
-  background: #fff;
-  border: 1px solid var(--line, #eeece8);
-  border-radius: 12px 12px 12px 2px;
-  padding: 10px 12px;
-  font-size: 13.5px;
-  line-height: 1.8;
-  color: var(--ink-800, #2b2926);
   white-space: pre-wrap;
   word-break: break-word;
 }
 .rag-msg-error .rag-text {
-  background: #fdf3f3;
-  border: 1px solid #f2d2d2;
-  color: #8f2a2a;
-  border-radius: 10px;
+  background: color-mix(in srgb, var(--danger) 8%, var(--card));
+  border: 1px solid color-mix(in srgb, var(--danger) 30%, var(--border));
+  color: var(--danger);
+  border-radius: var(--radius);
   padding: 9px 12px;
   font-size: 13px;
   line-height: 1.7;
+}
+.rag-msg-assistant .rag-md {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 2px var(--radius) var(--radius) var(--radius);
+  padding: 10px 12px;
 }
 .rag-badge {
   font-size: 11px;
   padding: 3px 8px;
   border-radius: 6px;
-  background: #f4f1eb;
-  color: var(--ink-500, #6f6a63);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
   align-self: flex-start;
 }
 .rag-badge-bad {
-  background: #fdf3f3;
-  color: #8f2a2a;
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 30%, var(--border));
 }
 
+/* ---------- Markdown ---------- */
+.rag-md {
+  font-size: 13.5px;
+  line-height: 1.8;
+  word-break: break-word;
+}
+.rag-md > *:first-child {
+  margin-top: 0;
+}
+.rag-md > *:last-child {
+  margin-bottom: 0;
+}
+.rag-md-h {
+  margin: 10px 0 6px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.5;
+}
+h3.rag-md-h { font-size: 15px; }
+h4.rag-md-h { font-size: 14px; }
+h5.rag-md-h, h6.rag-md-h { font-size: 13.5px; }
+.rag-md-p {
+  margin: 6px 0;
+}
+.rag-md-list {
+  margin: 6px 0;
+  padding-left: 20px;
+}
+.rag-md-list li {
+  margin: 3px 0;
+}
+.rag-md-quote {
+  margin: 8px 0;
+  padding: 6px 10px;
+  border-left: 3px solid var(--primary);
+  background: var(--bg);
+  color: var(--text-secondary);
+  border-radius: 0 8px 8px 0;
+}
+.rag-md-pre {
+  margin: 8px 0;
+  padding: 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow-x: auto;
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+.rag-md-code {
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  font-size: 12.5px;
+}
+.rag-md-link {
+  color: var(--primary);
+  text-decoration: none;
+}
+.rag-md-link:hover {
+  text-decoration: underline;
+}
+.rag-md-hr {
+  margin: 12px 0;
+  border: none;
+  border-top: 1px solid var(--border);
+}
+
+/* ---------- 来源 ---------- */
 .rag-sources {
   display: flex;
   flex-direction: column;
@@ -174,14 +320,14 @@
 }
 .rag-sources-title {
   font-size: 11px;
-  color: var(--ink-400, #8b867f);
+  color: var(--text-secondary);
 }
 .rag-source {
   display: flex;
   align-items: baseline;
   gap: 6px;
   font-size: 12.5px;
-  color: var(--brand, #980b0e);
+  color: var(--primary);
   text-decoration: none;
   padding: 3px 0;
 }
@@ -189,27 +335,28 @@
   text-decoration: underline;
 }
 .rag-source-idx {
-  color: var(--ink-400, #8b867f);
+  color: var(--text-secondary);
   font-size: 11px;
 }
 .rag-source-cat {
   font-size: 11px;
-  color: var(--ink-400, #8b867f);
+  color: var(--text-secondary);
 }
 
+/* ---------- 打字中 ---------- */
 .rag-typing {
   display: inline-flex;
   gap: 4px;
   padding: 10px 12px;
-  background: #fff;
-  border: 1px solid var(--line, #eeece8);
-  border-radius: 12px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
 }
 .rag-typing i {
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: var(--ink-300, #b6b1a9);
+  background: var(--text-secondary);
   animation: rag-blink 1.2s infinite ease-in-out;
 }
 .rag-typing i:nth-child(2) {
@@ -219,39 +366,49 @@
   animation-delay: 0.3s;
 }
 @keyframes rag-blink {
-  0%, 60%, 100% { opacity: 0.35; }
+  0%, 60%, 100% { opacity: 0.3; }
   30% { opacity: 1; }
 }
 
+/* ---------- 输入区 ---------- */
 .rag-input-row {
   display: flex;
   gap: 8px;
-  padding: 10px 12px;
-  border-top: 1px solid var(--line, #eeece8);
-  background: #fff;
+  padding: 10px 12px calc(10px + var(--sab, 0px));
+  border-top: 1px solid var(--border);
+  background: var(--card);
 }
 .rag-input {
   flex: 1;
   min-width: 0;
-  border: 1px solid var(--line, #e3e2df);
+  border: 1px solid var(--border);
   border-radius: 10px;
   padding: 9px 11px;
   font-size: 13.5px;
   outline: none;
-  color: var(--ink-800, #2b2926);
+  background: var(--input-bg);
+  color: var(--text);
+  transition: border-color 0.16s ease;
+}
+.rag-input::placeholder {
+  color: var(--text-secondary);
 }
 .rag-input:focus {
-  border-color: var(--brand, #980b0e);
+  border-color: var(--primary);
 }
 .rag-send {
   padding: 0 16px;
   border: none;
   border-radius: 10px;
-  background: var(--brand, #980b0e);
+  background: var(--primary);
   color: #fff;
   font-size: 13.5px;
   font-weight: 600;
   cursor: pointer;
+  transition: opacity 0.16s ease;
+}
+.rag-send:hover:not(:disabled) {
+  opacity: 0.9;
 }
 .rag-send:disabled {
   opacity: 0.45;
@@ -259,17 +416,37 @@
 }
 
 @media (max-width: 640px) {
-  .rag-panel {
-    right: 0;
-    left: 0;
-    bottom: 0;
+  .rag-drawer {
     width: 100%;
-    max-width: 100%;
-    height: 78vh;
-    border-radius: 16px 16px 0 0;
+    max-width: 100vw;
+    border-left: none;
   }
   .rag-fab {
-    right: 14px;
-    bottom: 16px;
+    padding: 8px 6px 10px;
+  }
+  .rag-fab-avatar {
+    width: 30px;
+    height: 30px;
   }
 }
+
+/* 头像兜底：CDN 图片缺失时显示「姬」字占位 */
+.rag-avatar-fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background-color: transparent;
+  background-image: var(--gradient);
+  background-size: cover;
+  background-position: center;
+  color: #fff;
+  font-weight: 700;
+  border: 1px solid var(--border);
+  flex: none;
+  overflow: hidden;
+}
+.rag-avatar-fallback > i { font-style: normal; line-height: 1; text-shadow: 0 1px 2px rgba(0,0,0,.25); }
+.rag-fab-avatar.rag-avatar-fallback { width: 34px; height: 34px; font-size: 15px; }
+.rag-avatar.rag-avatar-fallback { width: 40px; height: 40px; font-size: 17px; }
+.rag-msg-avatar.rag-avatar-fallback { width: 28px; height: 28px; font-size: 13px; }
