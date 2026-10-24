@@ -7,6 +7,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../api';
 import RagSettingsPanel from './RagSettingsPanel';
+import '../styles/rag-admin.css';
 
 const SUB_TABS = [
   { key: 'overview', label: '概览与健康' },
@@ -25,15 +26,8 @@ const STATUS_LABEL = {
 };
 
 function Tag({ children, tone }) {
-  const style = {
-    display: 'inline-block',
-    padding: '2px 8px',
-    borderRadius: 6,
-    fontSize: 11.5,
-    background: tone === 'bad' ? '#fdf3f3' : tone === 'ok' ? '#f1f7ef' : '#f4f1eb',
-    color: tone === 'bad' ? '#8f2a2a' : tone === 'ok' ? '#3f6b34' : '#6f6a63'
-  };
-  return <span style={style}>{children}</span>;
+  const cls = tone === 'bad' ? 'is-bad' : tone === 'ok' ? 'is-ok' : tone === 'warn' ? 'is-warn' : '';
+  return <span className={`rag-pill ${cls}`}>{children}</span>;
 }
 
 export default function RagAdminPanel({ showToast, isSuper }) {
@@ -171,10 +165,10 @@ export default function RagAdminPanel({ showToast, isSuper }) {
                 <div className="admin-card">
                     <h3>服务状态</h3>
                     <ul className="admin-kv">
-                        <li><span>向量检索</span><b>{s.vec && s.vec.ready ? '可用 ' + s.vec.version : '不可用'}</b></li>
+                        <li><span>向量检索</span><b><span className={`rag-pill ${s.vec && s.vec.ready ? 'is-ok' : 'is-bad'}`}>{s.vec && s.vec.ready ? '可用 ' + s.vec.version : '不可用'}</span></b></li>
                         <li><span>全文索引</span><b>{s.vec ? 'FTS5 已就绪' : '-'}</b></li>
                         <li><span>提示词版本</span><b>{status.service && status.service.promptVersion}</b></li>
-                        <li><span>熔断</span><b>{status.breaker && status.breaker.open ? '已熔断' : '正常'}</b></li>
+                        <li><span>熔断</span><b><span className={`rag-pill ${status.breaker && status.breaker.open ? 'is-bad' : 'is-ok'}`}>{status.breaker && status.breaker.open ? '已熔断' : '正常'}</span></b></li>
                     </ul>
                 </div>
                 <div className="admin-card">
@@ -294,7 +288,7 @@ export default function RagAdminPanel({ showToast, isSuper }) {
             {testResult && testResult.kind === 'ask' && (
                 <div style={{ marginTop: 16 }}>
                     <h4>回答</h4>
-                    <pre className="admin-pre">{testResult.result && testResult.result.answer}</pre>
+                    <div className="rag-answer">{testResult.result && testResult.result.answer}</div>
                     {testResult.result && testResult.result.sources && (
                         <>
                             <h4>来源</h4>
@@ -364,7 +358,7 @@ export default function RagAdminPanel({ showToast, isSuper }) {
     );
 
     return (
-        <div className="admin-section">
+        <div className="rag-admin">
             <div className="admin-tabs">
                 {SUB_TABS.map((t) => (
                     <button

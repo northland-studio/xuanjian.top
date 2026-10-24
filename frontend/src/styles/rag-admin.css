@@ -1,0 +1,319 @@
+/* 玄剑姬 AI 管理面板：补一套与站点一致的管理面板样式（全部作用域在 .rag-admin 内） */
+
+.rag-admin {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* ---------- 顶部子页签：分段控件 ---------- */
+.rag-admin .admin-tabs {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg);
+  align-self: flex-start;
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.rag-admin .admin-tabs::-webkit-scrollbar {
+  display: none;
+}
+.rag-admin .admin-tab {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  font-weight: 500;
+  padding: 7px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+}
+.rag-admin .admin-tab:hover {
+  color: var(--text);
+  background: color-mix(in srgb, var(--card) 70%, transparent);
+}
+.rag-admin .admin-tab.is-active {
+  background: var(--card);
+  color: var(--primary);
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12);
+}
+
+/* ---------- 卡片 / 栅格 ---------- */
+.rag-admin .admin-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 14px;
+}
+.rag-admin .admin-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+}
+.rag-admin .admin-card h3 {
+  margin: 0 0 12px;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.rag-admin .admin-card h3::before {
+  content: '';
+  width: 3px;
+  height: 13px;
+  border-radius: 2px;
+  background: var(--primary);
+  flex: none;
+}
+.rag-admin .admin-card h4 {
+  margin: 14px 0 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* ---------- 键值列表 ---------- */
+.rag-admin .admin-kv {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.rag-admin .admin-kv li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12.5px;
+  padding-bottom: 8px;
+  border-bottom: 1px dashed var(--border);
+}
+.rag-admin .admin-kv li:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+.rag-admin .admin-kv li > span {
+  color: var(--text-secondary);
+  flex: none;
+}
+.rag-admin .admin-kv li > b {
+  color: var(--text);
+  font-weight: 600;
+  text-align: right;
+  word-break: break-all;
+}
+
+/* ---------- 表格 ---------- */
+.rag-admin .admin-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 12.5px;
+  margin-top: 10px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.rag-admin .admin-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  text-align: left;
+  font-weight: 600;
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  background: var(--bg);
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.rag-admin .admin-table tbody td {
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  vertical-align: middle;
+}
+.rag-admin .admin-table tbody tr:last-child td {
+  border-bottom: none;
+}
+.rag-admin .admin-table tbody tr:hover td {
+  background: color-mix(in srgb, var(--primary) 4%, var(--card));
+}
+.rag-admin .admin-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11.5px;
+  color: var(--text-secondary);
+}
+
+/* ---------- 工具栏 / 按钮区 ---------- */
+.rag-admin .admin-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+.rag-admin .admin-actions:first-child {
+  margin-top: 0;
+}
+
+/* ---------- 表单 ---------- */
+.rag-admin .admin-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px 16px;
+}
+.rag-admin .admin-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.rag-admin .admin-field > span {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.rag-admin .admin-input {
+  padding: 8px 10px;
+  font-size: 13px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--input-bg);
+  color: var(--text);
+  outline: none;
+}
+.rag-admin .admin-input:focus {
+  border-color: var(--primary);
+}
+
+/* ---------- 文本块 ---------- */
+.rag-admin .admin-pre {
+  margin: 10px 0 0;
+  padding: 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 380px;
+  overflow: auto;
+}
+.rag-admin .admin-list {
+  margin: 8px 0 0;
+  padding-left: 20px;
+  font-size: 12.5px;
+  line-height: 1.9;
+}
+.rag-admin .admin-list a {
+  color: var(--primary);
+  text-decoration: none;
+}
+.rag-admin .admin-list a:hover {
+  text-decoration: underline;
+}
+.rag-admin .admin-hint {
+  margin: 6px 0 0;
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--text-secondary);
+}
+.rag-admin .admin-warn {
+  margin: 12px 0 0;
+  padding: 8px 11px;
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.7;
+  border: 1px solid color-mix(in srgb, var(--warning) 40%, var(--border));
+  background: color-mix(in srgb, var(--warning) 10%, var(--card));
+  color: var(--text);
+}
+.rag-admin .admin-empty {
+  padding: 28px;
+  text-align: center;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  background: var(--card);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+}
+
+/* ---------- 徽标 ---------- */
+.rag-admin .rag-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 500;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.rag-admin .rag-pill::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.85;
+}
+.rag-admin .rag-pill.is-ok {
+  color: var(--success);
+  border-color: color-mix(in srgb, var(--success) 35%, var(--border));
+  background: color-mix(in srgb, var(--success) 8%, var(--card));
+}
+.rag-admin .rag-pill.is-bad {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 35%, var(--border));
+  background: color-mix(in srgb, var(--danger) 8%, var(--card));
+}
+.rag-admin .rag-pill.is-warn {
+  color: var(--warning);
+  border-color: color-mix(in srgb, var(--warning) 35%, var(--border));
+  background: color-mix(in srgb, var(--warning) 10%, var(--card));
+}
+
+/* ---------- 测试台回答块 ---------- */
+.rag-admin .rag-answer {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+  font-size: 13px;
+  line-height: 1.8;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+@media (max-width: 720px) {
+  .rag-admin .admin-tabs {
+    width: 100%;
+  }
+  .rag-admin .admin-grid {
+    grid-template-columns: 1fr;
+  }
+  .rag-admin .admin-table {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+}
