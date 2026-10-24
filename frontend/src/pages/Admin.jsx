@@ -8,6 +8,7 @@ import PayAdminPanel from '../components/PayAdminPanel';
 import TitleGrantPanel from '../components/TitleGrantPanel';
 import WikiAdminPanel from '../components/WikiAdminPanel';
 import MarketAdminPanel from '../components/MarketAdminPanel';
+import RagAdminPanel from '../components/RagAdminPanel';
 import { formatDate } from '../utils';
 
 const TABS = [
@@ -30,6 +31,7 @@ const TABS = [
   { key: 'paylink', label: '缴费单/链接' },
   { key: 'pay', label: '支付管理' },
   { key: 'market', label: '集市管理' },
+  { key: 'rag', label: '玄剑姬 AI' },
   { key: 'bubbles', label: '聊天气泡' },
   { key: 'stickers', label: '公共表情包' },
   { key: 'mod', label: '模组管理' },
@@ -43,6 +45,7 @@ const TAB_GROUPS = [
   { group: '内容', keys: ['posts', 'wiki', 'announcements', 'banners'] },
   { group: '经济', keys: ['market', 'shop', 'logs', 'claims', 'tasks', 'verify', 'donation'] },
   { group: '接入', keys: ['paygate', 'paylink', 'pay', 'mod'] },
+  { group: '智能', keys: ['rag'] },
   { group: '聊天', keys: ['bubbles', 'stickers'] }
 ];
 
@@ -187,6 +190,7 @@ export default function Admin() {
           {tab === 'stickers' && <StickerManager showToast={showToast} />}
           {tab === 'mod' && <ModServerManager showToast={showToast} />}
           {tab === 'team' && <TeamAdmin showToast={showToast} />}
+          {tab === 'rag' && <RagAdminPanel showToast={showToast} isSuper={user.level >= 2} />}
         </div>
       </div>
     </div>

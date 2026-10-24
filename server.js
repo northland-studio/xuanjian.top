@@ -46,6 +46,8 @@ const payRoutes = require('./routes/pay');
 const mcRoutes = require('./routes/mc');
 const donationRoutes = require('./routes/donation');
 const wikiRoutes = require('./routes/wiki');
+const faqRoutes = require('./routes/faq');
+const qqbotRagRoutes = require('./routes/qqbot-rag');
 const db = require('./database');
 
 const app = express();
@@ -172,6 +174,7 @@ app.use('/api/generations', generationRoutes);
 app.use('/api/qqbot', qqbotRoutes);
 // QQ 机器人扫码支付（复用 qqbot.js 的 X-Bot-Token 鉴权 + pay.js 的服务层，出码不扣款）
 app.use('/api/qqbot/pay', qqbotPayRoutes);
+app.use('/api/qqbot/rag', qqbotRagRoutes);
 app.use('/api/paygate', paygateRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/pay-confirm', payConfirmRoutes);
@@ -181,6 +184,7 @@ app.use('/api/pay', payRoutes);
 app.use('/api/mc', mcRoutes);
 app.use('/api/donation', donationRoutes);
 app.use('/api/wiki', wikiRoutes);
+app.use('/api/faq', faqRoutes);
 // 「紫雪坊市公会集市」（贡献点集市：店铺/商品/订单/核销/收入分户账，设计见 docs/MARKET.md）
 const marketRoutes = require('./routes/market');
 app.use('/api/market', marketRoutes);
@@ -270,6 +274,15 @@ try {
     require('./lib/market-jobs').startScheduler();
 } catch (e) {
     logger.error('集市定时任务注册失败:', e.message);
+}
+
+// ===== 玄剑姬 RAG 运行时：加载 sqlite-vec、启动索引 worker、注册日志清理 =====
+// RAG_DISABLE_WORKER=1 用于测试/脚本环境，避免后台任务干扰
+try {
+    const ragRuntime = require('./lib/rag/runtime');
+    ragRuntime.start();
+} catch (e) {
+    logger.error('RAG 运行时启动失败: ' + e.message);
 }
 
 module.exports = app;

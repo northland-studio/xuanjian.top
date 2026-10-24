@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { api, wsUrlWithToken } from '../api';
 import { AdminIcon } from './Icons';
+import RagWidget from './RagWidget';
 import { QQ_GROUP_URL } from '../config/social';
 import SkinWidget from './SkinWidget';
 import ChatBox from './ChatBox';
@@ -312,6 +313,7 @@ export default function Layout({ children }) {
       <main className="main-content">
         <div className="container">{children}</div>
       </main>
+            <RagWidget />
 
       {/* 右下角常驻皮肤模型（可收起） */}
       <SkinWidget />
