@@ -3,7 +3,7 @@
  * 这里确认：1) 放宽 max_tokens 后能否拿到正文；2) 是否支持关闭思考的参数
  */
 const https = require('https');
-const LLM_KEY = process.env.RAG_LLM_KEY || 'sk-33a0de06305a4e6494fe4644e289eecc';
+const LLM_KEY = process.env.RAG_LLM_KEY || '';
 
 function post(url, headers, body) {
     return new Promise((resolve) => {

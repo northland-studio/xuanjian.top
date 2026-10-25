@@ -6,8 +6,8 @@
  */
 const https = require('https');
 
-const EMB_KEY = process.env.RAG_EMBEDDING_KEY || 'sk-prglmnpvrtzhelluumkmxrcavlpxvozehfglpkwqknyvzjza';
-const LLM_KEY = process.env.RAG_LLM_KEY || 'sk-33a0de06305a4e6494fe4644e289eecc';
+const EMB_KEY = process.env.RAG_EMBEDDING_KEY || '';
+const LLM_KEY = process.env.RAG_LLM_KEY || '';
 
 function post(url, headers, body, timeoutMs = 60000) {
     return new Promise((resolve) => {
