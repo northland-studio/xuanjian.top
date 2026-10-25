@@ -126,7 +126,9 @@ router.post('/ask', optionalAuthMiddleware, askLimiter, async (req, res) => {
             sources: result.sources,
             promptVersion: result.promptVersion,
             latencyMs: result.latencyMs,
-            cached: result.cached === true
+            cached: result.cached === true,
+            degraded: result.degraded === true,
+            degradedReason: result.degradedReason || null
         });
     } catch (e) {
         logger.error('FAQ 问答接口错误: ' + e.message);

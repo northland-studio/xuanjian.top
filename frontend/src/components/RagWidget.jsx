@@ -142,6 +142,7 @@ export default function RagWidget() {
                             {m.role !== 'user' && <XjjAvatar className="rag-msg-avatar" />}
                             <div className="rag-msg-main">
                                 {m.role === 'assistant' && m.abstained && <div className="rag-badge">Wiki 暂无可靠记载</div>}
+                                {m.role === 'assistant' && m.degraded && <div className="rag-badge">当前仅用全文检索（向量服务不可用）</div>}
                                 {m.role === 'error' && <div className="rag-badge rag-badge-bad">服务异常</div>}
                                 {m.role === 'assistant' ? <RagMarkdown text={m.text} /> : <div className="rag-text">{m.text}</div>}
                                 {!!(m.sources && m.sources.length) && (
