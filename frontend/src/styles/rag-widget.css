@@ -85,7 +85,41 @@
   transform: translateX(0);
 }
 
+/* ---------- 对话区背景：CDN 立绘 + 白色/黑色淡化（同 profile 封面处理） ---------- */
+/* 只在抽屉打开后加载立绘，避免首屏多拉一张 2.5MB 大图 */
+.rag-drawer::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-size: cover;
+  background-position: center top;
+  background-repeat: no-repeat;
+  background-color: var(--bg);
+}
+.rag-drawer.is-open::before {
+  background-image: url('https://cdn.xuanjian.top/xjj1.png');
+}
+/* 亮色：白色淡化（强度为最初设计的 1/3，能看见立绘但正文仍清晰） */
+.rag-drawer::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.29) 0%, rgba(255, 255, 255, 0.31) 55%, rgba(255, 255, 255, 0.33) 100%);
+}
+/* 暗色：黑色淡化（同为 1/3 强度） */
+[data-theme='dark'] .rag-drawer::after {
+  background:
+    linear-gradient(to bottom, rgba(0, 0, 0, 0.25) 0%, rgba(0, 0, 0, 0.29) 55%, rgba(0, 0, 0, 0.31) 100%);
+}
+
 .rag-head {
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -152,13 +186,16 @@
 }
 
 .rag-body {
+  position: relative;
+  z-index: 1;
   flex: 1;
   overflow-y: auto;
   padding: 14px;
   display: flex;
   flex-direction: column;
   gap: 14px;
-  background: var(--bg);
+  /* 背景图挂在 .rag-drawer 上，滚动区保持透明，避免图片随滚动跑位 */
+  background: transparent;
 }
 
 .rag-empty {
@@ -372,6 +409,8 @@ h5.rag-md-h, h6.rag-md-h { font-size: 13.5px; }
 
 /* ---------- 输入区 ---------- */
 .rag-input-row {
+  position: relative;
+  z-index: 1;
   display: flex;
   gap: 8px;
   padding: 10px 12px calc(10px + var(--sab, 0px));

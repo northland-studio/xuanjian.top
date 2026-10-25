@@ -323,3 +323,48 @@ journalctl -u xuanjian-group-bot -f | grep -v '\[pay\]'
 - [API.md](API.md)：官网 API 总览
 - [RENDERING.md](RENDERING.md)：SSG / SSR / SPA 三层渲染
 - `/wiki/wiki-bian-xie-zhi-nan-cong-ling-xie-yi-pian-neng-yong-de-ci-tiao`：面向编辑者的《Wiki 编写指南》
+
+## 十九、成本控制（2026-10-25 紧急收紧）
+
+### 问题定位
+
+上线首日出现约 20 元消耗，排查结论：**全部来自 LLM token，不是 Embedding**。
+
+| 指标 | 优化前 |
+| --- | --- |
+| 累计请求 | 78 次 |
+| 累计 token | 112,504（输入 96,749 / 输出 15,755） |
+| 单次平均 | 1,607 tokens |
+| 单次最高 | 3,341 tokens（输入 2,987） |
+| 主要原因 | 上下文过大：5 个证据块 × 600 字 + 6 轮历史 + 较长系统提示；重复问题重复计费；失败请求不记 token 导致看不到真实消耗 |
+
+### 已实施的六项收口
+
+1. **上下文压缩**：`verbose` 证据块 600 → 350 字（`MAX_EVIDENCE_CHARS`），`finalChunkCount` 5 → 2，`maxContextChars` 6000 → 2600，`conversationMaxTurns` 6 → 1
+2. **输出上限**：`maxOutputTokens` 700 → 200
+3. **候选收敛**：`vectorTopK` / `ftsTopK` 50 → 30（减少无谓 rerank 与上下文）
+4. **答案缓存**：同一「来源 + 问题」5 分钟内命中缓存，**0 token**；游客按问题共享（答案只来自 Wiki，无个人数据），登录用户与机器人按主体隔离；缓存命中不占限流配额，并写一条 `status=cached` 日志
+5. **每日 token 硬上限**：`rag.dailyTokenLimit`（默认 120,000），超出直接拒答并提示，不再继续花钱
+6. **失败也记账**：LLM/检索失败路径记录估算用量（原来记 0，导致账单与库内数据对不上）
+
+顺带修掉一个误导行为：Embedding 抖动导致检索为空时，原来会回答「Wiki 中没有记载」，现在是 **503 服务异常**（并先自动重试一次 Embedding）。
+
+### 优化结果（真实调用实测）
+
+| 指标 | 优化前 | 优化后 |
+| --- | --- | --- |
+| 单次 token（平均） | 1,607 | **≈ 860**（实测 830 / 889） |
+| 单次输入 token | 1,382 | ≈ 700 |
+| 单次输出 token | 225 | ≈ 160 |
+| 重复问题 | 全额计费 | **0 token（缓存）** |
+| 单日上限 | 无 | 120,000 tokens 硬熔断 |
+
+### 运维提示
+
+- **不要在测试里用生产 Key**：`scripts/rag/eval-rag.js`、`test-rag.js`、`verify-*.js` 会真实调用模型。需要跑逻辑测试时用降级模式或单独的测试 Key：
+  ```bash
+  RAG_EMBEDDING_KEY=<测试Key> RAG_LLM_KEY=<测试Key> node scripts/rag/test-rag.js
+  ```
+- 后台「概览与健康」可看今日 token 与上限；「用量与日志」可按来源筛选，`status=cached` 即缓存命中。
+- 若仍觉费用偏高，可继续调：`finalChunkCount` 2 → 1、`maxOutputTokens` 200 → 150，或用后台把 `dailyTokenLimit` 调低到 5 万先观察一天。
+- 单价核对：请以 DeepSeek 控制台的账单为准；本项目内的费用为**按 token 估算**（`lib/rag/ask.js` 顶部 `PRICE` 常量），不是账单。

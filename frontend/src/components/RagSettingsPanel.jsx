@@ -77,6 +77,7 @@ const GROUPS = [
         fields: [
             { key: 'rag.dailyBudget', label: '每日预算', type: 'number', min: 0, max: 1000, step: 0.1, unit: '元', hint: '0 表示不限' },
             { key: 'rag.costAlertThreshold', label: '预算预警阈值', type: 'number', min: 0, max: 1, step: 0.05, hint: '0.7 = 用掉 70% 时提示' },
+            { key: 'rag.dailyTokenLimit', label: '每日 token 硬上限', type: 'number', min: 10000, max: 5000000, step: 1000, unit: 'token', hint: '超出后直接拒答，防止费用失控；默认 120000' },
             { key: 'rag.circuitBreaker', label: '启用熔断', type: 'switch' },
             { key: 'rag.circuitFailThreshold', label: '连续失败阈值', type: 'number', min: 1, max: 50, unit: '次' },
             { key: 'rag.circuitCooldownSeconds', label: '熔断冷却', type: 'number', min: 30, max: 86400, unit: '秒' },

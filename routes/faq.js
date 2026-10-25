@@ -125,7 +125,8 @@ router.post('/ask', optionalAuthMiddleware, askLimiter, async (req, res) => {
             abstainReason: result.abstainReason,
             sources: result.sources,
             promptVersion: result.promptVersion,
-            latencyMs: result.latencyMs
+            latencyMs: result.latencyMs,
+            cached: result.cached === true
         });
     } catch (e) {
         logger.error('FAQ 问答接口错误: ' + e.message);
@@ -176,6 +177,7 @@ router.get('/admin/status', ...adminOnly, async (req, res) => {
             stats,
             usage: usages,
             budget: { limit: cfg['rag.dailyBudget'], used: usages.cost, alertThreshold: cfg['rag.costAlertThreshold'] },
+            tokenBudget: { limit: cfg['rag.dailyTokenLimit'] || 120000, used: usages.llmTokens },
             breaker,
             secrets: { hasMasterKey: secrets.hasMasterKey, embeddingConfigured: secrets.embedding.configured, llmConfigured: secrets.llm.configured },
             lastError: recentFail || null,
@@ -236,6 +238,7 @@ function validateNumericPatch(patch) {
         'rag.maxQuestionLength': [20, 2000],
         'rag.maxConcurrent': [1, 32],
         'rag.dailyBudget': [0, 1000],
+        'rag.dailyTokenLimit': [10000, 5000000],
         'rag.costAlertThreshold': [0, 1],
         'rag.circuitFailThreshold': [1, 50],
         'rag.circuitCooldownSeconds': [30, 86400],

@@ -60,7 +60,8 @@ router.post('/ask', botTokenAuth, async (req, res) => {
                 url: s.url,
                 categoryPath: s.categoryPath
             })),
-            latencyMs: result.latencyMs
+            latencyMs: result.latencyMs,
+            cached: result.cached === true
         });
     } catch (e) {
         logger.error('QQ RAG 接口错误: ' + e.message);
