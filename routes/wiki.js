@@ -529,7 +529,7 @@ async function submitForReview({ kind, pageId = null, categoryId = null, body, u
     let auto = null;
     try {
         auto = await glm.reviewContent({
-            title: sub.title, summary: sub.summary, content: sub.content, kind, pageTitle: pageTitle || sub.page_title || ''
+            title: sub.title, summary: sub.summary, content: sub.content, kind, pageTitle: pageTitle || sub.page_title || '', categoryId: categoryId || sub.category_id || null
         });
         await wiki.attachAutoReview(sub.id, auto);
     } catch (e) {
