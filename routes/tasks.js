@@ -247,8 +247,8 @@ router.post('/', authMiddleware, adminMiddleware, async (req, res) => {
 
         const code = generateTaskCode();
         const result = await db.run(
-            'INSERT INTO tasks (title, description, image, projection, reward, code, created_by, max_people) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-            [title.trim(), description?.trim() || '', image || '', projection || '', rw, code, req.userId, maxPeopleVal]
+            'INSERT INTO tasks (title, description, image, projection, reward, code, created_by, max_people, stock_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [title.trim(), description?.trim() || '', image || '', projection || '', rw, code, req.userId, maxPeopleVal, req.body.stock_id ? Number(req.body.stock_id) : null]
         );
 
         res.status(201).json({ message: '任务创建成功', taskId: result.id, code, maxPeople: maxPeopleVal });
@@ -286,8 +286,8 @@ router.put('/:id', authMiddleware, adminMiddleware, async (req, res) => {
         const maxPeopleVal = Number.isNaN(mp) ? -1 : mp;
 
         await db.run(
-            'UPDATE tasks SET title = ?, description = ?, image = ?, projection = ?, reward = ?, is_active = ?, max_people = ? WHERE id = ?',
-            [title?.trim() || '', description?.trim() || '', image || '', projection || '', parseInt(reward) || 0, isActive ? 1 : 0, maxPeopleVal, id]
+            'UPDATE tasks SET title = ?, description = ?, image = ?, projection = ?, reward = ?, is_active = ?, max_people = ?, stock_id = ? WHERE id = ?',
+            [title?.trim() || '', description?.trim() || '', image || '', projection || '', parseInt(reward) || 0, isActive ? 1 : 0, maxPeopleVal, req.body.stock_id ? Number(req.body.stock_id) : null, id]
         );
         res.json({ message: '任务更新成功' });
     } catch (error) {
