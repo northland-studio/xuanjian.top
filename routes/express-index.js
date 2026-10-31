@@ -52,6 +52,18 @@ router.get('/settlements', handle(async (req, res) => {
     res.json({ ok: true, settlements: rows });
 }));
 
+router.get('/holdings', authMiddleware, handle(async (req, res) => {
+    res.json({ ok: true, ...(await expressIndex.holdings(req.userId)) });
+}));
+
+router.get('/history', handle(async (req, res) => {
+    const stockId = Number(req.query.stockId);
+    if (!stockId) return res.status(400).json({ ok: false, error: '缺少 stockId' });
+    const data = await expressIndex.history(stockId, Number(req.query.limit) || 40);
+    if (!data) return res.status(404).json({ ok: false, error: '股票不存在' });
+    res.json({ ok: true, ...data });
+}));
+
 /* ---------- 交易 ---------- */
 router.post('/buy', authMiddleware, handle(async (req, res) => {
     const { stockId, shares } = req.body || {};

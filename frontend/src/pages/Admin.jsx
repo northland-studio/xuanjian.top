@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/UI';
 import TeamAdmin from '../components/TeamAdmin';
 import ContributionConversionPanel from '../components/ContributionConversionPanel';
+import ExpressIndexAdmin from '../components/ExpressIndexAdmin';
 import PayAdminPanel from '../components/PayAdminPanel';
 import TitleGrantPanel from '../components/TitleGrantPanel';
 import WikiAdminPanel from '../components/WikiAdminPanel';
@@ -33,6 +34,7 @@ const TABS = [
   { key: 'pay', label: '支付管理' },
   { key: 'market', label: '集市管理' },
   { key: 'conv', label: '换服折算' },
+  { key: 'express', label: '股市参数' },
   { key: 'rag', label: '玄剑姬 AI' },
   { key: 'bubbles', label: '聊天气泡' },
   { key: 'stickers', label: '公共表情包' },
@@ -45,7 +47,7 @@ const TAB_GROUPS = [
   { group: '概览', keys: ['dashboard'] },
   { group: '成员', keys: ['users', 'discipline', 'generations', 'grant', 'team'] },
   { group: '内容', keys: ['posts', 'wiki', 'announcements', 'banners'] },
-  { group: '经济', keys: ['market', 'shop', 'logs', 'claims', 'tasks', 'verify', 'donation', 'conv'] },
+  { group: '经济', keys: ['market', 'shop', 'logs', 'claims', 'tasks', 'verify', 'donation', 'conv', 'express'] },
   { group: '接入', keys: ['paygate', 'paylink', 'pay', 'mod'] },
   { group: '智能', keys: ['rag'] },
   { group: '聊天', keys: ['bubbles', 'stickers'] }
@@ -189,6 +191,7 @@ export default function Admin() {
           {tab === 'pay' && <PayAdminPanel />}
           {tab === 'market' && <MarketAdminPanel />}
         {tab === 'conv' && <ContributionConversionPanel showToast={showToast} isAdmin={user.level >= 1} />}
+        {tab === 'express' && <ExpressIndexAdmin showToast={showToast} />}
           {tab === 'bubbles' && <BubbleManager showToast={showToast} />}
           {tab === 'stickers' && <StickerManager showToast={showToast} />}
           {tab === 'mod' && <ModServerManager showToast={showToast} />}
