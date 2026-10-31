@@ -1,0 +1,246 @@
+/* 换服贡献点折算面板 */
+.conv {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.conv-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+}
+.conv-card h3 {
+  margin: 0 0 14px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.conv-card h3::before {
+  content: '';
+  width: 3px;
+  height: 14px;
+  border-radius: 2px;
+  background: var(--primary);
+  flex: none;
+}
+
+.conv-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.conv-stats > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.conv-stats span {
+  font-size: 11.5px;
+  color: var(--text-secondary);
+}
+.conv-stats b {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.conv-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+.conv-row > label {
+  min-width: 84px;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+}
+.conv-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.conv-sub {
+  font-size: 11.5px;
+  color: var(--text-secondary);
+}
+.conv-input {
+  padding: 7px 10px;
+  font-size: 13px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--input-bg);
+  color: var(--text);
+  outline: none;
+  width: 110px;
+}
+.conv-input:focus {
+  border-color: var(--primary);
+}
+.conv-input.conv-wide {
+  width: 320px;
+  max-width: 100%;
+}
+
+.conv-seg {
+  display: inline-flex;
+  gap: 4px;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg);
+}
+.conv-seg button {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  padding: 6px 13px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.16s ease;
+}
+.conv-seg button.is-active {
+  background: var(--card);
+  color: var(--primary);
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12);
+}
+
+.conv-tiers {
+  margin-bottom: 12px;
+}
+.conv-tier-head,
+.conv-tier-row {
+  display: grid;
+  grid-template-columns: 110px 110px 110px 1fr;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.conv-tier-head span {
+  font-size: 11.5px;
+  color: var(--text-secondary);
+}
+.conv-tier-row .conv-input {
+  width: 100%;
+}
+
+.conv-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.conv-hint {
+  margin: 8px 0 0;
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--text-secondary);
+}
+
+.conv-table-wrap {
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin-top: 10px;
+}
+.conv-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 12.5px;
+}
+.conv-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--bg);
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 11.5px;
+  text-align: left;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.conv-table tbody td {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+}
+.conv-table tbody tr:last-child td {
+  border-bottom: none;
+}
+.conv-table tbody tr:hover td {
+  background: color-mix(in srgb, var(--primary) 4%, var(--card));
+}
+.conv-table tr.is-excluded td {
+  opacity: 0.5;
+}
+
+.conv-mono {
+  margin-left: 6px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.conv-up {
+  color: var(--success);
+}
+.conv-down {
+  color: var(--danger);
+}
+
+.conv-pill {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-secondary);
+}
+.conv-pill-applied {
+  color: var(--success);
+  border-color: color-mix(in srgb, var(--success) 35%, var(--border));
+  background: color-mix(in srgb, var(--success) 8%, var(--card));
+}
+.conv-pill-preview {
+  color: var(--warning);
+  border-color: color-mix(in srgb, var(--warning) 35%, var(--border));
+  background: color-mix(in srgb, var(--warning) 10%, var(--card));
+}
+.conv-pill-reverted,
+.conv-pill-excluded {
+  color: var(--text-secondary);
+}
+.conv-pill-frozen {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 35%, var(--border));
+}
+
+@media (max-width: 720px) {
+  .conv-tier-head,
+  .conv-tier-row {
+    grid-template-columns: 1fr 1fr;
+  }
+  .conv-tier-head span:nth-child(4) {
+    display: none;
+  }
+}
