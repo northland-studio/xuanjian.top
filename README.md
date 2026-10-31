@@ -56,6 +56,7 @@ xuanjian.top 2.0 - React 重构版
 - 前端：屏幕右缘垂直居中的悬浮按钮 + 右侧抽屉；回答支持 Markdown 渲染；头像使用 `https://cdn.xuanjian.top/xjj.png`
 - 管理：`/admin → 玄剑姬 AI`（概览/模型配置/索引管理/问答测试台/用量日志），超管管密钥与重建，普管可查看与测试
 - 文档：[docs/RAG.md](docs/RAG.md)
+- 统一登录与 CDN 鉴权：[docs/OAUTH.md](docs/OAUTH.md)
 
 ### 用户体系
 

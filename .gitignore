@@ -65,3 +65,7 @@ data/market-map-art.png
 .deploy/
 
 .xjn/
+# OAuth 密钥与临时产物
+scripts/rag/*secret*.txt
+scripts/rag/oauth-clients*.json
+scripts/rag/rotate-*.json
