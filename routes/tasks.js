@@ -181,6 +181,23 @@ router.post('/:id/complete', authMiddleware, async (req, res) => {
             await addContributionLog(req.userId, task.reward, 'task', task.id, task.title);
         });
 
+    // 哲式动态指数：任务全部领取者完成后自动结算股价（幂等：同一任务只结算一次）
+    try {
+        const pendingRow = await db.get(
+            "SELECT COUNT(*) AS c FROM task_claims WHERE task_id = ? AND status = 'pending'",
+            [task.id]
+        );
+        if ((pendingRow ? pendingRow.c : 0) === 0) {
+            const expressIndex = require('../lib/express-index');
+            const settled = await expressIndex.settleByTask(task.id, { operatorId: req.userId });
+            if (settled && settled.ok) {
+                logger.info('[express] 任务 ' + task.id + ' 结算：' + settled.stockName + ' ' + settled.priceBefore + ' → ' + settled.priceAfter + '（ΔP=' + settled.delta + '，N=' + settled.N + '）');
+            }
+        }
+    } catch (settleErr) {
+        logger.error('哲指数结算失败（不影响任务奖励）：', settleErr.message);
+    }
+
         // 站内通知
         try {
             await createNotification({

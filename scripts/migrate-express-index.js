@@ -36,7 +36,9 @@ const NEW_STOCKS = [
     }
     console.log('✓ 参数默认值 ' + Object.keys(DEFAULTS).length + ' 项');
 
-    // 2. 清空旧股票数据
+    // 2. 清空旧股票数据（外键先关闭，避免旧交易/持仓阻挠）
+    try { await db.run('PRAGMA foreign_keys = OFF'); } catch {}
+
     const oldCount = await db.get('SELECT COUNT(*) AS c FROM stocks');
     if (oldCount.c) {
         for (const t of ['stock_transactions', 'stock_prices', 'stock_ohlc']) {
@@ -44,6 +46,7 @@ const NEW_STOCKS = [
         }
         await db.run('DELETE FROM stocks');
         console.log('✓ 已删除旧股票 ' + oldCount.c + ' 只及关联交易/价格/K线数据');
+        try { await db.run('PRAGMA foreign_keys = ON'); } catch {}
     } else {
         console.log('✓ 旧股票已清空');
     }
