@@ -59,7 +59,7 @@ router.get('/holdings', authMiddleware, handle(async (req, res) => {
 router.get('/history', handle(async (req, res) => {
     const stockId = Number(req.query.stockId);
     if (!stockId) return res.status(400).json({ ok: false, error: '缺少 stockId' });
-    const data = await expressIndex.history(stockId, Number(req.query.limit) || 40);
+    const data = await expressIndex.history(stockId, Number(req.query.limit) || 40, String(req.query.range || '1d'));
     if (!data) return res.status(404).json({ ok: false, error: '股票不存在' });
     res.json({ ok: true, ...data });
 }));
