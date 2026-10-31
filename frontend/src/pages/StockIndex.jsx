@@ -164,19 +164,21 @@ export default function StockIndex() {
     const [sparks, setSparks] = useState({});
     const [keyword, setKeyword] = useState('');
 
-    const load = useCallback(async () => {
-        setLoading(true);
+    const firstLoadRef = useRef(true);
+
+    const load = useCallback(async (silent = false) => {
+        if (!silent) setLoading(true);
         try {
             const q = await api.get('/api/express-index/quotes');
             setData(q);
-            if (!activeStock && q.stocks && q.stocks.length) {
-                setActiveStock(q.stocks[0].id);
-                // 拉取每只板块的迷你走势
-                const entries = await Promise.all(q.stocks.map(async (s) => {
+            // 首次加载：选中第一个板块并拉取各板块迷你走势
+            if (firstLoadRef.current && q.stocks && q.stocks.length) {
+                firstLoadRef.current = false;
+                setActiveStock((cur) => cur || q.stocks[0].id);
+                Promise.all(q.stocks.map(async (s) => {
                     const h = await api.get(`/api/express-index/history?stockId=${s.id}&range=1d&limit=30`).catch(() => null);
                     return [s.id, h ? h.points || [] : []];
-                }));
-                setSparks(Object.fromEntries(entries));
+                })).then((entries) => setSparks(Object.fromEntries(entries))).catch(() => {});
             }
             if (user) {
                 const h = await api.get('/api/express-index/holdings').catch(() => null);
@@ -184,11 +186,11 @@ export default function StockIndex() {
             }
             setErr('');
         } catch (e) {
-            setErr(e.message || '加载失败');
+            if (!silent) setErr(e.message || '加载失败');
         } finally {
-            setLoading(false);
+            if (!silent) setLoading(false);
         }
-    }, [user, activeStock]);
+    }, [user]);
 
     useEffect(() => { void load(); }, [load]);
 
@@ -216,7 +218,7 @@ export default function StockIndex() {
             else showToast(`卖出 ${n} 股，印花税 ${fmt(r.tax)}，到账 ${fmt(r.income)}`, 'success');
             setQty((m) => ({ ...m, [stock.id]: '' }));
             setRefreshKey((k) => k + 1);
-            await load();
+            await load(true);
         } catch (e) {
             showToast(e.message || '交易失败', 'error');
         } finally {
