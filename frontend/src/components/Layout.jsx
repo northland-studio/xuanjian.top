@@ -118,6 +118,7 @@ export default function Layout({ children }) {
       key: 'economy', label: '经济', items: [
         { to: '/market', label: '集市' },
         { to: '/economics', label: '经济看板' },
+            { to: '/stocks', label: '股市' },
         { to: '/pay', label: '支付中心' },
         { to: '/pay/records', label: '我的收付款' },
         { to: '/trade', label: '贡献点交易' },

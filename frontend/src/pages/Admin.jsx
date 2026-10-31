@@ -1485,7 +1485,7 @@ function TaskManager({ showToast }) {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ title: '', description: '', image: '', projection: '', reward: '', maxPeople: -1 });
+  const [form, setForm] = useState({ title: '', description: '', image: '', projection: '', reward: '', maxPeople: -1, stockId: '' });
   const [createdCode, setCreatedCode] = useState('');
   const [expanded, setExpanded] = useState(null);
   const [claims, setClaims] = useState([]);
@@ -1548,7 +1548,7 @@ function TaskManager({ showToast }) {
   const createTask = async () => {
     if (!form.title.trim() || !form.reward) { showToast('请填写标题与奖励', 'error'); return; }
     try {
-      const d = await api.post('/api/tasks', { ...form, reward: parseInt(form.reward) });
+      const d = await api.post('/api/tasks', { ...form, reward: parseInt(form.reward), stock_id: form.stockId || null });
       showToast('任务创建成功', 'success');
       setCreatedCode(d.code);
       setForm({ title: '', description: '', image: '', projection: '', reward: '', maxPeople: -1 });
@@ -1620,6 +1620,15 @@ function TaskManager({ showToast }) {
               {form.projection && <span className="text-secondary" style={{ fontSize: 12 }}>已上传投影文件</span>}
             </div>
             <input className="form-input" type="number" placeholder="贡献点奖励 *" value={form.reward} onChange={e => setForm({ ...form, reward: e.target.value })}  step="0.01"/>
+            <label className="form-label" style={{ marginTop: 10 }}>所属板块（可选）</label>
+            <select className="form-input" value={form.stockId || ''}
+                onChange={e => setForm({ ...form, stockId: e.target.value })}>
+                <option value="">不绑定（不触发股价结算）</option>
+                <option value="15">玄剑重工</option>
+                <option value="16">玄剑建工</option>
+                <option value="17">玄剑人力</option>
+            </select>
+            <p className="text-secondary" style={{ fontSize: 12, marginTop: 4 }}>绑定后，该任务全部领取者完成时按哲指数公式结算对应板块股价。</p>
             <div className="flex" style={{ gap: 12, alignItems: 'center' }}>
               <input className="form-input" type="number" placeholder="可接取人数（-1 无限 / 1及以上限量）" value={form.maxPeople} onChange={e => setForm({ ...form, maxPeople: e.target.value })} />
               <span className="text-secondary" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>{form.maxPeople === -1 ? '无限人数' : `限量 ${form.maxPeople} 人`}</span>
