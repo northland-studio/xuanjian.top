@@ -25,6 +25,7 @@ import Tasks from './pages/Tasks';
 import Following from './pages/Following';
 import Trade from './pages/Trade';
 import Economics from './pages/Economics';
+import StockIndex from './pages/StockIndex';
 import Donation from './pages/Donation';
 import Mods from './pages/Mods';
 import Projections from './pages/Projections';
@@ -96,6 +97,7 @@ function MainSite() {
         <Route path="/following" element={<Following />} />
         <Route path="/trade" element={<Trade />} />
         <Route path="/economics" element={<Economics />} />
+          <Route path="/stocks" element={<StockIndex />} />
         <Route path="/donation" element={<Donation />} />
         <Route path="/mods" element={<Mods />} />
         {/* 紫雪坊市（公会集市）：静态段优先于 :id，避免 /market/map 被当成店铺 ID
