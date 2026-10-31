@@ -140,17 +140,33 @@ export default function WikiRichEditor({ value, onChange, placeholder = '开始�
 
   /* ---------- 图片上传（支持多选/粘贴/拖拽） ---------- */
   const uploadAndInsert = useCallback(async (files) => {
-    if (!editor || uploadingRef.current) return;
+    if (!editor || !files || !files.length) return;
+    if (uploadingRef.current) {
+      showToast('上一批图片还在上传，请稍候', 'warn');
+      return;
+    }
     uploadingRef.current = true;
+    let okCount = 0;
+    const failures = [];
     try {
-      for (const f of files) {
-        if (f.size > 8 * 1024 * 1024) { showToast(`${f.name} 超过 8MB，已跳过`, 'error'); continue; }
-        const url = await uploadImage(f);
-        editor.chain().focus().setImage({ src: url, alt: f.name }).run();
+      for (let i = 0; i < files.length; i++) {
+        const f = files[i];
+        if (files.length > 1) showToast(`正在上传 ${i + 1}/${files.length}：${f.name}`, 'info', 1500);
+        try {
+          const url = await uploadImage(f);
+          editor.chain().focus().setImage({ src: url, alt: f.name }).run();
+          okCount += 1;
+        } catch (e) {
+          failures.push(f.name + '：' + (e.message || '上传失败'));
+        }
       }
-      showToast(`已插入 ${files.length} 张图片`, 'success');
-    } catch (e) {
-      showToast(e.message || '图片上传失败', 'error');
+      if (okCount && !failures.length) showToast(`已插入 ${okCount} 张图片`, 'success');
+      else if (okCount && failures.length) showToast(`成功 ${okCount} 张，失败 ${failures.length} 张`, 'warn', 4000);
+      if (failures.length) {
+        // 逐条列出失败原因，避免「传不上去但不知道为什么」
+        console.warn('[wiki 图片上传失败]', failures);
+        showToast(failures.slice(0, 3).join('；') + (failures.length > 3 ? `（共 ${failures.length} 张失败）` : ''), 'error', 6000);
+      }
     } finally {
       uploadingRef.current = false;
     }

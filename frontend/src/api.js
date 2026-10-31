@@ -130,10 +130,10 @@ export const api = {
 const QINIU_UPLOAD_URL = 'https://up-as0.qiniup.com/';
 
 // 获取七牛上传凭证
-async function getQiniuToken(filename) {
+async function getQiniuToken(filename, kind = 'image') {
   return request('/api/upload/token', {
     method: 'POST',
-    body: JSON.stringify({ filename })
+    body: JSON.stringify({ filename, kind })
   });
 }
 
@@ -173,10 +173,41 @@ function xhrUpload(uploadToken, key, file, onProgress) {
 }
 
 // 上传图片（单张），onProgress 回调 0-100
+export const UPLOAD_LIMITS = { maxSizeMB: 5, exts: ['png', 'jpg', 'jpeg', 'webp', 'gif'] };
+
+/** 七牛/网络错误 → 用户能看懂的中文提示 */
+function friendlyUploadError(err) {
+  const msg = String((err && err.message) || err || '');
+  if (/fsize|file too large|exceeds/i.test(msg)) return '图片超过大小限制（最大 5MB）';
+  if (/401|token/i.test(msg) && /expire/i.test(msg)) return '上传凭证已过期，请重试';
+  if (/network|timeout|Failed to fetch|NetworkError/i.test(msg)) return '网络异常，请检查网络后重试';
+  if (/mime|type/i.test(msg)) return '不支持的图片格式（仅支持 PNG/JPG/WEBP/GIF）';
+  return msg || '图片上传失败';
+}
+
+/** 上传单张图片到七牛（直传），带本地校验 + 自动重试 */
 export async function uploadImage(file, onProgress) {
-  const { uploadToken, key, domain } = await getQiniuToken(file.name);
-  await xhrUpload(uploadToken, key, file, onProgress);
-  return `${domain}/${key}`;
+  if (!file) throw new Error('没有选择文件');
+  const ext = String(file.name || '').split('.').pop().toLowerCase();
+  if (!UPLOAD_LIMITS.exts.includes(ext)) {
+    throw new Error('不支持的图片格式：.' + ext + '（仅支持 PNG/JPG/WEBP/GIF）');
+  }
+  if (file.size > UPLOAD_LIMITS.maxSizeMB * 1024 * 1024) {
+    throw new Error('图片超过 ' + UPLOAD_LIMITS.maxSizeMB + 'MB 限制（当前 ' + (file.size / 1024 / 1024).toFixed(1) + 'MB）');
+  }
+
+  let lastErr = null;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const { uploadToken, key, domain } = await getQiniuToken(file.name, 'wiki');
+      await xhrUpload(uploadToken, key, file, onProgress);
+      return domain + '/' + key;
+    } catch (e) {
+      lastErr = e;
+      if (attempt < 2) await new Promise((r) => setTimeout(r, 400 * Math.pow(2, attempt)));
+    }
+  }
+  throw new Error(friendlyUploadError(lastErr));
 }
 
 // 上传多张图片（顺序上传），onProgress(doneCount, currentPercent, totalCount)
