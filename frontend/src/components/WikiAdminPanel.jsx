@@ -322,7 +322,7 @@ export default function WikiAdminPanel() {
   };
 
   return (
-    <div className="wiki-admin">
+    <div className="wiki-admin adm-page">
       <div className="wiki-section-head">
         <h3 style={{ fontSize: 16, fontWeight: 700 }}>Wiki 知识库</h3>
         <Link to="/wiki/editor" className="btn btn-primary btn-sm">+ 新建页面</Link>

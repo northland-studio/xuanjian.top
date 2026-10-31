@@ -17,7 +17,7 @@ const ROUND_MODES = [
     { key: 'ceil', label: '向上取整' }
 ];
 
-export default function ContributionConversionPanel({ showToast, isSuper }) {
+export default function ContributionConversionPanel({ showToast, isAdmin }) {
     const toast = (m, t) => showToast && showToast(m, t);
 
     const [stats, setStats] = useState(null);
@@ -152,50 +152,51 @@ export default function ContributionConversionPanel({ showToast, isSuper }) {
         return users.filter((u) => String(u.nickname || '').toLowerCase().includes(f) || String(u.username || '').toLowerCase().includes(f));
     }, [users, filter]);
 
-    if (!isSuper) {
+    if (!isAdmin) {
         return (
-            <div className="admin-card">
+            <div className="adm-card">
                 <h3>换服贡献点折算</h3>
-                <p className="admin-warn">该功能会批量修改全站贡献点，仅超级管理员可用。</p>
+                <p className="adm-warn">该功能会批量修改全站贡献点，需要管理员权限。</p>
             </div>
         );
     }
 
+
     return (
-        <div className="conv">
+        <div className="adm-page">
             {/* 概览 */}
-            <div className="conv-card">
+            <div className="adm-card">
                 <h3>当前站点贡献点概况</h3>
-                <div className="conv-stats">
-                    <div><span>注册用户</span><b>{stats ? stats.totalUsers : '-'}</b></div>
-                    <div><span>持有贡献点</span><b>{stats ? stats.withPoints : '-'}</b></div>
-                    <div><span>贡献点总额</span><b>{stats ? stats.totalPoints : '-'}</b></div>
-                    <div><span>参与折算</span><b>{stats ? stats.participants : '-'}</b></div>
-                    <div><span>已排除</span><b>{stats ? stats.excluded : '-'}</b></div>
+                <div className="adm-stats">
+                    <div className="adm-stat"><span className="adm-stat-label">注册用户</span><b className="adm-stat-value">{stats ? stats.totalUsers : '-'}</b></div>
+                    <div className="adm-stat"><span className="adm-stat-label">持有贡献点</span><b className="adm-stat-value">{stats ? stats.withPoints : '-'}</b></div>
+                    <div className="adm-stat"><span className="adm-stat-label">贡献点总额</span><b className="adm-stat-value">{stats ? stats.totalPoints : '-'}</b></div>
+                    <div className="adm-stat"><span className="adm-stat-label">参与折算</span><b className="adm-stat-value">{stats ? stats.participants : '-'}</b></div>
+                    <div className="adm-stat"><span className="adm-stat-label">已排除</span><b className="adm-stat-value">{stats ? stats.excluded : '-'}</b></div>
                 </div>
-                <p className="conv-hint">
+                <p className="adm-hint">
                     默认排除：集市托管账户（market_escrow）、系统账号（level &lt; 0）。冻结账号可通过「参与范围」控制。
                 </p>
             </div>
 
             {/* 规则配置 */}
-            <div className="conv-card">
+            <div className="adm-card">
                 <h3>折算规则</h3>
 
-                <div className="conv-row">
+                <div className="adm-field">
                     <label>折算模式</label>
-                    <div className="conv-seg">
+                    <div className="adm-tabs">
                         <button className={mode === 'uniform' ? 'is-active' : ''} onClick={() => setMode('uniform')}>统一比例</button>
                         <button className={mode === 'tiers' ? 'is-active' : ''} onClick={() => setMode('tiers')}>按排名区间</button>
                     </div>
                 </div>
 
                 {mode === 'uniform' ? (
-                    <div className="conv-row">
+                    <div className="adm-field">
                         <label>统一比例</label>
                         <div className="conv-inline">
                             <span>×</span>
-                            <input className="conv-input" type="number" step="0.01" min="0" max="10" value={uniformRatio} onChange={(e) => setUniformRatio(e.target.value)} />
+                            <input className="adm-input" type="number" step="0.01" min="0" max="10" value={uniformRatio} onChange={(e) => setUniformRatio(e.target.value)} />
                             <span className="conv-sub">
                                 例：0.5 = 全员减半；1.0 = 不变；1.2 = 全员上浮 20%
                             </span>
@@ -203,21 +204,21 @@ export default function ContributionConversionPanel({ showToast, isSuper }) {
                     </div>
                 ) : (
                     <div className="conv-tiers">
-                        <div className="conv-tier-head">
+                        <div className="adm-tier-head">
                             <span>起始名次</span><span>结束名次</span><span>比例</span><span>操作</span>
                         </div>
                         {tiers.map((t, i) => (
-                            <div className="conv-tier-row" key={i}>
-                                <input className="conv-input" type="number" min="1" value={t.from} onChange={(e) => setTiers(tiers.map((x, j) => (j === i ? { ...x, from: e.target.value } : x)))} />
+                            <div className="adm-tier-row" key={i}>
+                                <input className="adm-input" type="number" min="1" value={t.from} onChange={(e) => setTiers(tiers.map((x, j) => (j === i ? { ...x, from: e.target.value } : x)))} />
                                 <input
-                                    className="conv-input"
+                                    className="adm-input adm-tier-input"
                                     type="number"
                                     min="1"
                                     placeholder="留空=到末尾"
                                     value={t.to}
                                     onChange={(e) => setTiers(tiers.map((x, j) => (j === i ? { ...x, to: e.target.value } : x)))}
                                 />
-                                <input className="conv-input" type="number" step="0.01" min="0" value={t.ratio} onChange={(e) => setTiers(tiers.map((x, j) => (j === i ? { ...x, ratio: e.target.value } : x)))} />
+                                <input className="adm-input" type="number" step="0.01" min="0" value={t.ratio} onChange={(e) => setTiers(tiers.map((x, j) => (j === i ? { ...x, ratio: e.target.value } : x)))} />
                                 <button className="btn btn-sm btn-ghost" onClick={() => setTiers(tiers.filter((_, j) => j !== i))} disabled={tiers.length <= 1}>删除</button>
                             </div>
                         ))}
@@ -225,37 +226,37 @@ export default function ContributionConversionPanel({ showToast, isSuper }) {
                     </div>
                 )}
 
-                <div className="conv-row">
+                <div className="adm-field">
                     <label>参与范围</label>
-                    <div className="conv-seg">
+                    <div className="adm-tabs">
                         <button className={scope === 'positive' ? 'is-active' : ''} onClick={() => setScope('positive')}>贡献点 &gt; 0</button>
                         <button className={scope === 'active' ? 'is-active' : ''} onClick={() => setScope('active')}>未冻结</button>
                     </div>
                 </div>
 
-                <div className="conv-row">
+                <div className="adm-field">
                     <label>取整方式</label>
-                    <div className="conv-seg">
+                    <div className="adm-tabs">
                         {ROUND_MODES.map((m) => (
                             <button key={m.key} className={roundMode === m.key ? 'is-active' : ''} onClick={() => setRoundMode(m.key)}>{m.label}</button>
                         ))}
                     </div>
                 </div>
 
-                <div className="conv-row">
+                <div className="adm-field">
                     <label>结果下限</label>
                     <div className="conv-inline">
-                        <input className="conv-input" type="number" min="0" value={minResult} onChange={(e) => setMinResult(e.target.value)} />
+                        <input className="adm-input" type="number" min="0" value={minResult} onChange={(e) => setMinResult(e.target.value)} />
                         <span className="conv-sub">折算后不低于该值（默认 0，避免出现负数）</span>
                     </div>
                 </div>
 
-                <div className="conv-row">
+                <div className="adm-field">
                     <label>备注</label>
-                    <input className="conv-input conv-wide" value={note} onChange={(e) => setNote(e.target.value)} placeholder="例如：2026 换服第一轮折算" maxLength={100} />
+                    <input className="adm-input conv-wide" value={note} onChange={(e) => setNote(e.target.value)} placeholder="例如：2026 换服第一轮折算" maxLength={100} />
                 </div>
 
-                <div className="conv-actions">
+                <div className="adm-actions">
                     <button className="btn btn-primary" onClick={doPreview} disabled={loading}>
                         {loading ? '处理中…' : '生成预览'}
                     </button>
@@ -265,19 +266,19 @@ export default function ContributionConversionPanel({ showToast, isSuper }) {
 
             {/* 预览 */}
             {preview && (
-                <div className="conv-card">
+                <div className="adm-card">
                     <h3>
                         预览结果（批次 #{preview.conversionId}，尚未写入）
                     </h3>
-                    <div className="conv-stats">
-                        <div><span>参与人数</span><b>{preview.summary.affected}</b></div>
-                        <div><span>未参与</span><b>{preview.summary.skipped}</b></div>
-                        <div><span>折算前总额</span><b>{preview.summary.totalBefore}</b></div>
-                        <div><span>折算后总额</span><b>{preview.summary.totalAfter}</b></div>
-                        <div><span>净变化</span><b className={preview.summary.totalDelta < 0 ? 'conv-down' : 'conv-up'}>{preview.summary.totalDelta}</b></div>
+                    <div className="adm-stats">
+                        <div className="adm-stat"><span className="adm-stat-label">参与人数</span><b className="adm-stat-value">{preview.summary.affected}</b></div>
+                        <div className="adm-stat"><span className="adm-stat-label">未参与</span><b className="adm-stat-value">{preview.summary.skipped}</b></div>
+                        <div className="adm-stat"><span className="adm-stat-label">折算前总额</span><b className="adm-stat-value">{preview.summary.totalBefore}</b></div>
+                        <div className="adm-stat"><span className="adm-stat-label">折算后总额</span><b className="adm-stat-value">{preview.summary.totalAfter}</b></div>
+                        <div className="adm-stat"><span className="adm-stat-label">净变化</span><b className={preview.summary.totalDelta < 0 ? 'conv-down' : 'conv-up'}>{preview.summary.totalDelta}</b></div>
                     </div>
-                    <div className="conv-table-wrap">
-                        <table className="conv-table">
+                    <div className="adm-table-wrap">
+                        <table className="adm-table">
                             <thead>
                                 <tr><th>排名</th><th>成员</th><th>折算前</th><th>比例</th><th>折算后</th><th>变化</th></tr>
                             </thead>
@@ -285,7 +286,7 @@ export default function ContributionConversionPanel({ showToast, isSuper }) {
                                 {(preview.items || []).map((it) => (
                                     <tr key={it.userId}>
                                         <td>{it.rank}</td>
-                                        <td>{it.nickname || it.username}<span className="conv-mono">{it.username}</span></td>
+                                        <td>{it.nickname || it.username}<span className="adm-mono">{it.username}</span></td>
                                         <td>{it.beforeValue}</td>
                                         <td>×{it.ratio}</td>
                                         <td><b>{it.afterValue}</b></td>
@@ -295,7 +296,7 @@ export default function ContributionConversionPanel({ showToast, isSuper }) {
                             </tbody>
                         </table>
                     </div>
-                    <div className="conv-actions">
+                    <div className="adm-actions">
                         <button className="btn btn-danger" onClick={() => doApply(preview.conversionId)} disabled={loading}>确认应用</button>
                         <button className="btn btn-ghost" onClick={() => setPreview(null)}>放弃预览</button>
                     </div>
@@ -303,12 +304,12 @@ export default function ContributionConversionPanel({ showToast, isSuper }) {
             )}
 
             {/* 批次历史 */}
-            <div className="conv-card">
+            <div className="adm-card">
                 <h3>折算批次历史</h3>
-                {conversions.length === 0 && <p className="conv-hint">暂无批次</p>}
+                {conversions.length === 0 && <p className="adm-hint">暂无批次</p>}
                 {conversions.length > 0 && (
-                    <div className="conv-table-wrap">
-                        <table className="conv-table">
+                    <div className="adm-table-wrap">
+                        <table className="adm-table">
                             <thead>
                                 <tr><th>#</th><th>模式</th><th>状态</th><th>人数</th><th>前 → 后</th><th>操作人</th><th>时间</th><th>操作</th></tr>
                             </thead>
@@ -325,7 +326,7 @@ export default function ContributionConversionPanel({ showToast, isSuper }) {
                                         <td>{c.affected}</td>
                                         <td>{c.total_before} → {c.total_after}</td>
                                         <td>{c.operator_name || '-'}</td>
-                                        <td className="conv-mono">{c.applied_at || c.created_at}</td>
+                                        <td className="adm-mono">{c.applied_at || c.created_at}</td>
                                         <td>
                                             <button className="btn btn-xs btn-ghost" onClick={() => openDetail(c.id)}>明细</button>
                                             {c.status === 'preview' && <button className="btn btn-xs btn-ghost" onClick={() => doDelete(c.id)}>删除</button>}
@@ -341,10 +342,10 @@ export default function ContributionConversionPanel({ showToast, isSuper }) {
 
             {/* 明细弹层 */}
             {detail && (
-                <div className="conv-card">
+                <div className="adm-card">
                     <h3>批次 #{detail.id} 明细（{detail.items ? detail.items.length : 0} 人）</h3>
-                    <div className="conv-table-wrap" style={{ maxHeight: 420 }}>
-                        <table className="conv-table">
+                    <div className="adm-table-wrap" style={{ maxHeight: 420 }}>
+                        <table className="adm-table">
                             <thead><tr><th>排名</th><th>成员</th><th>前</th><th>比例</th><th>后</th><th>变化</th></tr></thead>
                             <tbody>
                                 {(detail.items || []).map((it) => (
@@ -360,24 +361,24 @@ export default function ContributionConversionPanel({ showToast, isSuper }) {
                             </tbody>
                         </table>
                     </div>
-                    <div className="conv-actions">
+                    <div className="adm-actions">
                         <button className="btn btn-ghost" onClick={() => setDetail(null)}>关闭</button>
                     </div>
                 </div>
             )}
 
             {/* 成员名单 */}
-            <div className="conv-card">
+            <div className="adm-card">
                 <h3>参与成员名单（按贡献点排名）</h3>
-                <input className="conv-input" style={{ maxWidth: 260 }} placeholder="搜索昵称 / 用户名" value={filter} onChange={(e) => setFilter(e.target.value)} />
-                <div className="conv-table-wrap" style={{ maxHeight: 380 }}>
-                    <table className="conv-table">
+                <input className="adm-input" style={{ maxWidth: 260 }} placeholder="搜索昵称 / 用户名" value={filter} onChange={(e) => setFilter(e.target.value)} />
+                <div className="adm-table-wrap" style={{ maxHeight: 380 }}>
+                    <table className="adm-table">
                         <thead><tr><th>排名</th><th>成员</th><th>贡献点</th><th>状态</th></tr></thead>
                         <tbody>
                             {filteredUsers.map((u) => (
                                 <tr key={u.id} className={u.excluded ? 'is-excluded' : ''}>
                                     <td>{u.rank}</td>
-                                    <td>{u.nickname || u.username}<span className="conv-mono">{u.username}</span></td>
+                                    <td>{u.nickname || u.username}<span className="adm-mono">{u.username}</span></td>
                                     <td>{u.contribution}</td>
                                     <td>{u.excluded ? <span className="conv-pill conv-pill-excluded">已排除</span> : u.is_frozen ? <span className="conv-pill conv-pill-frozen">冻结</span> : '正常'}</td>
                                 </tr>

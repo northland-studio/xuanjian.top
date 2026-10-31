@@ -27,7 +27,7 @@ const STATUS_LABEL = {
 
 function Tag({ children, tone }) {
   const cls = tone === 'bad' ? 'is-bad' : tone === 'ok' ? 'is-ok' : tone === 'warn' ? 'is-warn' : '';
-  return <span className={`rag-pill ${cls}`}>{children}</span>;
+  return <span className={`adm-pill ${cls}`}>{children}</span>;
 }
 
 export default function RagAdminPanel({ showToast, isSuper }) {
@@ -158,22 +158,22 @@ export default function RagAdminPanel({ showToast, isSuper }) {
 
     /* ---------------- 概览 ---------------- */
     const overview = () => {
-        if (!status) return <div className="admin-empty">正在读取状态…</div>;
+        if (!status) return <div className="adm-empty">正在读取状态…</div>;
         const s = status.stats || {};
         return (
-            <div className="admin-grid">
-                <div className="admin-card">
+            <div className="adm-grid">
+                <div className="adm-card">
                     <h3>服务状态</h3>
-                    <ul className="admin-kv">
-                        <li><span>向量检索</span><b><span className={`rag-pill ${s.vec && s.vec.ready ? 'is-ok' : 'is-bad'}`}>{s.vec && s.vec.ready ? '可用 ' + s.vec.version : '不可用'}</span></b></li>
+                    <ul className="adm-kv">
+                        <li><span>向量检索</span><b><span className={`adm-pill ${s.vec && s.vec.ready ? 'is-ok' : 'is-bad'}`}>{s.vec && s.vec.ready ? '可用 ' + s.vec.version : '不可用'}</span></b></li>
                         <li><span>全文索引</span><b>{s.vec ? 'FTS5 已就绪' : '-'}</b></li>
                         <li><span>提示词版本</span><b>{status.service && status.service.promptVersion}</b></li>
-                        <li><span>熔断</span><b><span className={`rag-pill ${status.breaker && status.breaker.open ? 'is-bad' : 'is-ok'}`}>{status.breaker && status.breaker.open ? '已熔断' : '正常'}</span></b></li>
+                        <li><span>熔断</span><b><span className={`adm-pill ${status.breaker && status.breaker.open ? 'is-bad' : 'is-ok'}`}>{status.breaker && status.breaker.open ? '已熔断' : '正常'}</span></b></li>
                     </ul>
                 </div>
-                <div className="admin-card">
+                <div className="adm-card">
                     <h3>索引规模</h3>
-                    <ul className="admin-kv">
+                    <ul className="adm-kv">
                         <li><span>已发布页面</span><b>{s.publishedPages}</b></li>
                         <li><span>已索引页面</span><b>{s.indexedPages}</b></li>
                         <li><span>分块总数</span><b>{s.chunks}</b></li>
@@ -181,9 +181,9 @@ export default function RagAdminPanel({ showToast, isSuper }) {
                         <li><span>任务状态</span><b>{JSON.stringify(s.tasks || {})}</b></li>
                     </ul>
                 </div>
-                <div className="admin-card">
+                <div className="adm-card">
                     <h3>今日用量 / 预算</h3>
-                    <ul className="admin-kv">
+                    <ul className="adm-kv">
                         <li><span>请求数</span><b>{(status.usage && status.usage.requests) || 0}</b></li>
                         <li><span>LLM tokens</span><b>{(status.usage && status.usage.llmTokens) || 0}</b></li>
                         <li><span>Embedding tokens</span><b>{(status.usage && status.usage.embeddingTokens) || 0}</b></li>
@@ -191,15 +191,15 @@ export default function RagAdminPanel({ showToast, isSuper }) {
                         <li><span>每日预算</span><b>{status.budget && status.budget.limit}</b></li>
                     </ul>
                 </div>
-                <div className="admin-card">
+                <div className="adm-card">
                     <h3>密钥状态</h3>
-                    <ul className="admin-kv">
+                    <ul className="adm-kv">
                         <li><span>加密主密钥</span><b>{status.secrets && status.secrets.hasMasterKey ? '已配置' : '未配置（RAG_SECRET_KEY）'}</b></li>
                         <li><span>Embedding Key</span><b>{status.secrets && status.secrets.embeddingConfigured ? '已配置' : '未配置'}</b></li>
                         <li><span>LLM Key</span><b>{status.secrets && status.secrets.llmConfigured ? '已配置' : '未配置'}</b></li>
                     </ul>
                     {status.lastError && (
-                        <p className="admin-warn">最近失败：{status.lastError.last_error}</p>
+                        <p className="adm-warn">最近失败：{status.lastError.last_error}</p>
                     )}
                 </div>
             </div>
@@ -219,8 +219,8 @@ export default function RagAdminPanel({ showToast, isSuper }) {
 
     /* ---------------- 索引管理 ---------------- */
     const indexView = () => (
-        <div className="admin-card">
-            <div className="admin-actions">
+        <div className="adm-card">
+            <div className="adm-actions">
                 <button className="btn btn-sm btn-ghost" onClick={loadIndex}>刷新</button>
                 <button className="btn btn-sm btn-ghost" disabled={loading} onClick={processTasks}>立即处理任务</button>
                 <button className="btn btn-sm btn-ghost" disabled={loading} onClick={reconcile}>一致性核对</button>
@@ -228,7 +228,7 @@ export default function RagAdminPanel({ showToast, isSuper }) {
             </div>
 
             <h3 style={{ marginTop: 16 }}>页面索引（{pages.length}）</h3>
-            <table className="admin-table">
+            <table className="adm-table">
                 <thead>
                     <tr><th>页面</th><th>状态</th><th>分块</th><th>内容/索引 hash</th><th>最近更新</th><th>操作</th></tr>
                 </thead>
@@ -238,10 +238,10 @@ export default function RagAdminPanel({ showToast, isSuper }) {
                             <td>{p.title || ('#' + p.page_id)}</td>
                             <td><Tag tone={p.status === 'indexed' ? 'ok' : p.status === 'failed' ? 'bad' : undefined}>{STATUS_LABEL[p.status] || p.status}</Tag></td>
                             <td>{p.chunk_count}</td>
-                            <td className="admin-mono">
+                            <td className="adm-mono">
                                 {(p.content_hash || '').slice(0, 8)} / {(p.indexed_hash || '').slice(0, 8)}
                             </td>
-                            <td className="admin-mono">{p.updated_at}</td>
+                            <td className="adm-mono">{p.updated_at}</td>
                             <td>
                                 <button className="btn btn-xs btn-ghost" disabled={loading} onClick={() => rebuildPage(p.page_id)}>重建</button>
                             </td>
@@ -251,7 +251,7 @@ export default function RagAdminPanel({ showToast, isSuper }) {
             </table>
 
             <h3 style={{ marginTop: 18 }}>最近任务（{tasks.length}）</h3>
-            <table className="admin-table">
+            <table className="adm-table">
                 <thead><tr><th>ID</th><th>类型</th><th>页面</th><th>状态</th><th>尝试</th><th>错误</th></tr></thead>
                 <tbody>
                     {tasks.map((t) => (
@@ -261,7 +261,7 @@ export default function RagAdminPanel({ showToast, isSuper }) {
                             <td>{t.page_id || '-'}</td>
                             <td><Tag tone={t.status === 'success' ? 'ok' : t.status === 'failed' ? 'bad' : undefined}>{t.status}</Tag></td>
                             <td>{t.attempts}</td>
-                            <td className="admin-mono" style={{ maxWidth: 320, overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.last_error || ''}</td>
+                            <td className="adm-mono" style={{ maxWidth: 320, overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.last_error || ''}</td>
                         </tr>
                     ))}
                 </tbody>
@@ -271,12 +271,12 @@ export default function RagAdminPanel({ showToast, isSuper }) {
 
     /* ---------------- 测试台 ---------------- */
     const testView = () => (
-        <div className="admin-card">
+        <div className="adm-card">
             <h3>问答测试台</h3>
-            <p className="admin-hint">会真实调用检索与 LLM，并展示向量 / 全文 / RRF 候选与最终来源。</p>
-            <div className="admin-actions">
+            <p className="adm-hint">会真实调用检索与 LLM，并展示向量 / 全文 / RRF 候选与最终来源。</p>
+            <div className="adm-actions">
                 <input
-                    className="admin-input"
+                    className="adm-input"
                     value={testQ}
                     onChange={(e) => setTestQ(e.target.value)}
                     placeholder="输入一个真实问题"
@@ -292,9 +292,9 @@ export default function RagAdminPanel({ showToast, isSuper }) {
                     {testResult.result && testResult.result.sources && (
                         <>
                             <h4>来源</h4>
-                            <ul className="admin-list">
+                            <ul className="adm-list">
                                 {testResult.result.sources.map((s) => (
-                                    <li key={s.pageId}><a href={s.url} target="_blank" rel="noreferrer">{s.title}</a> <span className="admin-mono">{s.categoryPath}</span></li>
+                                    <li key={s.pageId}><a href={s.url} target="_blank" rel="noreferrer">{s.title}</a> <span className="adm-mono">{s.categoryPath}</span></li>
                                 ))}
                             </ul>
                         </>
@@ -302,7 +302,7 @@ export default function RagAdminPanel({ showToast, isSuper }) {
                     {testResult.result && testResult.result.diagnostics && (
                         <>
                             <h4>检索诊断</h4>
-                            <pre className="admin-pre">{JSON.stringify({
+                            <pre className="adm-pre">{JSON.stringify({
                                 vectorCount: testResult.result.diagnostics.vectorCount,
                                 ftsCount: testResult.result.diagnostics.ftsCount,
                                 fusedCount: testResult.result.diagnostics.fusedCount,
@@ -320,14 +320,14 @@ export default function RagAdminPanel({ showToast, isSuper }) {
 
     /* ---------------- 用量与日志 ---------------- */
     const usageView = () => (
-        <div className="admin-card">
+        <div className="adm-card">
             <h3>每日用量</h3>
-            <table className="admin-table">
+            <table className="adm-table">
                 <thead><tr><th>日期</th><th>来源</th><th>请求</th><th>LLM tokens</th><th>Embedding tokens</th><th>估算费用</th></tr></thead>
                 <tbody>
                     {usage.map((u, i) => (
                         <tr key={i}>
-                            <td className="admin-mono">{u.day}</td>
+                            <td className="adm-mono">{u.day}</td>
                             <td>{u.source_type}</td>
                             <td>{u.requests}</td>
                             <td>{u.llm_tokens}</td>
@@ -339,12 +339,12 @@ export default function RagAdminPanel({ showToast, isSuper }) {
             </table>
 
             <h3 style={{ marginTop: 18 }}>最近问答日志（30 天保留）</h3>
-            <table className="admin-table">
+            <table className="adm-table">
                 <thead><tr><th>时间</th><th>来源</th><th>问题</th><th>状态</th><th>耗时</th><th>tokens</th></tr></thead>
                 <tbody>
                     {logs.map((l) => (
                         <tr key={l.id}>
-                            <td className="admin-mono">{l.created_at}</td>
+                            <td className="adm-mono">{l.created_at}</td>
                             <td>{l.source_type}</td>
                             <td style={{ maxWidth: 380, overflow: 'hidden', textOverflow: 'ellipsis' }}>{l.question}</td>
                             <td><Tag tone={l.status === 'ok' ? 'ok' : 'bad'}>{l.status}</Tag></td>
@@ -358,12 +358,12 @@ export default function RagAdminPanel({ showToast, isSuper }) {
     );
 
     return (
-        <div className="rag-admin">
-            <div className="admin-tabs">
+        <div className="adm-page">
+            <div className="adm-tabs">
                 {SUB_TABS.map((t) => (
                     <button
                         key={t.key}
-                        className={`admin-tab ${sub === t.key ? 'is-active' : ''}`}
+                        className={`adm-tab ${sub === t.key ? 'is-active' : ''}`}
                         onClick={() => setSub(t.key)}
                     >
                         {t.label}

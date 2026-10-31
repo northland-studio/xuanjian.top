@@ -188,7 +188,7 @@ export default function Admin() {
           {tab === 'paylink' && <PayLinkManager showToast={showToast} />}
           {tab === 'pay' && <PayAdminPanel />}
           {tab === 'market' && <MarketAdminPanel />}
-        {tab === 'conv' && <ContributionConversionPanel showToast={showToast} isSuper={user.level >= 2} />}
+        {tab === 'conv' && <ContributionConversionPanel showToast={showToast} isAdmin={user.level >= 1} />}
           {tab === 'bubbles' && <BubbleManager showToast={showToast} />}
           {tab === 'stickers' && <StickerManager showToast={showToast} />}
           {tab === 'mod' && <ModServerManager showToast={showToast} />}

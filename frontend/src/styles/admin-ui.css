@@ -1,0 +1,550 @@
+/* ==========================================================================
+   统一后台 UI 体系（adm-*）
+   目标：让 管理后台 所有面板共用同一套 卡片 / 表单 / 表格 / 页签 / 徽标 / 提示，
+   自动跟随站点设计令牌与明暗色（html[data-theme]）。
+   注意：本文件只做「新增 + 统一」，不覆盖各面板已有业务样式。
+   ========================================================================== */
+
+/* ---------- 页面级容器 ---------- */
+.adm-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* ---------- 卡片 ---------- */
+.adm-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+}
+.adm-card + .adm-card {
+  margin-top: 0;
+}
+.adm-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.adm-card h3,
+.adm-card-title {
+  margin: 0 0 14px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.adm-card-head h3 {
+  margin: 0;
+}
+.adm-card h3::before,
+.adm-card-title::before {
+  content: '';
+  width: 3px;
+  height: 14px;
+  border-radius: 2px;
+  background: var(--primary);
+  flex: none;
+}
+.adm-card h4 {
+  margin: 16px 0 10px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text);
+}
+.adm-card-desc {
+  margin: 0 0 14px;
+  font-size: 12px;
+  line-height: 1.75;
+  color: var(--text-secondary);
+}
+
+/* ---------- 分组（卡片网格） ---------- */
+.adm-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 14px;
+}
+
+/* ---------- 页级工具条（设置类面板顶部） ---------- */
+.adm-page-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.adm-page-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12.5px;
+  flex-wrap: wrap;
+}
+
+/* ---------- 统计块 ---------- */
+.adm-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px;
+}
+.adm-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  transition: border-color 0.16s ease;
+}
+.adm-stat:hover {
+  border-color: color-mix(in srgb, var(--primary) 40%, var(--border));
+}
+.adm-stat-label {
+  font-size: 11.5px;
+  color: var(--text-secondary);
+}
+.adm-stat-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.3;
+  font-variant-numeric: tabular-nums;
+}
+.adm-stat-value.is-good { color: var(--success); }
+.adm-stat-value.is-bad { color: var(--danger); }
+.adm-stat-value.is-warn { color: var(--warning); }
+
+/* ---------- 键值列表 ---------- */
+.adm-kv {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.adm-kv > li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  font-size: 12.5px;
+  border-bottom: 1px dashed var(--border);
+}
+.adm-kv > li:last-child {
+  border-bottom: none;
+}
+.adm-kv > li > span {
+  color: var(--text-secondary);
+  flex: none;
+}
+.adm-kv > li > b {
+  color: var(--text);
+  font-weight: 600;
+  text-align: right;
+  word-break: break-all;
+}
+
+/* ---------- 表单 ---------- */
+.adm-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(238px, 1fr));
+  gap: 14px 16px;
+}
+.adm-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.adm-field > span,
+.adm-label {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.adm-input,
+.adm-field input,
+.adm-field select,
+.adm-field textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  font-size: 13px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--input-bg);
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.16s ease;
+}
+.adm-input:focus,
+.adm-field input:focus,
+.adm-field select:focus,
+.adm-field textarea:focus {
+  border-color: var(--primary);
+}
+.adm-input:disabled,
+.adm-field input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.adm-hint {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  opacity: 0.9;
+}
+
+/* ---------- 表格 ---------- */
+.adm-table-wrap {
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.adm-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 12.5px;
+}
+.adm-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--bg);
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 11.5px;
+  text-align: left;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.adm-table tbody td {
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  vertical-align: middle;
+}
+.adm-table tbody tr:last-child td {
+  border-bottom: none;
+}
+.adm-table tbody tr:hover td {
+  background: color-mix(in srgb, var(--primary) 4%, var(--card));
+}
+.adm-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11.5px;
+  color: var(--text-secondary);
+}
+
+/* ---------- 工具栏 ---------- */
+.adm-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+.adm-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: space-between;
+}
+.adm-toolbar-left,
+.adm-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* ---------- 子页签（分段控件） ---------- */
+.adm-tabs {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg);
+  align-self: flex-start;
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.adm-tabs::-webkit-scrollbar {
+  display: none;
+}
+.adm-tab {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  font-weight: 500;
+  padding: 7px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+}
+.adm-tab:hover {
+  color: var(--text);
+  background: color-mix(in srgb, var(--card) 70%, transparent);
+}
+.adm-tabs > button {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  font-weight: 500;
+  padding: 7px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+}
+.adm-tabs > button:hover {
+  color: var(--text);
+  background: color-mix(in srgb, var(--card) 70%, transparent);
+}
+.adm-tabs > button.is-active {
+  background: var(--card);
+  color: var(--primary);
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12);
+}
+.adm-tab.is-active {
+  background: var(--card);
+  color: var(--primary);
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12);
+}
+
+/* ---------- 徽标 ---------- */
+.adm-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 500;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.adm-pill::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.85;
+}
+.adm-pill.is-good {
+  color: var(--success);
+  border-color: color-mix(in srgb, var(--success) 35%, var(--border));
+  background: color-mix(in srgb, var(--success) 8%, var(--card));
+}
+.adm-pill.is-bad {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 35%, var(--border));
+  background: color-mix(in srgb, var(--danger) 8%, var(--card));
+}
+.adm-pill.is-warn {
+  color: var(--warning);
+  border-color: color-mix(in srgb, var(--warning) 35%, var(--border));
+  background: color-mix(in srgb, var(--warning) 10%, var(--card));
+}
+
+/* ---------- 提示条 ---------- */
+.adm-alert {
+  padding: 10px 13px;
+  border-radius: var(--radius);
+  font-size: 12.5px;
+  line-height: 1.75;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-secondary);
+}
+.adm-alert.is-good {
+  border-color: color-mix(in srgb, var(--success) 35%, var(--border));
+  background: color-mix(in srgb, var(--success) 8%, var(--card));
+  color: var(--success);
+}
+.adm-alert.is-bad {
+  border-color: color-mix(in srgb, var(--danger) 35%, var(--border));
+  background: color-mix(in srgb, var(--danger) 8%, var(--card));
+  color: var(--danger);
+}
+.adm-alert.is-warn {
+  border-color: color-mix(in srgb, var(--warning) 40%, var(--border));
+  background: color-mix(in srgb, var(--warning) 10%, var(--card));
+  color: var(--text);
+}
+.adm-warn {
+  margin: 10px 0 0;
+  padding: 8px 11px;
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.7;
+  border: 1px solid color-mix(in srgb, var(--warning) 40%, var(--border));
+  background: color-mix(in srgb, var(--warning) 10%, var(--card));
+  color: var(--text);
+}
+.adm-alert code,
+.adm-warn code {
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  font-size: 12px;
+}
+
+/* ---------- 空状态 ---------- */
+.adm-empty {
+  padding: 28px;
+  text-align: center;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  background: var(--card);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+}
+
+/* ---------- 代码块 / 列表 ---------- */
+.adm-pre {
+  margin: 10px 0 0;
+  padding: 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 380px;
+  overflow: auto;
+}
+.adm-list {
+  margin: 8px 0 0;
+  padding-left: 20px;
+  font-size: 12.5px;
+  line-height: 1.9;
+}
+.adm-list a {
+  color: var(--primary);
+  text-decoration: none;
+}
+.adm-list a:hover {
+  text-decoration: underline;
+}
+
+/* ---------- 开关 ---------- */
+.adm-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--input-bg);
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  cursor: pointer;
+  align-self: flex-start;
+  transition: all 0.16s ease;
+}
+.adm-switch i {
+  width: 30px;
+  height: 16px;
+  border-radius: 999px;
+  background: var(--border);
+  position: relative;
+  transition: background 0.16s ease;
+  flex: none;
+}
+.adm-switch i::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.16s ease;
+}
+.adm-switch.is-on {
+  color: var(--primary);
+  border-color: color-mix(in srgb, var(--primary) 45%, var(--border));
+}
+.adm-switch.is-on i {
+  background: var(--primary);
+}
+.adm-switch.is-on i::after {
+  transform: translateX(14px);
+}
+.adm-switch:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* ---------- 区间/分段行（折算等配置） ---------- */
+.adm-tier-head,
+.adm-tier-row {
+  display: grid;
+  grid-template-columns: 110px 110px 110px 1fr;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.adm-tier-head span {
+  font-size: 11.5px;
+  color: var(--text-secondary);
+}
+.adm-tier-row .adm-input {
+  width: 100%;
+}
+
+/* ---------- 派生色（涨/跌） ---------- */
+.adm-up { color: var(--success); }
+.adm-down { color: var(--danger); }
+
+/* ---------- 行内小字 ---------- */
+.adm-sub {
+  font-size: 11.5px;
+  color: var(--text-secondary);
+}
+
+/* ---------- 响应式 ---------- */
+@media (max-width: 720px) {
+  .adm-tabs {
+    width: 100%;
+  }
+  .adm-grid,
+  .adm-stats {
+    grid-template-columns: 1fr;
+  }
+  .adm-table {
+    white-space: nowrap;
+  }
+}

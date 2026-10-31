@@ -86,7 +86,7 @@ export default function TitleGrantPanel() {
   };
 
   return (
-    <div>
+    <div className="adm-page">
       <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>头衔给予</h3>
       <p className="text-secondary" style={{ fontSize: 13, marginBottom: 16 }}>
         把头衔直接放进指定玩家的仓库：发放后出现在该玩家的「我的库存 → 我的称号」，可自行装备（不扣贡献点）。

@@ -1,7 +1,7 @@
 /**
  * 换服集体贡献点折算 · API
  *
- * 权限：全部要求超级管理员（涉及全站数值）
+ * 权限：管理员（level >= 1）与超级管理员均可执行
  *  GET  /api/contributions/conversion/candidates   预览参与名单与排名
  *  POST /api/contributions/conversion/preview      生成预览批次（不写业务数据）
  *  GET  /api/contributions/conversion/list         批次列表
@@ -13,11 +13,12 @@
 const express = require('express');
 const logger = require('../lib/logger');
 const db = require('../database');
-const { authMiddleware, superAdminMiddleware } = require('../middleware/auth');
+const { authMiddleware, adminMiddleware } = require('../middleware/auth');
 const conv = require('../lib/contribution-conversion');
 
 const router = express.Router();
-const guard = [authMiddleware, superAdminMiddleware];
+// 管理员（level >= 1）与超级管理员均可执行折算
+const guard = [authMiddleware, adminMiddleware];
 
 function handle(fn) {
     return async (req, res) => {

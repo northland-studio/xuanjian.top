@@ -188,13 +188,13 @@ export default function RagSettingsPanel({ canEdit, onSaved, toast }) {
     if (loading) return <div className="admin-empty">正在读取 RAG 配置…</div>;
 
     return (
-        <div className="rag-settings">
-            <div className="rag-settings-bar">
-                <div className="rag-settings-status">
+        <div className="adm-page">
+            <div className="adm-toolbar">
+                <div className="adm-page-status">
                     {dirty ? <span className="rag-dirty">有 {dirtyKeys.length + secretDirty.length} 项未保存</span> : <span className="rag-clean">配置与服务端一致</span>}
                     {!canEdit && <span className="rag-readonly">只读（需要超级管理员）</span>}
                 </div>
-                <div className="rag-settings-actions">
+                <div className="adm-page-actions">
                     <button className="btn btn-sm btn-ghost" onClick={resetAll} disabled={!canEdit || saving}>恢复全部默认</button>
                     <button className="btn btn-sm btn-primary" onClick={save} disabled={!canEdit || saving || !dirty}>
                         {saving ? '保存中…' : '保存修改'}
@@ -202,41 +202,41 @@ export default function RagSettingsPanel({ canEdit, onSaved, toast }) {
                 </div>
             </div>
 
-            {error && <div className="rag-alert rag-alert-bad">{error}</div>}
-            {notice && <div className="rag-alert rag-alert-ok">{notice}</div>}
+            {error && <div className="adm-alert adm-alert is-bad">{error}</div>}
+            {notice && <div className="adm-alert adm-alert is-good">{notice}</div>}
             {embeddingChanged && (
-                <div className="rag-alert rag-alert-warn">
+                <div className="adm-alert adm-alert is-warn">
                     Embedding 模型 / 维度 / 分块参数有改动：保存后旧向量会按版本失效，必须到「索引管理」执行全量重建才能恢复问答。
                 </div>
             )}
 
-            <section className="rag-section">
-                <div className="rag-section-head">
+            <section className="adm-card">
+                <div className="adm-card-head">
                     <div>
                         <h4>API 密钥</h4>
-                        <p className="rag-section-desc">
+                        <p className="adm-card-desc">
                             使用 AES-256-GCM 加密存库，接口只返回脱敏状态。留空表示不修改；需要更换时输入新 Key。
                         </p>
                     </div>
                 </div>
-                <div className="rag-secret-grid">
+                <div className="adm-form-grid">
                     {[
                         { slot: 'embedding', key: 'embedding.apiKey', label: 'Embedding API Key', state: secrets && secrets.embedding },
                         { slot: 'llm', key: 'llm.apiKey', label: 'LLM API Key', state: secrets && secrets.llm }
                     ].map((s) => (
-                        <div className="rag-field" key={s.key}>
-                            <label className="rag-label">
+                        <div className="adm-field" key={s.key}>
+                            <label className="adm-label">
                                 {s.label}
                                 {s.state && s.state.configured ? (
-                                    <span className="rag-state rag-state-ok">已配置 {s.state.masked}（{s.state.source === 'env' ? '环境变量' : '数据库加密'}）</span>
+                                    <span className="adm-pill adm-pill is-good">已配置 {s.state.masked}（{s.state.source === 'env' ? '环境变量' : '数据库加密'}）</span>
                                 ) : (
-                                    <span className="rag-state rag-state-bad">未配置</span>
+                                    <span className="adm-pill adm-pill is-bad">未配置</span>
                                 )}
                             </label>
                             <div className="rag-secret-row">
                                 <input
                                     type="password"
-                                    className="rag-input"
+                                    className="adm-input"
                                     placeholder={canEdit ? '输入新 Key（留空不改）' : '只读'}
                                     disabled={!canEdit || saving}
                                     value={secretInputs[s.key] || ''}
@@ -252,7 +252,7 @@ export default function RagSettingsPanel({ canEdit, onSaved, toast }) {
                     ))}
                 </div>
                 {secrets && !secrets.hasMasterKey && (
-                    <div className="rag-alert rag-alert-warn">
+                    <div className="adm-alert adm-alert is-warn">
                         未配置加密主密钥 <code>RAG_SECRET_KEY</code>，无法保存密钥。请在服务端 .env 中设置后重启。
                     </div>
                 )}
@@ -261,10 +261,10 @@ export default function RagSettingsPanel({ canEdit, onSaved, toast }) {
             {GROUPS.map((g) => {
                 const open = openGroups.has(g.key);
                 return (
-                    <section className="rag-section" key={g.key}>
+                    <section className="adm-card" key={g.key}>
                         <button
                             type="button"
-                            className="rag-section-head is-clickable"
+                            className="adm-card-head is-clickable"
                             onClick={() =>
                                 setOpenGroups((prev) => {
                                     const next = new Set(prev);
@@ -279,26 +279,26 @@ export default function RagSettingsPanel({ canEdit, onSaved, toast }) {
                                     {g.title}
                                     <span className="rag-toggle">{open ? '收起' : '展开'}</span>
                                 </h4>
-                                {g.desc && <p className="rag-section-desc">{g.desc}</p>}
+                                {g.desc && <p className="adm-card-desc">{g.desc}</p>}
                             </div>
                         </button>
 
                         {open && (
                             <>
-                                <div className="rag-field-grid">
+                                <div className="adm-form-grid">
                                     {g.fields.map((f) => {
                                         const changed = dirtyKeys.includes(f.key);
                                         return (
-                                            <div className={`rag-field ${changed ? 'is-changed' : ''}`} key={f.key}>
-                                                <label className="rag-label">
+                                            <div className={`adm-field ${changed ? 'is-changed' : ''}`} key={f.key}>
+                                                <label className="adm-label">
                                                     {f.label}
-                                                    {f.unit && <em className="rag-unit">{f.unit}</em>}
+                                                    {f.unit && <em className="adm-stat-label">{f.unit}</em>}
                                                     {changed && <span className="rag-changed">已改</span>}
                                                 </label>
                                                 {f.type === 'switch' ? (
                                                     <button
                                                         type="button"
-                                                        className={`rag-switch ${draft[f.key] ? 'is-on' : ''}`}
+                                                        className={`adm-switch ${draft[f.key] ? 'is-on' : ''}`}
                                                         disabled={!canEdit || saving}
                                                         onClick={() => setField(f.key, !draft[f.key])}
                                                         aria-pressed={!!draft[f.key]}
@@ -308,7 +308,7 @@ export default function RagSettingsPanel({ canEdit, onSaved, toast }) {
                                                     </button>
                                                 ) : (
                                                     <input
-                                                        className="rag-input"
+                                                        className="adm-input"
                                                         type={f.type === 'number' ? 'number' : 'text'}
                                                         min={f.min}
                                                         max={f.max}
@@ -318,7 +318,7 @@ export default function RagSettingsPanel({ canEdit, onSaved, toast }) {
                                                         onChange={(e) => setField(f.key, f.type === 'number' ? Number(e.target.value) : e.target.value)}
                                                     />
                                                 )}
-                                                {f.hint && <p className="rag-hint">{f.hint}</p>}
+                                                {f.hint && <p className="adm-hint">{f.hint}</p>}
                                             </div>
                                         );
                                     })}

@@ -1,0 +1,61 @@
+=== 各面板顶层容器与主要类名 ===
+
+Admin.jsx（0.0KB）
+  
+
+ContributionConversionPanel.jsx（18.0KB）
+  btn×10, conv-input×7, btn-ghost×7, conv-card×6, conv-row×6, conv-table-wrap×4, conv-table×4, conv-seg×3
+
+MarketAdminPanel.jsx（59.7KB）
+  btn×40, mk-note×34, k×32, v×31, mk-stat×28, btn-secondary×18, mk-panel×18, mk-panel-title×18
+
+PayAdminPanel.jsx（20.8KB）
+  btn×10, btn-sm×8, form-group×8, form-label×8, flex×7, card×7, form-input×6, btn-secondary×5
+
+RagAdminPanel.jsx（15.9KB）
+  admin-card×7, btn×6, admin-mono×6, btn-sm×5, admin-kv×4, btn-ghost×4, admin-table×4, rag-pill×3
+
+RagSettingsPanel.jsx（16.6KB）
+  btn×4, btn-sm×4, rag-alert×4, btn-ghost×2, rag-alert-warn×2, rag-section×2, rag-section-head×2, rag-section-desc×2
+
+TeamAdmin.jsx（32.6KB）
+  form-label×19, form-group×18, btn×9, form-input×9, flex×9, btn-sm×7, mb-3×6, text-secondary×6
+
+TitleGrantPanel.jsx（8.0KB）
+  text-secondary×8, flex×4, btn×3, card×2, form-input×2, btn-primary×2, table×1, btn-secondary×1
+
+WikiAdminPanel.jsx（38.2KB）
+  btn×28, btn-sm×28, text-secondary×21, flex×20, form-label×19, btn-secondary×17, form-group×15, form-input×15
+
+=== 通用类名全局使用排行（所有后台组件合计）===
+  btn × 110
+  btn-sm × 70
+  form-label × 63
+  form-group × 57
+  form-input × 47
+  btn-secondary × 45
+  flex × 40
+  text-secondary × 39
+  mk-note × 34
+  k × 33
+  v × 31
+  btn-primary × 28
+  mk-stat × 28
+  ? × 25
+  : × 25
+  card × 21
+  badge × 20
+  === × 20
+  mk-panel × 18
+  mk-panel-title × 18
+  btn-ghost × 17
+  form-select × 17
+  btn-danger × 11
+  mk-inline × 11
+  mk-empty × 11
+
+=== global.css 里已定义的 admin-* 类 ===
+  admin-layout, admin-side, admin-side-search, admin-side-nav, admin-side-group, admin-side-group-title, admin-side-item, admin-side-empty, admin-content, admin-side-toggle
+
+=== 组件里用到但 global.css 未定义的类（缺样式）===
+  admin-card, admin-warn, admin-empty, admin-grid, admin-kv, admin-actions, admin-table, admin-mono, admin-hint, admin-input, admin-list, admin-pre, admin-tabs, admin-tab

@@ -424,7 +424,7 @@ export default function TeamAdmin({ showToast }) {
   /* ==================== 编辑 / 新建表单 ==================== */
   if (editing !== null) {
     return (
-      <div>
+      <div className="adm-page">
         <div className="flex-between mb-3" style={{ flexWrap: 'wrap', gap: 10 }}>
           <div>
             <h3 style={{ fontSize: 16, fontWeight: 700 }}>{editing.id ? `编辑队伍配置（ID ${editing.id}）` : '新建队伍配置'}</h3>
@@ -750,7 +750,7 @@ export default function TeamAdmin({ showToast }) {
 
   /* ==================== 列表 ==================== */
   return (
-    <div>
+    <div className="adm-page">
       <div className="flex-between mb-3" style={{ flexWrap: 'wrap', gap: 10 }}>
         <p className="text-secondary" style={{ fontSize: 14 }}>
           队伍配置管理：插件用 <b>/nt apply &lt;配置ID&gt;</b> 应用（点击表格里的 ID 即可复制）

@@ -179,7 +179,7 @@ export default function PayAdminPanel() {
   };
 
   return (
-    <div className="fade-in-up">
+    <div className="fade-in-up adm-page">
       <div className="flex mb-3" style={{ gap: 8, flexWrap: 'wrap' }}>
         {TABS.map(t => (
           <button
