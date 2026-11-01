@@ -121,6 +121,23 @@
 .adm-stat-value.is-bad { color: var(--danger); }
 .adm-stat-value.is-warn { color: var(--warning); }
 
+/* ---------- 可点击统计块（如股市·玩家持仓的板块切换） ---------- */
+button.adm-stat {
+  appearance: none;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  color: inherit;
+}
+.adm-stat.is-active {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 7%, var(--bg));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary) 40%, transparent);
+}
+.adm-stat.is-active .adm-stat-value {
+  color: var(--primary);
+}
+
 /* ---------- 键值列表 ---------- */
 .adm-kv {
   list-style: none;

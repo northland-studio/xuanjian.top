@@ -12,6 +12,8 @@
  *   PUT  /api/express-index/settings      修改参数（哲指数/股价基准/活跃基准/买卖费率/熔断底价）
  *   POST /api/express-index/snapshot      手动触发收盘快照
  *   POST /api/express-index/settle        手动结算某任务 { taskId }
+ *   GET  /api/express-index/holdings/summary        玩家持仓概览（各板块持有人数/总股数/总市值）
+ *   GET  /api/express-index/stocks/:stockId/holdings 某板块全部玩家持仓明细（分页，按股数降序）
  */
 const express = require('express');
 const logger = require('../lib/logger');
@@ -114,6 +116,22 @@ router.post('/settle', authMiddleware, adminMiddleware, handle(async (req, res) 
     if (!taskId) return res.status(400).json({ ok: false, error: '缺少 taskId' });
     const r = await expressIndex.settleByTask(taskId, { operatorId: req.userId });
     res.json({ ok: true, ...r });
+}));
+
+/* ---------- 管理：玩家持仓 ---------- */
+// 概览：三只板块各自的持有人数 / 总股数 / 总市值（面板顶部小卡）
+router.get('/holdings/summary', authMiddleware, adminMiddleware, handle(async (_req, res) => {
+    res.json({ ok: true, ...(await expressIndex.adminHoldingsSummary()) });
+}));
+
+// 明细：某只板块的全部玩家持仓（按股数降序；page 默认 1，pageSize 默认 50、上限 200）
+router.get('/stocks/:stockId/holdings', authMiddleware, adminMiddleware, handle(async (req, res) => {
+    const pageSize = req.query.pageSize !== undefined ? req.query.pageSize : req.query.limit;
+    const data = await expressIndex.adminStockHoldings(req.params.stockId, {
+        page: req.query.page,
+        pageSize
+    });
+    res.json({ ok: true, ...data });
 }));
 
 module.exports = router;
