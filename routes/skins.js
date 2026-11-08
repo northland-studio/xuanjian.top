@@ -140,7 +140,16 @@ const lookupLimiter = rateLimit({
     message: { skin: null, exists: false, error: 'rate_limited' }
 });
 
-router.get('/lookup', lookupLimiter, async (req, res) => {
+// 兜底：同 IP 总量限制（防止有人用随机 gameId 绕过 per-key 限流）
+const lookupIpGuard = rateLimit({
+    windowMs: 60 * 1000,
+    max: 1200,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { skin: null, exists: false, error: 'rate_limited' }
+});
+
+router.get('/lookup', lookupIpGuard, lookupLimiter, async (req, res) => {
     try {
         const keyword = String(req.query.gameId || req.query.name || '').trim().slice(0, 32);
         if (!keyword) {

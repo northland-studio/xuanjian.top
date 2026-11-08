@@ -115,6 +115,9 @@ const limiter = rateLimit({
     max: 300, // 每个IP限制300个请求
     standardHeaders: true,
     legacyHeaders: false,
+    // 皮肤查询接口有独立限流（按 gameId），且会被 XBed 服务端集中调用，
+    // 若走全局 IP 限流会被误伤（同一出口 IP 300 次/15分钟）
+    skip: (req) => req.originalUrl.startsWith('/api/skins/lookup'),
     message: { error: '请求过于频繁，请稍后再试' }
 });
 app.use('/api/', limiter);
