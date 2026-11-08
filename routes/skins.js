@@ -9,6 +9,7 @@ const logger = require('../lib/logger');
 const db = require('../database');
 const { getLocalTimestamp } = require('../database');
 const { authMiddleware } = require('../middleware/auth');
+const rateLimit = require('express-rate-limit');
 const router = express.Router();
 
 // 皮肤上传目录（复用 /uploads 静态服务）
@@ -125,6 +126,67 @@ router.get('/random', async (req, res) => {
     } catch (error) {
         logger.error('获取随机皮肤错误:', error);
         res.status(500).json({ error: '获取随机皮肤失败' });
+    }
+});
+
+// 按游戏 ID / 用户名查询成员皮肤（公开只读，供 XBed 等站内应用生成海报）
+// 限流按 gameId 计数：XBed 服务端代理调用时所有请求同源 IP，按 IP 限流会误伤
+const lookupLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 300,
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: (req) => String(req.query.gameId || req.query.name || req.ip),
+    message: { skin: null, exists: false, error: 'rate_limited' }
+});
+
+router.get('/lookup', lookupLimiter, async (req, res) => {
+    try {
+        const keyword = String(req.query.gameId || req.query.name || '').trim().slice(0, 32);
+        if (!keyword) {
+            return res.status(400).json({ skin: null, exists: false, error: 'missing_gameId' });
+        }
+
+        // 优先匹配 game_id，其次匹配 username；只返回已上传皮肤的用户
+        const row = await db.get(
+            `SELECT u.skin_path, u.username, COALESCE(NULLIF(u.game_id, ''), u.username) AS name
+               FROM users u
+              WHERE u.skin_path IS NOT NULL AND u.skin_path <> ''
+                AND (LOWER(COALESCE(u.game_id, '')) = LOWER(?)
+                  OR LOWER(COALESCE(u.username, '')) = LOWER(?))
+              ORDER BY CASE WHEN LOWER(COALESCE(u.game_id, '')) = LOWER(?) THEN 0 ELSE 1 END
+              LIMIT 1`,
+            [keyword, keyword, keyword]
+        );
+
+        if (row) {
+            res.set('Cache-Control', 'public, max-age=300');
+            return res.json({
+                skin: row.skin_path,       // 形如 /uploads/skin-xxxx.png
+                gameId: row.name,
+                username: row.username,
+                exists: true
+            });
+        }
+
+        // 没皮肤：区分「用户存在但未上传皮肤」与「查无此人」
+        const existsRow = await db.get(
+            `SELECT 1 AS hit FROM users
+              WHERE LOWER(COALESCE(game_id, '')) = LOWER(?)
+                 OR LOWER(COALESCE(username, '')) = LOWER(?)
+              LIMIT 1`,
+            [keyword, keyword]
+        );
+        res.set('Cache-Control', 'public, max-age=60');
+        res.json({
+            skin: null,
+            gameId: keyword,
+            username: null,
+            exists: !!existsRow
+        });
+    } catch (error) {
+        logger.error('查询皮肤错误:', error);
+        res.status(500).json({ skin: null, exists: false, error: 'lookup_failed' });
     }
 });
 
