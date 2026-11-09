@@ -69,3 +69,9 @@ data/market-map-art.png
 scripts/rag/*secret*.txt
 scripts/rag/oauth-clients*.json
 scripts/rag/rotate-*.json
+
+# --- scratch ops scripts & temp artifacts (local only) ---
+scripts/rag/
+_tmp_ssh/
+_notice-shots/
+ollama-dsh/
