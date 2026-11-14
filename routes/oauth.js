@@ -358,6 +358,75 @@ router.get('/scopes', (_req, res) => {
     res.json({ scopes: Object.entries(oauth.SCOPES).map(([id, desc]) => ({ id, description: desc })) });
 });
 
+/* ============================ 桌面/模组客户端回调页 ============================ */
+
+/**
+ * GET /api/oauth/mod-callback
+ * 公共客户端（玄剑地图模组、PCL2 定制版等）的固定回调页：
+ * 浏览器完成授权后被重定向到这里，页面把 code / state 展示给用户复制回客户端。
+ * 只展示、不兑换令牌（PKCE code_verifier 只存在于客户端本地）。
+ */
+router.get('/mod-callback', (req, res) => {
+    const code = (req.query.code || '').toString();
+    const state = (req.query.state || '').toString();
+    const err = (req.query.error || '').toString();
+    const errDesc = (req.query.error_description || '').toString();
+
+    const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+    if (err) {
+        return res.status(400).send(renderClientCallback({
+            ok: false,
+            title: '授权未完成',
+            detail: esc(err) + (errDesc ? '：' + esc(errDesc) : ''),
+        }));
+    }
+    if (!code) {
+        return res.status(400).send(renderClientCallback({
+            ok: false,
+            title: '缺少授权码',
+            detail: '回调参数里没有 code。请重新在客户端发起 OAuth 登录。',
+        }));
+    }
+
+    res.set('Cache-Control', 'no-store');
+    return res.send(renderClientCallback({
+        ok: true,
+        title: '授权成功，请回到客户端完成登录',
+        code: esc(code),
+        state: esc(state),
+        detail: '授权码 5 分钟内有效、且只能使用一次；它必须与客户端本地的 PKCE code_verifier 配对才能换到令牌。',
+    }));
+});
+
+function renderClientCallback({ ok, title, detail, code, state }) {
+    const color = ok ? '#004AAD' : '#c0392b';
+    return `<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${escapeHtml(title)} · ${GUILD_NAME}</title>
+<style>
+  body{margin:0;background:#f5f7fb;color:#1c2430;font-family:system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif}
+  .wrap{max-width:640px;margin:8vh auto;padding:0 20px}
+  .card{background:#fff;border-radius:16px;box-shadow:0 8px 32px rgba(0,40,90,.10);padding:32px}
+  h1{margin:0 0 8px;font-size:20px;color:${color}}
+  p{line-height:1.7;color:#4a5568;font-size:14px}
+  .field{margin:18px 0}
+  .label{font-size:12px;color:#8a94a6;letter-spacing:.04em;text-transform:uppercase}
+  .value{margin-top:6px;padding:12px 14px;border:1px solid #e2e8f0;border-radius:10px;background:#f8fafc;
+         font-family:ui-monospace,Consolas,monospace;font-size:13px;word-break:break-all;user-select:all}
+  .hint{margin-top:22px;padding:14px 16px;border-left:3px solid ${color};background:#f0f6ff;border-radius:8px;font-size:13px;color:#334}
+  .foot{margin-top:22px;font-size:12px;color:#9aa5b4}
+</style></head>
+<body><div class="wrap"><div class="card">
+  <h1>${escapeHtml(title)}</h1>
+  ${code ? `<div class="field"><div class="label">Authorization code</div><div class="value">${code}</div></div>` : ''}
+  ${state ? `<div class="field"><div class="label">State</div><div class="value">${state}</div></div>` : ''}
+  <div class="hint">${detail || ''}</div>
+  <div class="foot">${GUILD_NAME} · ${SITE} · 此页面仅用于把授权码交回本地客户端，不保存任何令牌。</div>
+</div></div></body></html>`;
+}
+
 /* ============================ 管理端 ============================ */
 
 const adminGuard = [authMiddleware, adminMiddleware];
