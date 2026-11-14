@@ -1,0 +1,197 @@
+{
+  "ok": true,
+  "contract": 1,
+  "product": "Xuanjian GIS",
+  "base": "/api/gis",
+  "auth": {
+    "type": "oauth2_bearer",
+    "bearer": "Authorization: Bearer <access_token>",
+    "oauth": "/api/oauth/token",
+    "pkce": true,
+    "scopes": [
+      "read:user",
+      "read:member"
+    ],
+    "permissions": [
+      "gis.access",
+      "gis.submit",
+      "gis.road.edit",
+      "gis.district.edit",
+      "gis.object.review",
+      "gis.admin"
+    ]
+  },
+  "encodings": [
+    "zstd",
+    "gzip",
+    "deflate",
+    "identity"
+  ],
+  "limits": {
+    "maxChunkBatch": 64,
+    "maxCompressedBytes": 4194304,
+    "maxDecompressedBytes": 8388608,
+    "maxSampleSize": 32,
+    "chunkBlocks": 16,
+    "planChunksMax": 4096,
+    "uploadRatePerMinute": 60,
+    "maxBboxArea": 16000000,
+    "maxObjectsPerPage": 1000,
+    "terrainSyncBboxArea": 262144,
+    "contourIntervals": [
+      5,
+      10,
+      20,
+      50,
+      100
+    ]
+  },
+  "dimensions": [
+    {
+      "dimension": "overworld",
+      "code": 0
+    },
+    {
+      "dimension": "nether",
+      "code": 1
+    },
+    {
+      "dimension": "end",
+      "code": 2
+    },
+    {
+      "dimension": "custom",
+      "code": 3
+    }
+  ],
+  "chunkFormat": {
+    "endianness": "little",
+    "magic": "XJGIS",
+    "version": 1,
+    "header": [
+      {
+        "name": "magic",
+        "type": "u8[5]"
+      },
+      {
+        "name": "version",
+        "type": "u8"
+      },
+      {
+        "name": "dimensionCode",
+        "type": "u8"
+      },
+      {
+        "name": "chunkCount",
+        "type": "u8"
+      },
+      {
+        "name": "worldId",
+        "type": "u32"
+      },
+      {
+        "name": "batchSeq",
+        "type": "u64"
+      }
+    ],
+    "headerBytes": 20,
+    "chunk": [
+      {
+        "name": "chunkX",
+        "type": "i32"
+      },
+      {
+        "name": "chunkZ",
+        "type": "i32"
+      },
+      {
+        "name": "sampleStep",
+        "type": "u8",
+        "note": "1..4"
+      },
+      {
+        "name": "sampleSize",
+        "type": "u8",
+        "note": "必须等于 16/sampleStep"
+      },
+      {
+        "name": "minY",
+        "type": "i16"
+      },
+      {
+        "name": "maxY",
+        "type": "i16"
+      },
+      {
+        "name": "flags",
+        "type": "u8",
+        "note": "bit0=heightMatrix, bit1=biomeMatrix, bit2=blockHist"
+      },
+      {
+        "name": "heightMatrix",
+        "type": "i16[sampleSize*sampleSize]",
+        "note": "-32768 = 无数据（必须保留缺口，不得填 0）"
+      },
+      {
+        "name": "biomeMatrix",
+        "type": "u16[sampleSize*sampleSize]",
+        "optional": true,
+        "note": "0xFFFF = 未知"
+      },
+      {
+        "name": "blockHist",
+        "type": "u8 n, n*(u16 blockId, u32 count)",
+        "optional": true
+      }
+    ]
+  },
+  "endpoints": {
+    "bootstrap": "GET /api/gis/client/bootstrap?serverKey=",
+    "contract": "GET /api/gis/client/contract",
+    "resolveWorld": "POST /api/gis/client/resolve-world",
+    "planChunks": "POST /api/gis/client/chunks/plan",
+    "uploadChunks": "POST /api/gis/client/chunks?worldId=&dimension=",
+    "sync": "GET /api/gis/client/sync?worldId=&dimension=&since=",
+    "objects": "GET /api/gis/objects?worldId=&dimension=&bbox=",
+    "coverage": "GET /api/gis/terrain/coverage?worldId=&dimension=&bbox=",
+    "height": "GET /api/gis/terrain/height?worldId=&dimension=&x=&z="
+  },
+  "upload": {
+    "contentType": "application/octet-stream",
+    "contentEncodingHeader": "Content-Encoding",
+    "idempotencyHeader": "Idempotency-Key",
+    "idempotencyPattern": "^[A-Za-z0-9_-]{8,64}$",
+    "contractHeader": "X-GIS-Contract",
+    "serverTokenHeader": "X-GIS-Server-Token",
+    "retry": "同一批重试必须复用同一 Idempotency-Key；服务端据此返回 duplicate:true 与首次结果"
+  },
+  "errors": {
+    "unauthorized": 401,
+    "forbidden": 403,
+    "not_found": 404,
+    "invalid_argument": 400,
+    "invalid_payload": 400,
+    "payload_too_large": 413,
+    "bbox_required": 400,
+    "bbox_too_large": 400,
+    "server_not_registered": 403,
+    "world_not_registered": 403,
+    "world_archived": 409,
+    "dimension_mismatch": 409,
+    "version_conflict": 409,
+    "rate_limited": 429,
+    "data_unavailable": 200,
+    "server_error": 500
+  },
+  "markerCategories": [
+    "public_building",
+    "housing",
+    "shop",
+    "industry",
+    "agriculture",
+    "transport",
+    "entertainment",
+    "government",
+    "other"
+  ]
+}
