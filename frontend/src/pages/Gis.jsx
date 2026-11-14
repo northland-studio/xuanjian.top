@@ -93,6 +93,15 @@ export default function Gis() {
     const [busy, setBusy] = useState(false);
 
     const currentWorld = useMemo(() => allWorlds.find((w) => w.id === Number(worldId)) || null, [allWorlds, worldId]);
+    /** 当前世界/维度的数据范围（用于「定位到数据」与自动视野）；无采集数据时为 null */
+    const dataBbox = useMemo(() => {
+        if (!currentWorld) return null;
+        const d = (currentWorld.dimensions || []).find((x) => x.dimension === dimension);
+        const b = d && d.bbox;
+        if (!b || !Number.isFinite(Number(b.minX)) || !Number.isFinite(Number(b.maxX))) return null;
+        return { minX: Number(b.minX), minZ: Number(b.minZ), maxX: Number(b.maxX), maxZ: Number(b.maxZ) };
+    }, [currentWorld, dimension]);
+    const [jump, setJump] = useState({ x: '', z: '' });
     /** 可浏览世界：ACTIVE 在前，ARCHIVED/SNAPSHOT 作为只读历史世界 */
     const worlds = useMemo(() => {
         const rank = (w) => (w.status === 'ACTIVE' ? 0 : w.status === 'SNAPSHOT' ? 1 : 2);
@@ -512,6 +521,15 @@ export default function Gis() {
         // bbox 换成新对象触发按需重新加载当前发布层
         setBbox((b) => (b ? { ...b } : b));
     };
+    const doJump = () => {
+        const x = Number(jump.x);
+        const z = Number(jump.z);
+        if (!Number.isFinite(x) || !Number.isFinite(z)) {
+            showToast('请输入有效的 X / Z 坐标', 'error');
+            return;
+        }
+        if (mapRef.current) mapRef.current.focusOn(x, z, 1);
+    };
 
     const loadStats = async () => {
         if (!can.admin) return;
@@ -575,6 +593,16 @@ export default function Gis() {
                     <select className="form-select gis-select-sm" value={dimension} onChange={(e) => { setDimension(e.target.value); setSelected(null); setDetail(null); setHistory(null); }}>
                         {dimensions.map((d) => <option key={d} value={d}>{DIM_LABEL[d] || d}</option>)}
                     </select>
+                    <input className="form-input gis-input-xy" type="number" placeholder="X" value={jump.x}
+                        onChange={(e) => setJump((j) => ({ ...j, x: e.target.value }))}
+                        onKeyDown={(e) => { if (e.key === 'Enter') doJump(); }} />
+                    <input className="form-input gis-input-xy" type="number" placeholder="Z" value={jump.z}
+                        onChange={(e) => setJump((j) => ({ ...j, z: e.target.value }))}
+                        onKeyDown={(e) => { if (e.key === 'Enter') doJump(); }} />
+                    <button className="btn btn-secondary btn-sm" onClick={doJump}>跳转坐标</button>
+                    <button className="btn btn-secondary btn-sm" disabled={!dataBbox}
+                        title={dataBbox ? '缩放到当前世界/维度的已采集范围' : '当前世界/维度还没有采集数据'}
+                        onClick={() => { if (dataBbox && mapRef.current) mapRef.current.fitBbox(dataBbox); }}>定位到数据</button>
                 </div>
                 <div className="gis-topbar-right">
                     {drawButtons.map((b) => (
@@ -614,6 +642,14 @@ export default function Gis() {
                                 : <span>请联系 GIS 管理员注册新世界后使用。</span>}
                         </div>
                     )}
+                    {dataBbox && !history && !loadingObjects && currentObjectsCount === 0 && (
+                        <div className="gis-banner">
+                            <b>当前视野内没有对象。</b>
+                            当前世界/维度的已采集数据范围是 X {dataBbox.minX}~{dataBbox.maxX} / Z {dataBbox.minZ}~{dataBbox.maxZ}。
+                            <button className="btn btn-secondary btn-sm" onClick={() => mapRef.current && mapRef.current.fitBbox(dataBbox)}>定位到数据</button>
+                            <span className="gis-dim">或用顶部「跳转坐标」输入城区/标记的坐标。</span>
+                        </div>
+                    )}
                     {allWorlds.length === 0 && (
                         <div className="gis-banner">
                             尚未注册任何 GIS 世界。
@@ -641,6 +677,7 @@ export default function Gis() {
                         missingRects={terrain.missing ? missingRects : null}
                         marketPlaces={marketPlaces}
                         historyMode={!!history}
+                        autoFitBbox={dataBbox}
                         height="calc(100vh - 200px)"
                         zoomLabel={`缩放 ${zoom}`}
                     />

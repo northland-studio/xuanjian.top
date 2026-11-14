@@ -384,6 +384,7 @@ export function GisSearchPanel({ worldId, dimension, bbox, onPick }) {
     const [items, setItems] = useState([]);
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+    const [restrictBbox, setRestrictBbox] = useState(false);
 
     const search = async (e) => {
         e && e.preventDefault();
@@ -394,7 +395,8 @@ export function GisSearchPanel({ worldId, dimension, bbox, onPick }) {
             const qs = new URLSearchParams({ q: q.trim() });
             if (worldId) qs.set('worldId', worldId);
             if (dimension) qs.set('dimension', dimension);
-            if (bbox) qs.set('bbox', `${bbox.minX},${bbox.minZ},${bbox.maxX},${bbox.maxZ}`);
+            // 默认在整个世界/维度内搜索（此前强制带当前视野 bbox，用户停在原点时永远搜不到数据）
+            if (restrictBbox && bbox) qs.set('bbox', `${bbox.minX},${bbox.minZ},${bbox.maxX},${bbox.maxZ}`);
             const d = await api.get(`/api/gis/search?${qs}`);
             setItems(d.items || []);
         } catch (e2) {
@@ -410,8 +412,12 @@ export function GisSearchPanel({ worldId, dimension, bbox, onPick }) {
                 <input className="form-input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="名称 / 描述关键词" maxLength={60} />
                 <button className="btn btn-secondary btn-sm" type="submit" disabled={loading}>搜索</button>
             </form>
+            <label className="gis-check">
+                <input type="checkbox" checked={restrictBbox} onChange={(e) => setRestrictBbox(e.target.checked)} />
+                <span>仅搜索当前视野范围</span>
+            </label>
             {error && <div className="gis-error">{error}</div>}
-            <div className="gis-hint">在当前世界/维度内搜索；若地图有可视范围则优先在该 bbox 内搜索（只搜已发布对象）。</div>
+            <div className="gis-hint">默认在当前世界/维度内全局搜索（只搜已发布对象）；勾选后限制在当前地图视野。</div>
             <div className="gis-list">
                 {items.map((o) => (
                     <div key={`${o.type}:${o.id}`} className="gis-list-row">

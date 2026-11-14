@@ -63,6 +63,7 @@ const GisMap = forwardRef(function GisMap(props, ref) {
         marketPlaces = [],
         historyMode = false,
         focus = null,               // {x,z,zoom}
+        autoFitBbox = null,         // {minX,minZ,maxX,maxZ}：世界/维度切换后自动缩放到数据范围
         height = 'calc(100vh - 220px)',
         zoomLabel = null,
         onCursor
@@ -330,11 +331,24 @@ const GisMap = forwardRef(function GisMap(props, ref) {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [ready, focus && focus.x, focus && focus.z, focus && focus.zoom]);
 
-    /* ---------------- 世界/维度切换：清空并回到原点 ---------------- */
+    /* ---------------- 世界/维度切换：有数据范围则自动定位，否则回到原点 ---------------- */
+    const autoFitKey = autoFitBbox
+        ? `${autoFitBbox.minX},${autoFitBbox.minZ},${autoFitBbox.maxX},${autoFitBbox.maxZ}`
+        : '';
     useEffect(() => {
-        if (!ready || !mapRef.current) return;
-        mapRef.current.setView([0, 0], Math.min(mapRef.current.getZoom(), -2));
-    }, [ready, worldId, dimension]);
+        const L = libRef.current;
+        const map = mapRef.current;
+        if (!ready || !map || !L) return;
+        if (autoFitBbox) {
+            map.fitBounds(L.latLngBounds(
+                L.latLng(-autoFitBbox.maxZ, autoFitBbox.minX),
+                L.latLng(-autoFitBbox.minZ, autoFitBbox.maxX)
+            ), { padding: [24, 24] });
+            return;
+        }
+        map.setView([0, 0], Math.min(map.getZoom(), -2));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [ready, worldId, dimension, autoFitKey]);
 
     /* ---------------- 业务图层渲染 ---------------- */
     const layerState = useMemo(() => ({ ...showLayers }), [showLayers]);

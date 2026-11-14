@@ -45,6 +45,13 @@
   font-size: 13px;
 }
 
+/* 坐标跳转输入框：窄 */
+.gis-input-xy {
+  width: 92px;
+  padding: 4px 8px;
+  font-size: 13px;
+}
+
 .gis-count {
   font-size: 12px;
   white-space: nowrap;
