@@ -54,6 +54,8 @@ import MarketProduct from './pages/MarketProduct';
 import MarketMap from './pages/MarketMap';
 import MarketOrders from './pages/MarketOrders';
 import MarketMerchant from './pages/MarketMerchant';
+import Gis from './pages/Gis';
+import GisErrorBoundary from './components/gis/GisErrorBoundary';
 
 // 主站路由：统一包裹在 Layout（含主站导航/页脚）内
 function MainSite() {
@@ -108,6 +110,8 @@ function MainSite() {
         <Route path="/market/merchant" element={<MarketMerchant />} />
         <Route path="/market/store/:id" element={<MarketStore />} />
         <Route path="/market/product/:id" element={<MarketProduct />} />
+        {/* 玄剑 GIS：世界地图、城区/道路/Marker 编辑审核、地形与历史地图 */}
+        <Route path="/gis" element={<GisErrorBoundary><Gis /></GisErrorBoundary>} />
         <Route path="/chat" element={<ChatPage />} />
         <Route path="/chat/:userId" element={<ChatPage />} />
         <Route path="/projections" element={<Projections />} />

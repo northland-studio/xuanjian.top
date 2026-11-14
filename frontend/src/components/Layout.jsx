@@ -137,6 +137,7 @@ export default function Layout({ children }) {
     },
     {
       key: 'tools', label: '工具', items: [
+        { to: '/gis', label: '玄剑 GIS 地图' },
         { to: '/mods', label: '游戏模组' },
         { to: '/projections', label: '投影仓库' }
       ]

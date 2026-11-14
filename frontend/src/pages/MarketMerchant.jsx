@@ -4,6 +4,7 @@ import { api, uploadImage } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/UI';
 import { IconArrowLeft, IconCheck, IconClose, IconPackage, Stars } from '../components/MarketIcons';
+import MarketLocationPicker from '../components/MarketLocationPicker';
 import { requireLogin, formatDate, fmtPoints } from '../utils';
 import { marketTags } from '../market/helpers';
 import '../styles/market.css';
@@ -742,38 +743,36 @@ export default function MarketMerchant() {
 
               {locForm && (
                 <form onSubmit={saveLocation} style={{ borderBottom: '1px solid var(--border)', paddingBottom: 14, marginBottom: 12 }}>
-                  <div className="mk-form-grid">
+                  {/* GIS 地图选点 + 坐标手输双入口（复用 server/dimension/X/Y/Z，不新建地点系统） */}
+                  <MarketLocationPicker
+                    value={{
+                      serverKey: locForm.server_key,
+                      serverName: locForm.server_name,
+                      dimension: locForm.dimension,
+                      dimensionCustom: locForm.dimension_custom,
+                      x: locForm.x,
+                      y: locForm.y,
+                      z: locForm.z
+                    }}
+                    onChange={(p) => setLocForm((f) => ({
+                      ...f,
+                      server_key: p.serverKey !== undefined ? p.serverKey : f.server_key,
+                      server_name: p.serverName !== undefined ? p.serverName : f.server_name,
+                      dimension: p.dimension !== undefined ? p.dimension : f.dimension,
+                      dimension_custom: p.dimensionCustom !== undefined ? p.dimensionCustom : f.dimension_custom,
+                      x: p.x !== undefined ? p.x : f.x,
+                      y: p.y !== undefined ? p.y : f.y,
+                      z: p.z !== undefined ? p.z : f.z
+                    }))}
+                  />
+                  <div className="mk-form-grid" style={{ marginTop: 8 }}>
                     <div className="form-group">
                       <label className="form-label">服务器标识 *</label>
-                      <input className="form-input" value={locForm.server_key} onChange={e => setLocForm(f => ({ ...f, server_key: e.target.value }))} placeholder="s115" required />
+                      <input className="form-input" value={locForm.server_key} onChange={e => setLocForm(f => ({ ...f, server_key: e.target.value }))} placeholder="yl" required />
                     </div>
                     <div className="form-group">
                       <label className="form-label">服务器名称</label>
-                      <input className="form-input" value={locForm.server_name} onChange={e => setLocForm(f => ({ ...f, server_name: e.target.value }))} placeholder="例：115 服" />
-                    </div>
-                    <div className="form-group">
-                      <label className="form-label">维度</label>
-                      <select className="form-select" value={locForm.dimension} onChange={e => setLocForm(f => ({ ...f, dimension: e.target.value }))}>
-                        {Object.entries(DIM_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-                      </select>
-                    </div>
-                    {locForm.dimension === 'custom' && (
-                      <div className="form-group">
-                        <label className="form-label">自定义维度名</label>
-                        <input className="form-input" value={locForm.dimension_custom} onChange={e => setLocForm(f => ({ ...f, dimension_custom: e.target.value }))} />
-                      </div>
-                    )}
-                    <div className="form-group">
-                      <label className="form-label">X 坐标</label>
-                      <input className="form-input" type="number" value={locForm.x} onChange={e => setLocForm(f => ({ ...f, x: e.target.value }))} />
-                    </div>
-                    <div className="form-group">
-                      <label className="form-label">Y 坐标</label>
-                      <input className="form-input" type="number" value={locForm.y} onChange={e => setLocForm(f => ({ ...f, y: e.target.value }))} />
-                    </div>
-                    <div className="form-group">
-                      <label className="form-label">Z 坐标</label>
-                      <input className="form-input" type="number" value={locForm.z} onChange={e => setLocForm(f => ({ ...f, z: e.target.value }))} />
+                      <input className="form-input" value={locForm.server_name} onChange={e => setLocForm(f => ({ ...f, server_name: e.target.value }))} placeholder="例：樱梨" />
                     </div>
                     <div className="form-group">
                       <label className="form-label">标注</label>
