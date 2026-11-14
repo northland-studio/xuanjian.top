@@ -1,83 +1,59 @@
-const jwt = require('jsonwebtoken');
-const logger = require('../lib/logger');
-const db = require('../database');
+/**
+ * 鉴权中间件（兼容适配层）
+ *
+ * 本文件保留原有导出名（authMiddleware / adminMiddleware / superAdminMiddleware /
+ * optionalAuthMiddleware / fetchLatestLevel / JWT_SECRET），内部全部切换到
+ * lib/permissions 的**实时权限计算**（JWT 只做身份，权限以数据库最新结果为准）。
+ *
+ * 语义保持不变（渐进式迁移，不破坏现有业务）：
+ *  - authMiddleware        登录即可（账号冻结/封禁 → 403 ACCOUNT_FROZEN，立即失效）
+ *  - adminMiddleware       Level >= 1（旧接口可继续使用；后续逐模块迁移到 requirePermission）
+ *  - superAdminMiddleware  Level >= 2
+ *  - optionalAuthMiddleware 公开接口可选登录
+ *
+ * 新增导出（迁移后的接口使用）：
+ *  - requirePermission / requireAnyPermission  细粒度权限（自洽鉴权）
+ *  - adminOrPermission                          兼容：Level>=1 或 细粒度权限
+ *  - requireLevel / requireEconomy              等级 / 经济资格
+ */
+const perms = require('../lib/permissions');
+const authContext = require('../lib/permissions/auth-context');
 
-if (!process.env.JWT_SECRET) {
-    logger.error('错误: 未配置 JWT_SECRET 环境变量，请在 .env 文件中设置');
-    process.exit(1);
-}
+const authMiddleware = perms.authenticate;
+const adminMiddleware = perms.adminOnly;
+const superAdminMiddleware = perms.superAdminOnly;
+const optionalAuthMiddleware = perms.optionalAuthenticate;
 
-const JWT_SECRET = process.env.JWT_SECRET;
-
-// 验证JWT令牌
-const authMiddleware = (req, res, next) => {
-    const token = req.headers.authorization?.split(' ')[1];
-    
-    if (!token) {
-        return res.status(401).json({ error: '未提供认证令牌' });
-    }
-    
-    try {
-        const decoded = jwt.verify(token, JWT_SECRET);
-        req.userId = decoded.userId;
-        req.userLevel = decoded.level;
-        next();
-    } catch (error) {
-        return res.status(401).json({ error: '无效的认证令牌' });
-    }
-};
-
-// 实时获取用户最新 level（避免 token 快照过时：提升权限后无需重新登录）
-async function fetchLatestLevel(userId) {
-    try {
-        const user = await db.get('SELECT level FROM users WHERE id = ?', [userId]);
-        return user ? user.level : -1;
-    } catch (e) {
-        logger.error('查询用户等级错误:', e.message);
-        return -1;
-    }
-}
-
-// 验证管理员权限（实时读取数据库 level >= 1）
-const adminMiddleware = async (req, res, next) => {
-    const level = await fetchLatestLevel(req.userId);
-    if (level < 1) {
-        return res.status(403).json({ error: '权限不足，需要管理员权限' });
-    }
-    req.userLevel = level;
-    next();
-};
-
-// 验证超级管理员权限（实时读取数据库 level >= 2）
-const superAdminMiddleware = async (req, res, next) => {
-    const level = await fetchLatestLevel(req.userId);
-    if (level < 2) {
-        return res.status(403).json({ error: '权限不足，需要超级管理员权限' });
-    }
-    req.userLevel = level;
-    next();
-};
-
-// 可选认证：有 token 则解析出 userId，无 token 也不报错（供公开页面按需登录用）
-const optionalAuthMiddleware = (req, res, next) => {
-    const token = req.headers.authorization?.split(' ')[1];
-    if (token) {
-        try {
-            const decoded = jwt.verify(token, JWT_SECRET);
-            req.userId = decoded.userId;
-            req.userLevel = decoded.level;
-        } catch (error) {
-            // token 无效则当作未登录处理
-        }
-    }
-    next();
-};
+const {
+    requirePermission,
+    requireAnyPermission,
+    requireLevel,
+    adminOrPermission,
+    requireEconomy,
+    economyGate
+} = perms;
 
 module.exports = {
+    // ===== 旧接口（兼容）=====
     authMiddleware,
     adminMiddleware,
     superAdminMiddleware,
     optionalAuthMiddleware,
-    fetchLatestLevel,
-    JWT_SECRET
+    fetchLatestLevel: authContext.fetchLatestLevel,
+    JWT_SECRET: authContext.JWT_SECRET,
+
+    // ===== 新接口（细粒度权限）=====
+    requirePermission,
+    requireAnyPermission,
+    requireLevel,
+    adminOrPermission,
+    requireEconomy,
+    economyGate,
+
+    // ===== 上下文工具 =====
+    hasPermission: perms.hasPermission,
+    hasAnyPermission: perms.hasAnyPermission,
+    resolveUser: perms.resolveUser,
+    can: perms.can,
+    canAny: perms.canAny
 };

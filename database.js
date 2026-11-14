@@ -70,6 +70,16 @@ class Database {
         });
     }
 
+    /** 执行多条 SQL（权限体系建表等 DDL 使用） */
+    exec(sql) {
+        return new Promise((resolve, reject) => {
+            this.db.exec(sql, (err) => {
+                if (err) reject(err);
+                else resolve();
+            });
+        });
+    }
+
     beginTransaction() {
         return this.run('BEGIN TRANSACTION');
     }
