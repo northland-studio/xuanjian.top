@@ -125,6 +125,14 @@ GET /api/gis/map/index?worldId=3
 
 > 客户端不改世界/权限/队列逻辑；只增加一个可选字段与开关。
 
+### 4.1 客户端自检清单（服务端已实现，模组侧照此对齐）
+
+1. **hash 算法**：`CRC32` 用标准 IEEE 多项式（与 `zlib.crc32` / Java `java.util.zip.CRC32` 一致），取 `& 0xFFFF`；服务端自带同算法可对照。
+2. **矩阵顺序**：载荷内顺序固定为 `heightMatrix → biomeMatrix(可选) → blockHist(可选) → surfaceBlockMatrix(可选)`；`flags` 对应 bit0/1/2/3。**surface 必须放在 blockHist 之后**，否则服务端解析会判为尾部多余数据。
+3. **取值**：每列顶层非空气方块的 `CRC32("minecraft:xxx") & 0xFFFF`；水面记录水方块本身；无数据/空列写 `0xFFFF`。
+4. **自检接口**：`GET /api/gis/map/palette` 的 `blocks` 的 key 就是合法 hash16（十进制字符串），可用来核对本地 CRC32 实现（例如 `minecraft:grass_block` → `54839`、`minecraft:water` → `9188`、`minecraft:stone` → 见 palette）。
+5. **旧数据**：不带 `flags|=8` 的上传完全合法，网页端会自动走 fallback 着色（高度 + 群系），不会报错。
+
 ---
 
 ## 5. 验收

@@ -173,7 +173,22 @@ Chunk record × chunkCount
 
 > **v2 说明（向后兼容）**：`surfaceBlockMatrix` 是该列顶层非空气方块（水面取水方块本身）的方块 ID 矩阵，用于浏览器端绘制方块彩色地图。
 > 旧客户端不带 bit3，服务端照常接收；旧数据在网页端使用「高度 + 生物群系」兜底着色，不会报错。
-> 方块 ID 使用 Minecraft 全局 block state id 的方块部分（registry block id），浏览器通过 `GET /api/gis/map/palette` 获取配色表；未登记颜色的方块回退到按材质类分组的默认色。
+> **方块 ID = `CRC32(方块资源名) & 0xFFFF`**（标准 IEEE CRC32，等价 Java `java.util.zip.CRC32` / Node `zlib.crc32`），浏览器通过 `GET /api/gis/map/palette` 获取配色表；未登记颜色的方块回退到按材质类分组的默认色。
+
+### 2.2.1 `surfaceBlockMatrix` 的 CRC32 测试向量（客户端必须对齐）
+
+服务端实现见 `lib/gis/map-palette.js`（`crc32` / `hash16`）；测试用例 `scripts/tests/gis-map-canvas.js` 断言了标准向量 `CRC32("123456789") = 0xCBF43926`。
+
+| 资源名（UTF-8 字节） | CRC32（无符号十进制） | `& 0xFFFF`（= surface u16 值） | 十六进制 |
+|---|---|---|---|
+| `minecraft:grass_block` | 1430378039 | **54839** | `0x5541d637` |
+| `minecraft:water` | 3914146788 | **9188** | `0xe94d23e4` |
+| `minecraft:stone` | 190722580 | **12820** | `0x0b5e3214` |
+| `minecraft:sand` | 1772420168 | **64584** | `0x69a4fc48` |
+| `minecraft:oak_planks` | 1545734018 | **1922** | `0x5c220782` |
+
+自检方式：`GET /api/gis/map/palette` 的 `blocks` 键就是合法 hash16（十进制字符串），`blockNames` 提供 hash16 → 资源名反查；客户端本地算出的 hash 必须能在其中命中常用方块。
+**注意**：`surfaceBlockMatrix` 在载荷中的顺序固定为 `heightMatrix → biomeMatrix(可选) → blockHist(可选) → surfaceBlockMatrix(可选)`（即 flag bit3 的数据在最后），顺序错误会被服务端按「尾部多余数据」拒绝。
 
 说明：
 - `heightMatrix` 缺失记为 `-32768`，服务端**保留缺口**（未采集区域），地形分析时显式标记无数据，绝不填 0 或平均高度。
