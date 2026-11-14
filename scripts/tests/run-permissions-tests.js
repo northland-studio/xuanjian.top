@@ -15,7 +15,8 @@ const { spawnSync } = require('child_process');
 const files = [
     ['permissions-core.js', '权限核心（1-11）'],
     ['permissions-economy.js', '经济资格（12-17）'],
-    ['permissions-wiki.js', 'Wiki 回归 + 前端刷新（18-19）']
+    ['permissions-wiki.js', 'Wiki 回归 + 前端刷新（18-19）'],
+    ['permissions-market.js', '集市 market.* 权限（新增）']
 ];
 
 let failed = 0;

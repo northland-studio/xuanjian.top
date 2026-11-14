@@ -22,7 +22,7 @@ const jobs = require('../lib/market-jobs');
 const notify = require('../lib/market-notify');
 const render = require('../lib/market-render');
 const wiki = require('../lib/wiki');
-const { authMiddleware, adminMiddleware, optionalAuthMiddleware } = require('../middleware/auth');
+const { authMiddleware, adminMiddleware, optionalAuthMiddleware, requirePermission, adminOrPermission, hasPermission } = require('../middleware/auth');
 
 const router = express.Router();
 /** 短链跳转（挂在站点根 /q，不带 /api 前缀） */
@@ -378,7 +378,7 @@ router.get('/orders/:id', authMiddleware, async (req, res) => {
         const store = await db.get('SELECT id, name, owner_id, avatar FROM market_stores WHERE id = ?', [order.store_id]);
         const isBuyer = Number(order.buyer_id) === Number(req.userId);
         const isOwner = store && Number(store.owner_id) === Number(req.userId);
-        const isAdmin = Number(req.userLevel) >= 1;
+        const isAdmin = Number(req.userLevel) >= 1 || hasPermission(req, 'market.order.manage');
         if (!isBuyer && !isOwner && !isAdmin) return res.status(403).json({ error: '无权查看该订单' });
         const [items, code, refunds, dispute, review] = await Promise.all([
             db.all('SELECT * FROM market_order_items WHERE order_id = ?', [order.id]),
@@ -505,7 +505,7 @@ router.post('/reviews', authMiddleware, async (req, res) => {
 });
 
 /** 店铺评价列表（店主/管理员：含被隐藏的评价，用于回复与申诉） */
-router.get('/merchant/reviews', authMiddleware, async (req, res) => {
+router.get('/merchant/reviews', authMiddleware, adminOrPermission('market.access'), async (req, res) => {
     try {
         const store = await ownerStore(req, res);
         if (!store) return;
@@ -525,7 +525,7 @@ router.get('/merchant/reviews', authMiddleware, async (req, res) => {
 });
 
 /** 店主回复评价（买家会收到站内 + 邮件通知） */
-router.post('/merchant/reviews/:id/reply', authMiddleware, async (req, res) => {
+router.post('/merchant/reviews/:id/reply', authMiddleware, adminOrPermission('market.access'), async (req, res) => {
     try {
         const review = await db.get('SELECT * FROM market_reviews WHERE id = ?', [req.params.id]);
         if (!review) return res.status(404).json({ error: '评价不存在' });
@@ -551,7 +551,7 @@ router.post('/merchant/reviews/:id/reply', authMiddleware, async (req, res) => {
 });
 
 /** 店主隐藏/恢复评价（只影响展示与店铺均分，不删除记录；隐藏后均分同步扣减） */
-router.post('/merchant/reviews/:id/status', authMiddleware, async (req, res) => {
+router.post('/merchant/reviews/:id/status', authMiddleware, adminOrPermission('market.access'), async (req, res) => {
     try {
         const review = await db.get('SELECT * FROM market_reviews WHERE id = ?', [req.params.id]);
         if (!review) return res.status(404).json({ error: '评价不存在' });
@@ -636,7 +636,7 @@ async function ownerStore(req, res, needStatus = null) {
 }
 
 /** 申请开店（含开店费；首店可免） */
-router.post('/merchant/stores', authMiddleware, async (req, res) => {
+router.post('/merchant/stores', authMiddleware, adminOrPermission('market.access'), async (req, res) => {
     try {
         const cfg = await market.getConfig();
         const name = String(req.body?.name || '').trim();
@@ -714,7 +714,7 @@ router.post('/merchant/stores', authMiddleware, async (req, res) => {
 });
 
 /** 我的店铺 */
-router.get('/merchant/stores', authMiddleware, async (req, res) => {
+router.get('/merchant/stores', authMiddleware, adminOrPermission('market.access'), async (req, res) => {
     try {
         const stores = await db.all('SELECT * FROM market_stores WHERE owner_id = ? ORDER BY id DESC', [req.userId]);
         const cfg = await market.getConfig();
@@ -723,7 +723,7 @@ router.get('/merchant/stores', authMiddleware, async (req, res) => {
 });
 
 /** 编辑店铺资料/公告 */
-router.put('/merchant/stores/:id', authMiddleware, async (req, res) => {
+router.put('/merchant/stores/:id', authMiddleware, adminOrPermission('market.access'), async (req, res) => {
     try {
         const store = await ownerStore(req, res, ['pending', 'active', 'grace', 'paused', 'suspended']);
         if (!store) return;
@@ -756,7 +756,7 @@ router.put('/merchant/stores/:id', authMiddleware, async (req, res) => {
 });
 
 /** 手动续费（幂等：同一到期周期只扣一次） */
-router.post('/merchant/stores/:id/renew', authMiddleware, async (req, res) => {
+router.post('/merchant/stores/:id/renew', authMiddleware, adminOrPermission('market.access'), async (req, res) => {
     try {
         const store = await ownerStore(req, res, ['active', 'grace', 'suspended', 'paused']);
         if (!store) return;
@@ -802,7 +802,7 @@ router.post('/merchant/stores/:id/renew', authMiddleware, async (req, res) => {
 });
 
 /** 店主暂停/恢复营业（不覆盖管理员的封禁状态） */
-router.post('/merchant/stores/:id/status', authMiddleware, async (req, res) => {
+router.post('/merchant/stores/:id/status', authMiddleware, adminOrPermission('market.access'), async (req, res) => {
     try {
         const store = await ownerStore(req, res);
         if (!store) return;
@@ -817,7 +817,7 @@ router.post('/merchant/stores/:id/status', authMiddleware, async (req, res) => {
 });
 
 /* ---- 店铺位置 ---- */
-router.post('/merchant/stores/:id/locations', authMiddleware, async (req, res) => {
+router.post('/merchant/stores/:id/locations', authMiddleware, adminOrPermission('market.access'), async (req, res) => {
     try {
         const store = await ownerStore(req, res);
         if (!store) return;
@@ -838,7 +838,7 @@ router.post('/merchant/stores/:id/locations', authMiddleware, async (req, res) =
         res.status(201).json({ ok: true, location: await db.get('SELECT * FROM market_store_locations WHERE id = ?', [r.id]) });
     } catch (e) { fail(res, e, '添加位置失败'); }
 });
-router.put('/merchant/locations/:id', authMiddleware, async (req, res) => {
+router.put('/merchant/locations/:id', authMiddleware, adminOrPermission('market.access'), async (req, res) => {
     try {
         const loc = await db.get('SELECT * FROM market_store_locations WHERE id = ?', [req.params.id]);
         if (!loc) return res.status(404).json({ error: '位置不存在' });
@@ -870,7 +870,7 @@ router.put('/merchant/locations/:id', authMiddleware, async (req, res) => {
         res.json({ ok: true, location: await db.get('SELECT * FROM market_store_locations WHERE id = ?', [loc.id]) });
     } catch (e) { fail(res, e, '保存位置失败'); }
 });
-router.delete('/merchant/locations/:id', authMiddleware, async (req, res) => {
+router.delete('/merchant/locations/:id', authMiddleware, adminOrPermission('market.access'), async (req, res) => {
     try {
         const loc = await db.get('SELECT * FROM market_store_locations WHERE id = ?', [req.params.id]);
         if (!loc) return res.json({ ok: true });
@@ -883,7 +883,7 @@ router.delete('/merchant/locations/:id', authMiddleware, async (req, res) => {
 });
 
 /* ---- 商品 ---- */
-router.get('/merchant/products', authMiddleware, async (req, res) => {
+router.get('/merchant/products', authMiddleware, adminOrPermission('market.access'), async (req, res) => {
     try {
         const storeId = Number(req.query.store_id);
         const store = await db.get('SELECT * FROM market_stores WHERE id = ?', [storeId]);
@@ -898,7 +898,7 @@ router.get('/merchant/products', authMiddleware, async (req, res) => {
     } catch (e) { fail(res, e, '加载商品失败'); }
 });
 
-router.post('/merchant/products', authMiddleware, async (req, res) => {
+router.post('/merchant/products', authMiddleware, adminOrPermission('market.access'), async (req, res) => {
     try {
         const store = await ownerStore(req, res, ['active', 'grace', 'paused']);
         if (!store) return;
@@ -931,7 +931,7 @@ router.post('/merchant/products', authMiddleware, async (req, res) => {
     } catch (e) { fail(res, e, '创建商品失败'); }
 });
 
-router.put('/merchant/products/:id', authMiddleware, async (req, res) => {
+router.put('/merchant/products/:id', authMiddleware, adminOrPermission('market.access'), async (req, res) => {
     try {
         const p = await db.get('SELECT * FROM market_products WHERE id = ?', [req.params.id]);
         if (!p) return res.status(404).json({ error: '商品不存在' });
@@ -977,7 +977,7 @@ router.put('/merchant/products/:id', authMiddleware, async (req, res) => {
     } catch (e) { fail(res, e, '保存商品失败'); }
 });
 
-router.delete('/merchant/products/:id', authMiddleware, async (req, res) => {
+router.delete('/merchant/products/:id', authMiddleware, adminOrPermission('market.access'), async (req, res) => {
     try {
         const p = await db.get('SELECT * FROM market_products WHERE id = ?', [req.params.id]);
         if (!p) return res.json({ ok: true });
@@ -992,7 +992,7 @@ router.delete('/merchant/products/:id', authMiddleware, async (req, res) => {
 });
 
 /* ---- 商家订单 / 核销 / 履约 / 退款处理 ---- */
-router.get('/merchant/orders', authMiddleware, async (req, res) => {
+router.get('/merchant/orders', authMiddleware, adminOrPermission('market.access'), async (req, res) => {
     try {
         const storeId = Number(req.query.store_id);
         const store = await db.get('SELECT * FROM market_stores WHERE id = ?', [storeId]);
@@ -1015,7 +1015,7 @@ router.get('/merchant/orders', authMiddleware, async (req, res) => {
 });
 
 /** 核销（按核销码） */
-router.post('/merchant/verify', authMiddleware, async (req, res) => {
+router.post('/merchant/verify', authMiddleware, adminOrPermission('market.access'), async (req, res) => {
     try {
         const storeId = Number(req.body?.store_id);
         const store = await db.get('SELECT * FROM market_stores WHERE id = ?', [storeId]);
@@ -1027,7 +1027,7 @@ router.post('/merchant/verify', authMiddleware, async (req, res) => {
 });
 
 /** 标记已交付 → 等买家确认 */
-router.post('/merchant/orders/:id/deliver', authMiddleware, async (req, res) => {
+router.post('/merchant/orders/:id/deliver', authMiddleware, adminOrPermission('market.access'), async (req, res) => {
     try {
         const order = await db.get('SELECT * FROM market_orders WHERE id = ?', [req.params.id]);
         if (!order) return res.status(404).json({ error: '订单不存在' });
@@ -1040,7 +1040,7 @@ router.post('/merchant/orders/:id/deliver', authMiddleware, async (req, res) => 
 });
 
 /** 商家处理退款申请 */
-router.post('/merchant/refunds/:id/:action', authMiddleware, async (req, res) => {
+router.post('/merchant/refunds/:id/:action', authMiddleware, adminOrPermission('market.access'), async (req, res) => {
     try {
         const r = await db.get('SELECT * FROM market_refunds WHERE id = ?', [req.params.id]);
         if (!r) return res.status(404).json({ error: '退款申请不存在' });
@@ -1071,7 +1071,7 @@ router.post('/merchant/refunds/:id/:action', authMiddleware, async (req, res) =>
 });
 
 /** 商家经营账 + 档案 */
-router.get('/merchant/finance', authMiddleware, async (req, res) => {
+router.get('/merchant/finance', authMiddleware, adminOrPermission('market.access'), async (req, res) => {
     try {
         const storeId = Number(req.query.store_id);
         const store = await db.get('SELECT * FROM market_stores WHERE id = ?', [storeId]);
@@ -1111,7 +1111,7 @@ router.get('/merchant/finance', authMiddleware, async (req, res) => {
  * 管理员
  * ================================================================== */
 
-router.get('/admin/stores', authMiddleware, adminMiddleware, async (req, res) => {
+router.get('/admin/stores', authMiddleware, adminOrPermission('market.product.review'), async (req, res) => {
     try {
         const { limit, page, offset } = pageParams(req.query);
         const where = [];
@@ -1128,7 +1128,7 @@ router.get('/admin/stores', authMiddleware, adminMiddleware, async (req, res) =>
 });
 
 /** 店铺审核 */
-router.post('/admin/stores/:id/review', authMiddleware, adminMiddleware, async (req, res) => {
+router.post('/admin/stores/:id/review', authMiddleware, adminOrPermission('market.product.review'), async (req, res) => {
     try {
         const store = await db.get('SELECT * FROM market_stores WHERE id = ?', [req.params.id]);
         if (!store) return res.status(404).json({ error: '店铺不存在' });
@@ -1188,7 +1188,7 @@ router.post('/admin/stores/:id/review', authMiddleware, adminMiddleware, async (
 });
 
 /** 管理员强制变更店铺状态（暂停/恢复/关闭） */
-router.post('/admin/stores/:id/status', authMiddleware, adminMiddleware, async (req, res) => {
+router.post('/admin/stores/:id/status', authMiddleware, adminOrPermission('market.shop.manage'), async (req, res) => {
     try {
         const store = await db.get('SELECT * FROM market_stores WHERE id = ?', [req.params.id]);
         if (!store) return res.status(404).json({ error: '店铺不存在' });
@@ -1213,21 +1213,21 @@ router.post('/admin/stores/:id/status', authMiddleware, adminMiddleware, async (
 });
 
 /** 费率/税务/地图配置 */
-router.get('/admin/config', authMiddleware, adminMiddleware, async (req, res) => {
+router.get('/admin/config', authMiddleware, adminOrPermission('market.finance.manage'), async (req, res) => {
     try {
         const cfg = await market.getConfig();
         const audits = await db.all(`SELECT * FROM market_audit_logs WHERE action = 'config_update' ORDER BY id DESC LIMIT 20`);
         res.json({ ok: true, config: cfg, cycleDaysEffective: market.cycleDaysOf(cfg), audits });
     } catch (e) { fail(res, e, '加载配置失败'); }
 });
-router.put('/admin/config', authMiddleware, adminMiddleware, async (req, res) => {
+router.put('/admin/config', authMiddleware, adminOrPermission('market.finance.manage'), async (req, res) => {
     try {
         const cfg = await market.saveConfig(req.body || {}, req.userId);
         res.json({ ok: true, config: cfg, cycleDaysEffective: market.cycleDaysOf(cfg) });
     } catch (e) { fail(res, e, '保存配置失败'); }
 });
 /** 试算（不落库）：给定成交额与模式，看买卖双方与公会各拿多少 */
-router.post('/admin/config/simulate', authMiddleware, adminMiddleware, async (req, res) => {
+router.post('/admin/config/simulate', authMiddleware, adminOrPermission('market.finance.manage'), async (req, res) => {
     try {
         const cfg = await market.getConfig();
         const amount = market.money(req.body?.amount || 0);
@@ -1239,7 +1239,7 @@ router.post('/admin/config/simulate', authMiddleware, adminMiddleware, async (re
 });
 
 /** 订单/争议/退款/财政/档案/审计 */
-router.get('/admin/orders', authMiddleware, adminMiddleware, async (req, res) => {
+router.get('/admin/orders', authMiddleware, adminOrPermission('market.order.manage'), async (req, res) => {
     try {
         const { limit, page, offset } = pageParams(req.query);
         const where = [];
@@ -1266,7 +1266,7 @@ router.get('/admin/orders', authMiddleware, adminMiddleware, async (req, res) =>
 });
 
 /** 管理员人工退款（含已结算订单：从商家余额冲回） */
-router.post('/admin/orders/:id/refund', authMiddleware, adminMiddleware, async (req, res) => {
+router.post('/admin/orders/:id/refund', authMiddleware, adminOrPermission('market.order.manage'), async (req, res) => {
     try {
         const order = await db.get('SELECT * FROM market_orders WHERE id = ?', [req.params.id]);
         if (!order) return res.status(404).json({ error: '订单不存在' });
@@ -1307,7 +1307,7 @@ router.post('/admin/orders/:id/refund', authMiddleware, adminMiddleware, async (
     } catch (e) { fail(res, e, '人工退款失败'); }
 });
 
-router.get('/admin/disputes', authMiddleware, adminMiddleware, async (req, res) => {
+router.get('/admin/disputes', authMiddleware, adminOrPermission('market.dispute.manage'), async (req, res) => {
     try {
         const where = [];
         const params = [];
@@ -1321,7 +1321,7 @@ router.get('/admin/disputes', authMiddleware, adminMiddleware, async (req, res) 
         res.json({ ok: true, items });
     } catch (e) { fail(res, e, '加载争议失败'); }
 });
-router.post('/admin/disputes/:id/resolve', authMiddleware, adminMiddleware, async (req, res) => {
+router.post('/admin/disputes/:id/resolve', authMiddleware, adminOrPermission('market.dispute.manage'), async (req, res) => {
     try {
         const out = await settle.resolveDispute(req.params.id, {
             result: req.body?.result === 'refund' ? 'refund' : 'settle',
@@ -1333,7 +1333,7 @@ router.post('/admin/disputes/:id/resolve', authMiddleware, adminMiddleware, asyn
 });
 
 /** 公会收入分户账 + 报表（**没有平台服务费科目，也没有公会余额账号**） */
-router.get('/admin/finance', authMiddleware, adminMiddleware, async (req, res) => {
+router.get('/admin/finance', authMiddleware, adminOrPermission('market.finance.manage'), async (req, res) => {
     try {
         const [byKind, monthly, escrow, recent, facts] = await Promise.all([
             db.get(`SELECT
@@ -1393,7 +1393,7 @@ router.get('/admin/finance', authMiddleware, adminMiddleware, async (req, res) =
 });
 
 /** 手工调账（只写分户账 + 直接增减用户余额，无公会余额账号） */
-router.post('/admin/finance/adjust', authMiddleware, adminMiddleware, async (req, res) => {
+router.post('/admin/finance/adjust', authMiddleware, adminOrPermission('market.finance.manage'), async (req, res) => {
     try {
         const kind = ['adjust'].includes(req.body?.kind) ? req.body.kind : 'adjust';
         const direction = req.body?.direction === 'out' ? 'out' : 'in';
@@ -1429,7 +1429,7 @@ router.post('/admin/finance/adjust', authMiddleware, adminMiddleware, async (req
 });
 
 /** 档案检索（商铺 + 账本） */
-router.get('/admin/archives', authMiddleware, adminMiddleware, async (req, res) => {
+router.get('/admin/archives', authMiddleware, adminOrPermission('market.order.manage'), async (req, res) => {
     try {
         const { limit, page, offset } = pageParams(req.query);
         const where = [];
@@ -1444,7 +1444,7 @@ router.get('/admin/archives', authMiddleware, adminMiddleware, async (req, res) 
 });
 
 /** 审计日志 */
-router.get('/admin/audit', authMiddleware, adminMiddleware, async (req, res) => {
+router.get('/admin/audit', authMiddleware, adminOrPermission('market.shop.manage'), async (req, res) => {
     try {
         const { limit, page, offset } = pageParams(req.query);
         const where = [];
@@ -1458,7 +1458,7 @@ router.get('/admin/audit', authMiddleware, adminMiddleware, async (req, res) => 
 });
 
 /** 分类管理 */
-router.post('/admin/categories', authMiddleware, adminMiddleware, async (req, res) => {
+router.post('/admin/categories', authMiddleware, adminOrPermission('market.shop.manage'), async (req, res) => {
     try {
         const kind = req.body?.kind === 'store' ? 'store' : 'product';
         const name = String(req.body?.name || '').trim().slice(0, 20);
@@ -1469,7 +1469,7 @@ router.post('/admin/categories', authMiddleware, adminMiddleware, async (req, re
         res.status(201).json({ ok: true, category: await db.get('SELECT * FROM market_categories WHERE id = ?', [r.id]) });
     } catch (e) { fail(res, e, '创建分类失败'); }
 });
-router.delete('/admin/categories/:id', authMiddleware, adminMiddleware, async (req, res) => {
+router.delete('/admin/categories/:id', authMiddleware, adminOrPermission('market.shop.manage'), async (req, res) => {
     try {
         await db.run('UPDATE market_categories SET is_active = 0 WHERE id = ?', [Number(req.params.id)]);
         res.json({ ok: true });
@@ -1477,20 +1477,20 @@ router.delete('/admin/categories/:id', authMiddleware, adminMiddleware, async (r
 });
 
 /** 手动跑一次定时任务（幂等） */
-router.post('/admin/jobs/run', authMiddleware, adminMiddleware, async (req, res) => {
+router.post('/admin/jobs/run', authMiddleware, adminOrPermission('market.shop.manage'), async (req, res) => {
     try {
         const out = await jobs.runAll();
         res.json({ ok: true, result: out });
     } catch (e) { fail(res, e, '执行任务失败'); }
 });
 /** 手动投递通知队列 */
-router.post('/admin/notify/dispatch', authMiddleware, adminMiddleware, async (req, res) => {
+router.post('/admin/notify/dispatch', authMiddleware, adminOrPermission('market.shop.manage'), async (req, res) => {
     try {
         res.json({ ok: true, result: await notify.dispatchPending(Number(req.body?.limit) || 50) });
     } catch (e) { fail(res, e, '投递失败'); }
 });
 /** 通知事件排查 */
-router.get('/admin/notify/events', authMiddleware, adminMiddleware, async (req, res) => {
+router.get('/admin/notify/events', authMiddleware, adminOrPermission('market.shop.manage'), async (req, res) => {
     try {
         const { limit, page, offset } = pageParams(req.query);
         const where = [];
@@ -1504,7 +1504,7 @@ router.get('/admin/notify/events', authMiddleware, adminMiddleware, async (req, 
 });
 
 /** 对账自检：托管余额 vs 未结算订单；分户账 vs 业务事实（无公会余额账号，收入只看分户账） */
-router.get('/admin/reconcile', authMiddleware, adminMiddleware, async (req, res) => {
+router.get('/admin/reconcile', authMiddleware, adminOrPermission('market.finance.manage'), async (req, res) => {
     try {
         const escrow = await db.get('SELECT id, username, avatar, contribution FROM users WHERE username = ?', [market.ESCROW_USERNAME]);
         const pending = await db.get(`SELECT COALESCE(SUM(buyer_pay),0) AS s FROM market_orders

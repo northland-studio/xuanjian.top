@@ -47,6 +47,10 @@ async function buildFixtureDb(tag) {
             runNode([script], { DB_FILE: dbFile });
         }
     }
+    // 集市表（market.* 权限回归用；迁移脚本支持 DB_FILE，幂等）
+    if (fs.existsSync(path.join(ROOT, 'scripts', 'migrate-marketplace.js'))) {
+        runNode(['scripts/migrate-marketplace.js'], { DB_FILE: dbFile });
+    }
     return { dir, dbFile };
 }
 
@@ -89,6 +93,8 @@ function startApp() {
     app.use('/api/wiki', require('../../routes/wiki'));
     app.use('/api/announcements', require('../../routes/announcement'));
     app.use('/api/mod', require('../../routes/mod'));
+    // 集市路由（真实路由，用于 market.* 权限与经济资格回归；公开浏览不受权限影响）
+    app.use('/api/market', require('../../routes/market'));
 
     // 被测路由之外的“贡献点入口”打桩：用于验证经济闸门对所有接口生效（不依赖各业务模块表结构）
     const stubs = [
@@ -101,7 +107,6 @@ function startApp() {
         ['post', '/api/shop/items/1/buy'],
         ['post', '/api/titles/1/buy'],
         ['post', '/api/chat/bubbles/1/buy'],
-        ['post', '/api/market/orders'],
         ['post', '/api/express-index/buy'],
         ['post', '/api/express-index/sell'],
         ['post', '/api/pay/scan'],

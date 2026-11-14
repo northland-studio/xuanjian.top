@@ -167,11 +167,11 @@ const h = require('./permissions-harness');
         t.check('恢复 transfer 权限后立即生效', r.status === 200, r.data);
 
         /* ================= 16. 集市购买接口经济资格 ================= */
-        t.section('16. 集市下单接口经济资格（economyGate）');
+        t.section('16. 集市下单接口经济资格（economyGate + 真实集市路由）');
         r = await api('POST', '/api/market/orders', { token: noEcon.token, body: { store_id: 1, items: [] } });
-        t.check('外会人员（无经济资格）不能集市下单（403）', r.status === 403 && r.data.code === 'ECONOMY_ACCESS_REQUIRED', r.data);
+        t.check('外会人员（无经济资格）不能集市下单（403 ECONOMY_ACCESS_REQUIRED）', r.status === 403 && r.data.code === 'ECONOMY_ACCESS_REQUIRED', r.data);
         r = await api('POST', '/api/market/orders', { token: econUser.token, body: { store_id: 1, items: [] } });
-        t.check('经济成员可进入集市下单链路', r.status === 200 && r.data.stub === true, r.data);
+        t.check('经济成员可通过经济闸门进入下单链路（非 403）', r.status !== 403, { status: r.status, code: r.data && r.data.code });
         r = await api('POST', '/api/market/orders', { body: { store_id: 1, items: [] } });
         t.check('未登录不会绕过闸门（401 由路由鉴权返回）', r.status === 401, r.status);
         r = await api('POST', '/api/pay/scan', { token: noEcon.token, body: {} });
