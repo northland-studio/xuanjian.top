@@ -179,6 +179,22 @@ const h = require('./permissions-harness');
         r = await api('POST', '/api/express-index/buy', { token: noEcon.token, body: {} });
         t.check('非经济成员不能通过股市接口绕过', r.status === 403, r.data);
 
+        // ===== 模组（Minecraft 客户端 playerAuth 通道）经济资格 =====
+        const uuid = `uuid-${Date.now()}`;
+        const modUser = await createUser({ level: 0, contribution: 20 });
+        await db.run('INSERT INTO mod_bindings (uuid, user_id, player_name, status) VALUES (?, ?, ?, ?)', [uuid, modUser.id, '模组测试玩家', 'confirmed']);
+        r = await api('GET', `/api/mod/balance?uuid=${uuid}`);
+        t.check('模组余额查询：无经济资格 403（不泄漏余额）', r.status === 403 && r.data.code === 'ECONOMY_ACCESS_REQUIRED', r.data);
+        r = await api('POST', '/api/mod/checkin', { body: { uuid } });
+        t.check('模组签到：无经济资格 403（不能绕过官网领取贡献点）', r.status === 403 && r.data.code === 'ECONOMY_ACCESS_REQUIRED', r.data);
+        r = await api('POST', '/api/mod/transfer', { body: { fromUuid: uuid, toPlayer: noEcon.username, amount: 1 } });
+        t.check('模组转账：无经济资格 403', r.status === 403 && r.data.code === 'ECONOMY_ACCESS_REQUIRED', r.data);
+        await grant(modUser.id, econMemberRoleId);
+        r = await api('GET', `/api/mod/balance?uuid=${uuid}`);
+        t.check('模组余额查询：经济成员可见', r.status === 200 && r.data.balance === 20, r.data);
+        r = await api('POST', '/api/mod/checkin', { body: { uuid } });
+        t.check('模组签到：经济成员可进入签到流程（非 403）', r.status !== 403, r.data);
+
         /* ================= 经济管理员边界 ================= */
         t.section('经济管理员边界（manage 独立配置）');
         const econAdmin = await createUser({ level: 0, contribution: 0 });

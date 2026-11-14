@@ -61,6 +61,7 @@ async function ensureBaseSchema(dbFile) {
     const all = (sql) => new Promise((res, rej) => db.all(sql, (e, rows) => (e ? rej(e) : res(rows))));
     try {
         await run('CREATE TABLE IF NOT EXISTS generations (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, sort_order INTEGER DEFAULT 0, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP)');
+        await run('CREATE TABLE IF NOT EXISTS mod_bindings (id INTEGER PRIMARY KEY AUTOINCREMENT, uuid TEXT NOT NULL, user_id INTEGER NOT NULL, player_name TEXT, bind_code TEXT, status TEXT NOT NULL DEFAULT \'pending\', created_at DATETIME DEFAULT CURRENT_TIMESTAMP)');
         const cols = (await all('PRAGMA table_info(users)')).map((c) => c.name);
         if (!cols.includes('generation')) await run('ALTER TABLE users ADD COLUMN generation TEXT');
         if (!cols.includes('qq')) await run('ALTER TABLE users ADD COLUMN qq TEXT');
@@ -87,6 +88,7 @@ function startApp() {
     app.use('/api/contributions', require('../../routes/contributions'));
     app.use('/api/wiki', require('../../routes/wiki'));
     app.use('/api/announcements', require('../../routes/announcement'));
+    app.use('/api/mod', require('../../routes/mod'));
 
     // 被测路由之外的“贡献点入口”打桩：用于验证经济闸门对所有接口生效（不依赖各业务模块表结构）
     const stubs = [
