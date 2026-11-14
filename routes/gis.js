@@ -185,7 +185,9 @@ router.get('/admin/audit', requirePermission(PERMISSIONS.admin), wrap(async (req
  * 客户端（Minecraft 模组）
  * ================================================================== */
 
-router.get('/client/bootstrap', requirePermission(PERMISSIONS.access), wrap(async (req, res) => {
+// 客户端引导只需要「提交数据」资格（gis.submit）：普通成员（Level 0 基础权限）即可启动采集/上传客户端，
+// 不需要 gis.access（那是对管理数据的访问）。
+router.get('/client/bootstrap', requirePermission(PERMISSIONS.submit), wrap(async (req, res) => {
     const data = await client.bootstrap({ serverKey: req.query.serverKey });
     res.json({ ok: true, ...data });
 }));

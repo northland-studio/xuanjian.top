@@ -293,6 +293,20 @@ async function main() {
         assert.ok(r.json.limits.maxChunkBatch === 64);
     });
 
+    await runner.test('Level 0 普通成员（仅 gis.submit）也能 bootstrap（客户端采集入口）', async () => {
+        const r = await api.get('/api/gis/client/bootstrap?serverKey=yl', { token: normalToken });
+        expect.ok(r);
+        assert.ok(r.json.contract === 1);
+    });
+
+    await runner.test('resolve-world 兼容命名空间维度（minecraft:overworld / the_nether）', async () => {
+        let r = await api.post('/api/gis/client/resolve-world', { serverKey: 'yl', worldId, worldKey: clientWorld.worldKey, dimension: 'minecraft:overworld' }, { token: normalToken });
+        expect.ok(r);
+        assert.strictEqual(r.json.dimension, 'overworld');
+        r = await api.post('/api/gis/client/resolve-world', { serverKey: 'yl', worldId, worldKey: clientWorld.worldKey, dimension: 'minecraft:the_nether' }, { token: normalToken });
+        assert.ok([200, 409].includes(r.status), `the_nether 不应返回 400 invalid_argument，实际 ${r.status} ${JSON.stringify(r.json).slice(0, 120)}`);
+    });
+
     await runner.test('resolve-world：未注册服务器/错误 worldKey 被拒', async () => {
         let r = await api.post('/api/gis/client/resolve-world', { serverKey: 'no_such_server', worldId, worldKey: 'x', dimension: 'overworld' }, { token: adminToken });
         expect.error(r, 'server_not_registered', 403);
