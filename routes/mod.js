@@ -10,6 +10,7 @@ const db = require('../database');
 const { getLocalTimestamp } = require('../database');
 const { authMiddleware, adminMiddleware } = require('../middleware/auth');
 const { addContributionLog } = require('../lib/contribution');
+const perms = require('../lib/permissions');
 const { createNotification } = require('./notifications');
 const { sendBindConfirm } = require('../config/mail');
 const router = express.Router();
@@ -62,6 +63,20 @@ async function playerAuth(req, res, next) {
     } catch (e) {
         logger.error('玩家鉴权错误:', e);
         res.status(500).json({ error: '鉴权失败' });
+    }
+}
+
+/**
+ * 模组玩家通道的经济资格校验（playerAuth 场景；与官网 JWT 通道语义一致）
+ * perm: access | earn | spend | transfer | manage（后三项以 access 为前提）
+ */
+async function economyGateForPlayer(user, res, perm = 'access') {
+    try {
+        await perms.assertEconomy(user.id, perm);
+        return true;
+    } catch (e) {
+        res.status(e.status || 403).json({ ok: false, error: e.message, code: e.code || 'PERMISSION_DENIED' });
+        return false;
     }
 }
 
@@ -186,6 +201,9 @@ router.post('/checkin', playerAuth, async (req, res) => {
         if (!user) {
             return res.status(400).json({ error: '该游戏角色未绑定官网账号' });
         }
+
+        // 经济资格：模组签到会发放贡献点，必须校验 earn（外会/无资格账号不发放）
+        if (!(await economyGateForPlayer(user, res, 'earn'))) return;
 
         const today = new Date().toISOString().split('T')[0];
         const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
@@ -337,6 +355,9 @@ router.post('/tasks/:id/complete', playerAuth, async (req, res) => {
 
         const task = await db.get('SELECT * FROM tasks WHERE id = ?', [id]);
         if (!task) return res.status(404).json({ error: '任务不存在' });
+
+        // 经济资格：任务完成会发放贡献点，必须校验 earn
+        if (!(await economyGateForPlayer(user, res, 'earn'))) return;
 
         const claim = await db.get('SELECT * FROM task_claims WHERE task_id = ? AND user_id = ?', [id, user.id]);
         if (!claim) return res.status(400).json({ error: '请先接取任务' });
@@ -493,6 +514,9 @@ router.get('/balance', playerAuth, async (req, res) => {
         if (!uuid) return res.status(400).json({ error: '缺少 uuid' });
         const user = await resolveUserByUuid(uuid);
         if (!user) return res.status(400).json({ error: '该游戏角色未绑定官网账号' });
+
+        // 经济资格：没有 access 时不返回余额
+        if (!(await economyGateForPlayer(user, res, 'access'))) return;
         res.json({ balance: user.contribution || 0 });
     } catch (e) {
         logger.error('模组余额查询错误:', e);
@@ -511,6 +535,9 @@ router.post('/transfer', playerAuth, async (req, res) => {
 
         const fromUser = await resolveUserByUuid(fromUuid);
         if (!fromUser) return res.status(400).json({ error: '该游戏角色未绑定官网账号' });
+
+        // 经济资格：转账必须校验 transfer（access 为前提）
+        if (!(await economyGateForPlayer(fromUser, res, 'transfer'))) return;
 
         // 目标：优先按 game_id 匹配游戏名，再按用户名/昵称
         const toUser = await db.get(
