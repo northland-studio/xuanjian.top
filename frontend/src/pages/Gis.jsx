@@ -102,6 +102,16 @@ export default function Gis() {
         return { minX: Number(b.minX), minZ: Number(b.minZ), maxX: Number(b.maxX), maxZ: Number(b.maxZ) };
     }, [currentWorld, dimension]);
     const [jump, setJump] = useState({ x: '', z: '' });
+    // 首次进入有地形数据的世界/维度时，自动开启山体阴影 + 等高线 + 无数据区标记，
+    // 避免用户看到「只有网格和矢量」而误以为地图不渲染（可随时在地形面板关掉）。
+    const terrainAutoRef = useRef('');
+    useEffect(() => {
+        if (!dataBbox) return;
+        const key = `${worldId}:${dimension}`;
+        if (terrainAutoRef.current === key) return;
+        terrainAutoRef.current = key;
+        setTerrain((t) => ({ ...t, contour: true, hillshade: true, missing: true, interval: t.interval || 20 }));
+    }, [dataBbox, worldId, dimension]);
     /** 可浏览世界：ACTIVE 在前，ARCHIVED/SNAPSHOT 作为只读历史世界 */
     const worlds = useMemo(() => {
         const rank = (w) => (w.status === 'ACTIVE' ? 0 : w.status === 'SNAPSHOT' ? 1 : 2);
