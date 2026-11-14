@@ -13,6 +13,9 @@ import WikiAdminPanel from '../components/WikiAdminPanel';
 import MarketAdminPanel from '../components/MarketAdminPanel';
 import RagAdminPanel from '../components/RagAdminPanel';
 import { formatDate } from '../utils';
+import PermissionCenter from '../components/permissions/PermissionCenter';
+import UserPermissionTrace from '../components/permissions/UserPermissionTrace';
+import { canEnterAdmin, canSeeAdminTab } from '../components/permissions/usePermissions';
 
 const TABS = [
   { key: 'dashboard', label: '数据看板' },
@@ -41,13 +44,14 @@ const TABS = [
   { key: 'bubbles', label: '聊天气泡' },
   { key: 'stickers', label: '公共表情包' },
   { key: 'mod', label: '模组管理' },
-  { key: 'team', label: '队伍配置' }
+  { key: 'team', label: '队伍配置' },
+  { key: 'permissions', label: '权限中心' }
 ];
 
 /** 侧边栏分组：把 18 个页面按职能归类，避免一排按钮挤成一团 */
 const TAB_GROUPS = [
   { group: '概览', keys: ['dashboard'] },
-  { group: '成员', keys: ['users', 'discipline', 'generations', 'grant', 'team'] },
+  { group: '成员', keys: ['users', 'discipline', 'generations', 'grant', 'team', 'permissions'] },
   { group: '内容', keys: ['posts', 'wiki', 'announcements', 'banners'] },
   { group: '经济', keys: ['market', 'shop', 'logs', 'claims', 'tasks', 'verify', 'donation', 'conv', 'express', 'oauth'] },
   { group: '接入', keys: ['paygate', 'paylink', 'pay', 'mod'] },
@@ -106,15 +110,25 @@ export default function Admin() {
     return () => window.removeEventListener('hashchange', onHash);
   }, []);
 
+  // 后台入口：Level >= 1 的基础管理员，或权限管理员（Level 2 / admin.permissions.manage）
   useEffect(() => {
     if (!user) { navigate('/login?redirect=/admin'); return; }
-    if (user.level < 1) {
+    if (!canEnterAdmin(user)) {
       showToast('没有管理权限', 'error');
       navigate('/');
     }
   }, [user, navigate, showToast]);
 
-  if (!user || user.level < 1) {
+  // 权限门控：当前页签不可见时回退到第一个可见页签（前端只是体验，后端独立鉴权）
+  useEffect(() => {
+    if (!user || !canEnterAdmin(user)) return;
+    if (!canSeeAdminTab(user, tab)) {
+      const first = ALL_TAB_KEYS.find(k => canSeeAdminTab(user, k));
+      if (first) selectTab(first);
+    }
+  }, [user, tab, selectTab]);
+
+  if (!user || !canEnterAdmin(user)) {
     return <div className="loading"><div className="spinner" /></div>;
   }
 
@@ -123,7 +137,9 @@ export default function Admin() {
   const groups = TAB_GROUPS
     .map(g => ({
       ...g,
-      items: g.keys.filter(k => !kw || TAB_LABELS[k].toLowerCase().includes(kw) || g.group.toLowerCase().includes(kw)),
+      items: g.keys
+        .filter(k => canSeeAdminTab(user, k))
+        .filter(k => !kw || TAB_LABELS[k].toLowerCase().includes(kw) || g.group.toLowerCase().includes(kw)),
     }))
     .filter(g => g.items.length > 0);
   const noMatch = kw && groups.length === 0;
@@ -200,6 +216,7 @@ export default function Admin() {
           {tab === 'mod' && <ModServerManager showToast={showToast} />}
           {tab === 'team' && <TeamAdmin showToast={showToast} />}
           {tab === 'rag' && <RagAdminPanel showToast={showToast} isSuper={user.level >= 2} />}
+          {tab === 'permissions' && <PermissionCenter />}
         </div>
       </div>
     </div>
@@ -376,6 +393,7 @@ function UserManager({ showToast, isSuper }) {
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [generations, setGenerations] = useState([]);
+  const [traceUserId, setTraceUserId] = useState(null);
 
   const fetchUsers = (p, kw) => {
     setLoading(true);
@@ -437,6 +455,7 @@ function UserManager({ showToast, isSuper }) {
                 <span className="badge ml-2" style={{ background: 'rgba(0,74,173,0.12)', color: 'var(--primary)', fontSize: 11 }}>{LEVEL_NAMES[u.level] || '成员'}</span>
               </div>
               <div className="text-secondary" style={{ fontSize: 12 }}>{u.email || '未绑定邮箱'}</div>
+              <button className="btn btn-secondary btn-sm" onClick={() => setTraceUserId(u.id)}>权限溯源</button>
               {isSuper && (
                 <select
                   className="form-select"
@@ -466,6 +485,9 @@ function UserManager({ showToast, isSuper }) {
           <span className="text-secondary" style={{ fontSize: 14 }}>{page}/{totalPages}</span>
           <button className="btn btn-secondary btn-sm" disabled={page >= totalPages} onClick={() => { setPage(page + 1); fetchUsers(page + 1, search); }}>下一页</button>
         </div>
+      )}
+      {traceUserId && (
+        <UserPermissionTrace userId={traceUserId} onClose={() => setTraceUserId(null)} showToast={showToast} />
       )}
     </div>
   );

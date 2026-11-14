@@ -5,6 +5,7 @@ import { useTheme } from '../context/ThemeContext';
 import { api, wsUrlWithToken } from '../api';
 import { AdminIcon } from './Icons';
 import RagWidget from './RagWidget';
+import { shouldHideNavItem } from './permissions/usePermissions';
 import { QQ_GROUP_URL } from '../config/social';
 import SkinWidget from './SkinWidget';
 import ChatBox from './ChatBox';
@@ -142,6 +143,11 @@ export default function Layout({ children }) {
     }
   ];
 
+  // 权限门控（体验层）：无贡献点经济资格的登录用户隐藏贡献点经济入口；后端接口仍会独立拒绝
+  const visibleNavGroups = navGroups
+    .map(g => ({ ...g, items: g.items.filter(it => !shouldHideNavItem(user, it.to)) }))
+    .filter(g => g.items.length > 0);
+
   // 父项高亮：NavLink 的 isActive 只认自己的 to，这里用 pathname 前缀匹配（兼容 /profile 与 /profile/:username 这类）
   const isItemActive = (to) => pathname === to || pathname.startsWith(`${to}/`);
   const isGroupActive = (items) => items.some(it => isItemActive(it.to));
@@ -184,7 +190,7 @@ export default function Layout({ children }) {
           </button>
 
           <div className={`navbar-nav ${menuOpen ? 'active' : ''}`} ref={navRef} onClick={() => setMenuOpen(false)}>
-            {navGroups.map(g => {
+            {visibleNavGroups.map(g => {
               const groupOpen = openGroup === g.key;
               return (
                 <div
@@ -280,7 +286,7 @@ export default function Layout({ children }) {
                         </svg>
                         账户设置
                       </Link>
-                      {user.level >= 1 && (
+                      {(user.level >= 1 || user.is_permission_admin === true) && (
                         <Link to="/admin" className="user-menu-item" onClick={() => setUserMenuOpen(false)}>
                           <AdminIcon size={16} />
                           管理后台
