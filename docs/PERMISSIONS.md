@@ -1,7 +1,7 @@
 # xuanjian.top 权限组体系（Level + 角色 + 细粒度权限）
 
 > 本文档由 `scripts/tests/permissions-doc.js` 依据代码注册表生成，请勿手改表格。
-> 最后生成：2026-11-14T17:47:13.716Z
+> 最后生成：2026-11-14T17:49:57.761Z
 
 ## 1. 模型
 
@@ -86,6 +86,12 @@
 - 迁移：`migrations/103_economy_members_backfill.js` 幂等回填「玄剑经济成员」；系统账号（level=-1）不加入；不改余额/流水/历史交易。
 - 全局失败安全：`economyGate` 在业务路由前统一校验贡献点入口（下表），防止绕过前端直接调接口；未覆盖入口在遗留清单中列明。
 
+### 集市下单口径（重要，避免误解）
+
+- `POST /api/market/orders` = **已登录 + `economy.contribution_points.access` + `economy.contribution_points.spend`**（economyGate 前置 + 服务层订单/库存/限购校验）。
+- `market.access` 只负责**商家经营后台与管理面**（模块角色，不能跨模块塞进「玄剑经济成员」角色）。
+- 即：下单 **不需要** `market.access`；外会人员（无经济资格）浏览集市正常、下单被 403 `ECONOMY_ACCESS_REQUIRED`。
+
 ### 经济资格校验规则表
 
 | 方法 | 路径（正则） | 所需经济权限 | 说明 |
@@ -150,11 +156,14 @@
 
 - 表：`permission_definitions` / `permission_roles` / `permission_role_permissions` / `permission_role_members` / `permission_audit_logs`（唯一约束/外键/索引见 `lib/permissions/schema.js`）；**不存在任何单用户直接授权/拒绝表**。
 - 迁移：`migrations/100-104`（权限）+ `120-126`（GIS），执行器 `migrations/run.js`（幂等、`--dry-run`、`--backup`、记录 `schema_migrations`）。
-- 生产部署与回滚记录：TAG=20261114-perm-013742（部署脚本 `scripts/deploy-permissions-20261114.sh`、核对脚本 `scripts/tests/permissions-prod-{verify,counts}.js`）。
+- 生产部署与回滚记录：TAG=20261114-perm-013742（权限体系全量首发，12 个迁移 100-126）、TAG=market-20261115-014842（market.* 权限增量，2 个后端文件、无迁移）；部署脚本 `scripts/deploy-permissions-20261114.sh` / `scripts/deploy-market-20261115.sh`，核对脚本 `scripts/tests/permissions-prod-{verify,counts,market-verify,market-postcheck}.js`。
 
 ## 8. 全站受保护 API 迁移状态
 
 见自动生成清单：`docs/PERMISSIONS-API-INVENTORY.md`（按鉴权方式分类：细粒度权限已迁移 / Level 兼容层 / 登录用户 / 服务间令牌 / 处理函数内鉴权 / 公开）。
+
+当前口径（`node scripts/tests/permissions-api-inventory.js` 自动统计，共 535 条路由）：**细粒度权限已迁移 107 条 / Level 兼容层 114 条（admin 110 + superAdmin 4）/ 公开 175 条（公开 155 + 可选登录 18 + 仅限流 2）/ 登录用户 123 条 / 服务间与玩家令牌 15 条 / 处理函数内鉴权 1 条**。
+抽样验证方式：Level 兼容接口用 Level 1 / Level 2 账号对比 Level 0 账号请求（200 vs 403）；细粒度接口用「无角色 → 403、授予模块角色 → 200、撤销/禁用角色 → 下一次请求 403」验证；静态扫描含 admin 路径未鉴权数 = 0。
 
 - **已迁移细粒度**：admin（用户/公告/统计/看板/主题）、wiki 全部管理审核、contributions（转账/流水/经济管理/人工调整）、market 全部管理端与商家后台、权限中心、mod 模组经济点、用户 Level 调整。
 - **Level 兼容层（真实后端鉴权，未细粒度化）**：banners、chat、checkin、claims、discipline、donation、generations、express-index、faq、oauth、pay、paygate、tasks、team、titles、upload、stock 等；这些接口仍由 Level >= 1 / Level 2 保护，未出现“前端隐藏、后端裸奔”（静态扫描 admin 路径未鉴权数 = 0）。
@@ -163,4 +172,4 @@
 ## 9. 自动化测试
 
 `node scripts/tests/run-permissions-tests.js`：4 组、179 条断言，全部使用临时数据库（复制 data/guild.db 后迁移），不连接生产库。
-覆盖规范第二十条 1-19 项 + market.* 权限接入；生产验证脚本见 `scripts/tests/permissions-prod-verify.js`（32 项检查）。
+覆盖规范第二十条 1-19 项 + market.* 权限接入；生产验证脚本：`permissions-prod-verify.js`（32 项）、`permissions-prod-market-verify.js`（9 项）、`permissions-prod-market-postcheck.js`（21 项，含 GIS 字段保留与集市表数据不变量）。
