@@ -264,9 +264,37 @@ cd /var/www/xuanjian-guild && rm -rf frontend/dist frontend/dist-ssr frontend/pr
   - 前端默认**关闭**「标记无数据区」图层时也不会把空白当平地——等高线本身只在有数据处生成；打开图层即可看到无数据范围。
 - 测试用例专门断言了「未采集区域 `hasData=false`/`mean=null`/`heights 全 null`/`missingRects` 非空」。
 
-### 9.3 2G2H 资源占用实测
+### 9.3 2G2H 资源占用实测（生产，只读探测脚本 `scripts/gis-verify-20261115.sh`）
 
-见下方「实测」小节（部署后测量）。
+机器：2 vCPU / 1967 MB RAM / 39 GB 盘（27 GB 空闲），与站点其它服务（xbed-api、nork、northbooker、beiyu、mcvcba 等 5 个进程）共用。
+
+| 指标 | 实测值 |
+|---|---|
+| `xuanjian-guild` 进程 RSS | **175 MB**（`ps` 实测）；pm2 显示 172 MB |
+| 进程 CPU | `ps` 累计 4.2%（含 SSR 预热与部署期负载），空闲 0% |
+| 系统内存 | total 1967 MB / used 747 MB / **available 1220 MB** |
+| 磁盘 | 39 GB 总，使用 13 GB，**空闲 27 GB**；`guild.db` = 37 MB（GIS 18 张表为空时 < 1 MB） |
+| 120 次 bbox 请求（并发 6）后的 RSS | 175.1 MB → **176.4 MB**（+1.3 MB，无泄漏式增长） |
+| 压测瞬时 load | 1.66（2 核，压测后回落） |
+
+接口延迟（生产 HTTPS，keep-alive 连接复用，每个端点 10 次）：
+
+| 端点 | 平均 | 最大 |
+|---|---|---|
+| `GET /api/gis/config` | 14.8 ms | 148 ms |
+| `GET /api/gis/objects?bbox=1024²` | 21.4 ms | 214 ms |
+| `GET /api/gis/terrain/coverage` 512² | 17.5 ms | 175 ms |
+| `GET /api/gis/terrain/contours` 512²（无数据） | 33.1 ms | 331 ms |
+| `GET /api/gis/terrain/stats` 512²（无数据） | 31.6 ms | 316 ms |
+| `GET /api/gis/market/locations` | 13.9 ms | 139 ms |
+| 基线 `GET /api/market/stores`（无 GIS 改动路径） | 10.9 ms | 109 ms |
+
+结论：
+- GIS 接口平均延迟与站点既有接口同量级（10–35 ms），**没有拖慢站点**；首次请求/冷缓存的偶发 100–300 ms 是 TLS 握手与 SSL 开销，不是 GIS 计算导致（基线接口同样出现）；
+- 全量矢量 + 按需 bbox 的方案在 2G2H 上内存占用可控（GIS 让进程从 ~172 MB 起，压测后仅 +1.3 MB）；
+- 地形计算全部有 bbox/采样上限（等高线同步计算 ≤512×512 方块、网格 ≤262k 采样），更大的区域必须走异步任务，因此**不会**出现“把整个世界渲染成 PNG/等高线”导致 OOM 的情况；
+- 若后续客户端大规模上传高程（每 chunk 512 字节 + 索引），按 10 万 chunk 估算约增加 60–80 MB，仍在可用内存范围内；必要时可对 `gis_elevation_chunks` 做按维度的归档清理（表结构已按 world/dimension 分区索引，便于清理）。
+
 
 ### 9.4 安全审计
 
