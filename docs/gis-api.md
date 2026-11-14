@@ -164,11 +164,16 @@ Chunk record × chunkCount
   u8    sampleSize     采样矩阵边长，默认 16，上限 32
   i16   minY           本 chunk 实际最小高度
   i16   maxY           本 chunk 实际最大高度
-  u8    flags          bit0=heightMatrix, bit1=biomeMatrix, bit2=blockHist
+  u8    flags          bit0=heightMatrix, bit1=biomeMatrix, bit2=blockHist, bit3=surfaceBlockMatrix（v2 新增，可选）
   [flags&1] i16[sampleSize*sampleSize]  heightMatrix（Y 值；-32768 = 该格无数据）
   [flags&2] u16[sampleSize*sampleSize]  biomeMatrix（0xFFFF = 未知）
   [flags&4] u8 n, then n × { u16 blockId, u32 count }
+  [flags&8] u16[sampleSize*sampleSize]  surfaceBlockMatrix（每列「地表方块」的全局方块 ID；0xFFFF = 无数据/空）
 ```
+
+> **v2 说明（向后兼容）**：`surfaceBlockMatrix` 是该列顶层非空气方块（水面取水方块本身）的方块 ID 矩阵，用于浏览器端绘制方块彩色地图。
+> 旧客户端不带 bit3，服务端照常接收；旧数据在网页端使用「高度 + 生物群系」兜底着色，不会报错。
+> 方块 ID 使用 Minecraft 全局 block state id 的方块部分（registry block id），浏览器通过 `GET /api/gis/map/palette` 获取配色表；未登记颜色的方块回退到按材质类分组的默认色。
 
 说明：
 - `heightMatrix` 缺失记为 `-32768`，服务端**保留缺口**（未采集区域），地形分析时显式标记无数据，绝不填 0 或平均高度。
