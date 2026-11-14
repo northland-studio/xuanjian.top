@@ -15,6 +15,7 @@
 | 状态流转 Draft→Review→Published→Version N+1、审核、回滚、历史 | ✅ 已上线 | 不可变版本表 + 只读发布层，客户端只同步 Published |
 | bbox 按需加载 / 空间搜索 / 点位归属 / 增量同步 | ✅ 已上线 | bbox 必填且有面积上限，严禁整世界返回 |
 | 网页地图 `/gis`（Leaflet、矢量按需、图层、绘制、顶点拖动、属性面板、Wiki、审核、版本、地形、历史） | ✅ 已上线 | 生产真机验证通过 |
+| **Mc 方块彩色地图**（浏览器端 Canvas 实时渲染，服务端只出区块数据、不生成图片） | ✅ 已实现，待部署 | 见 §12；真实数据 + v2 彩色 surface 本地实测通过 |
 | 地形与等高线（5/10/20/50/100m、按缩放调密度、剖面、坡度、阴影、分布、统计、异步任务） | ✅ 已上线 | 无采集区域显式标记，绝不伪造平地 |
 | 历史地图（快照、按时间/快照重建、对比、归档） | ✅ 已上线 | 历史只读，不覆盖当前数据 |
 | 集市地点选择器替换（GIS 地图选点 + 坐标手输双入口） | ✅ 已上线 | 地点仍写 `market_store_locations`，零迁移、数量核对一致 |
@@ -23,7 +24,7 @@
 | Minecraft 客户端接入（采集/上传/同步） | ⏳ 未接入 | 契约与接口已就绪并有测试；模组侧上线后才有对象与高程数据 |
 | Xaero Overlay 渲染 | ⏳ 模组侧 | 结论见 §9 |
 
-**测试**：4 套自动化测试 **79/79 通过**（详见 §7）。**部署**：已 3 次上线并通过生产验证（详见 §8）。
+**测试**：5 套自动化测试 **93/93 通过**（详见 §7、§12.4）。**部署**：主功能已 3 次上线并通过生产验证（详见 §8）；方块彩色地图待 Lead 确认窗口后部署（§12.5）。
 
 ---
 
@@ -371,10 +372,69 @@ cd /var/www/xuanjian-guild && rm -rf frontend/dist frontend/dist-ssr frontend/pr
 
 ---
 
+## 12. 方块彩色地图（浏览器端实时渲染，2026-11-15 新增）
+
+> 契约与设计：`docs/gis-canvas-map.md`；服务端配色表：`lib/gis/map-palette.js`。
+> **服务端不生成任何 PNG/WebP**，渲染全部在浏览器 Canvas 完成。
+
+### 12.1 服务端（只出数据）
+
+| 接口 | 说明 |
+|---|---|
+| `GET /api/gis/map/palette` | 公开读、长缓存（max-age=3600）：`blocks`（hash16→颜色，100+ 常用地表方块）、`water`、`materials`（stone/wood/unknown 等兜底）、`heightShade`（minY/maxY + 高度色带）、`biomes`（群系兜底，数值 id 与资源名 hash 双键）、`blockNames`（排障用） |
+| `GET /api/gis/map/chunks?worldId&dimension&bbox&lod` | 公开读：`bbox` 必填、面积 ≤ 4,000,000；`lod` 0–6；`step=2^lod`；每 chunk 返回 `mode`（`surface` 有地表方块矩阵 / `fallback` 只有高度）、`samplesPerSide`、`blocks`/`heights`(/`biomes`) base64 小端；只返回**已采集**区块，未采集透明；`truncated` + `chunksTotal` 处理 512 上限 |
+| `GET /api/gis/map/index?worldId` | 公开读：各维度 `chunkCount / surfaceChunks / fallbackChunks / bbox / updatedAt` + 限额，前端据此决定是否显示方块底图 |
+
+数据链路：v2 客户端上传 `flags` bit3 的 `surfaceBlockMatrix`（u16 = `CRC32(资源名)&0xFFFF`）→ `decodeBatch` 解析 → `storeChunks` 把 surface 以 base64 存入现有 `block_hist` JSON（`{hist, surface}`，**不改表结构、不新增库/服务**）→ `/map/chunks` 按 lod 抽样（surface 取区域众数、fallback 取区域均值高度、群系取众数）。旧数据（无 surface）自动走 fallback，旧格式 `block_hist`（纯数组）也能解析。
+
+### 12.2 前端（关键交付）
+
+`frontend/src/components/gis/GisBlockLayer.js`（`L.GridLayer` 子类，无新增大型地图库）：
+
+- tile 与 MC 方块换算：`CRS.Simple`、`lat=-z,lng=x`、256×2^(-zoom) 方块/tile、`lod=clamp(-zoom,0,6)`；
+- `createTile` 按 `tile bbox ∩ 数据 bbox` 请求 `/api/gis/map/chunks`，Canvas `ImageData` 逐像素绘制（surface 用 palette 颜色、水面降对比、未知方块用材质兜底；fallback 用高度色带/群系色 + 邻域高差明暗；缺失透明）；
+- 缓存：**模块级共享 chunk 数据 LRU（4096）** + 图层 tile canvas LRU（256），关闭/开启图层、平移回来、缩放回退都不重复请求；并发同 bbox 请求去重；
+- 图层顺序（下→上）：**Mc 方块地图 → 山体阴影 → 等高线 → 无数据区 → 城区/道路/Marker/集市地点 → 坐标网格**；
+- 顶部图层开关新增「Mc 方块地图」（默认开；该维度 `chunkCount=0` 自动隐藏且不显示）；
+- 与现有「定位到数据 / 跳转坐标 / 坐标网格」严格对齐 MC X/Z。
+
+### 12.3 浏览器实测（本地真实数据 = 生产 60 chunk + 36 个合成 v2 surface chunk）
+
+真实数据来自生产 `world_id=3 hetao-main`（60 个已采集 chunk，bbox X 2320–2448 / Z 122976–123120），已固化为测试 fixture `scripts/tests/fixtures/gis-real-chunks.json`（**只含采集数据，无身份信息**）。
+
+| 项 | 实测 |
+|---|---|
+| 首屏渲染 | 打开 `/gis` 即见方块底图；左侧真实数据走 fallback（高度色带+明暗），右侧合成 v2 surface 呈现草/石路/水/木建筑彩色 |
+| 视口按需 | 一次页面会话 **仅 4 个** `/api/gis/map/chunks` 请求（按 tile∩数据范围，bbox 参数可在 Network 面板核实），**无全图加载** |
+| 平移 | 平移只新增必要 tile；**平移回原处 0 新请求**（tile canvas 命中） |
+| 缩放 | 缩放到 -3 / 0 各仅 +1 个请求（lod 切换），其余从缓存取 |
+| 缓存 | 共享 chunk 缓存 96 个 chunk 后，后续平移/缩放请求数不再增长 |
+| 绘制耗时 | 单 tile **0.1–6.3 ms**（峰值 17 ms 为首次冷启动），满足 <5ms 预算 |
+| 自动隐藏 | 切到「下界」（chunkCount=0）→ 开关与底图自动消失；切回主世界恢复 |
+| 矢量叠加 | 城区/道路/Marker/等高线/地形阴影/无数据区叠在方块底图之上正常 |
+
+截图（本机路径）：
+- `browser-screenshots/gis-canvas-overview.png` — 总览：左侧真实高度兜底色、右侧 v2 彩色方块、未采集区透明
+- `browser-screenshots/gis-canvas-surface-2px.png` — v2 彩色地表（草/石路/水/木建筑）
+- `browser-screenshots/gis-canvas-fallback-8px.png` — 真实旧数据 fallback 着色（8px/方块）
+
+### 12.4 测试（服务端）
+
+新增 `scripts/tests/gis-map-canvas.js` **11/11 通过**：
+palette 一致性（已知 CRC32 向量、hash16、颜色格式、水面/材质/高度色带、群系覆盖）、v2 载荷编解码 + 入库不新增列、旧数据兼容（fallback/旧格式 block_hist）、lod 抽样正确（lod0 原值 / lod3 区域众数 / fallback 区域均值忽略 -32768）、bbox 上限与 `bbox_required`/`invalid lod`、未采集透明、**512 区块 truncated + chunksTotal 真实**、`/map/index` 计数与 bbox、**服务端零图像编码断言**、三接口公开读。
+
+全量回归：`gis-api-test` 50/50、`gis-migration-test` 7/7、`gis-terrain-test` 15/15、`gis-market-test` 10/10、`gis-map-canvas` 11/11 → **93/93 通过**（契约快照已更新 v2 字段）。
+
+### 12.5 部署计划（待 Lead 确认窗口）
+
+`node migrations/run.js --dry-run`（应 0 pending，本功能无迁移）→ 备份 `frontend/dist.bak-canvasmap-<tag>` + `/root/backups/gis-canvasmap-<tag>/`（`lib/gis/{terrain,client,map,map-palette,index,constants}.js`、`routes/gis.js`）→ 上传后端 + `frontend/dist*`（`build-frontend.sh` 等价三件套）→ `node --check` → `pm2 restart` → 验证 `/api/gis/map/{palette,chunks,index}`、`/gis` 页面与方块底图、`market_store_locations` 仍 2 行、旧接口回归 → 失败回滚（`.bak-canvasmap-<tag>` 还原 + restart，数据库无需回退）。
+
+---
+
 ## 11. 文件清单（本次新增/修改）
 
-**后端**：`migrations/120_gis_worlds.js` … `126_gis_seed.js`、`lib/gis/{constants,errors,geo,audit,worlds,objects,terrain,history,places,jobs,client,index}.js`、`routes/gis.js`、`routes/market.js`（仅 2 处地点处理器追加可选字段）、`server.js`（挂载 `/api/gis` + 启动 GIS 异步任务）。
-**前端**：`pages/Gis.jsx`、`components/gis/{GisMap,GisInspector,GisPanels,GisErrorBoundary}.jsx`、`components/MarketLocationPicker.jsx`、`styles/gis.css`、`pages/MarketMerchant.jsx`（位置页签）、`App.jsx`（`/gis` 路由）、`components/Layout.jsx`（导航）、`package.json`（leaflet 1.9.4）。
-**测试**：`scripts/tests/{gis-testkit,gis-api-test,gis-migration-test,gis-terrain-test,gis-market-test}.js`、`scripts/tests/fixtures/gis-contract.v1.json`。
-**文档**：`docs/gis-api.md`、`docs/gis-report.md`（本文件）。
-**部署**：`scripts/deploy-gis-20261115.ps1`、`scripts/deploy-gis-remote-20261115.sh`。
+**后端**：`migrations/120_gis_worlds.js` … `126_gis_seed.js`、`lib/gis/{constants,errors,geo,audit,worlds,objects,terrain,history,places,jobs,client,index,map,map-palette}.js`、`routes/gis.js`、`routes/market.js`（仅 2 处地点处理器追加可选字段）、`server.js`（挂载 `/api/gis` + 启动 GIS 异步任务）。
+**前端**：`pages/Gis.jsx`、`components/gis/{GisMap,GisBlockLayer,GisInspector,GisPanels,GisErrorBoundary}.jsx`、`components/MarketLocationPicker.jsx`、`styles/gis.css`、`pages/MarketMerchant.jsx`（位置页签）、`App.jsx`（`/gis` 路由）、`components/Layout.jsx`（导航）、`package.json`（leaflet 1.9.4）。
+**测试**：`scripts/tests/{gis-testkit,gis-api-test,gis-migration-test,gis-terrain-test,gis-market-test,gis-map-canvas}.js`、`scripts/tests/fixtures/{gis-contract.v1.json,gis-real-chunks.json}`。
+**文档**：`docs/gis-api.md`、`docs/gis-canvas-map.md`、`docs/gis-report.md`（本文件）。
+**部署**：`scripts/deploy-gis-20261115{,b,c}.ps1` + 对应 `-remote-20261115{,b,c}.sh`。

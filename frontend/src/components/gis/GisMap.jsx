@@ -11,8 +11,10 @@
  */
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import 'leaflet/dist/leaflet.css';
+import { createBlockLayer } from './GisBlockLayer';
 
 const LAYER_DEFS = [
+    { key: 'blocks', label: 'Mc 方块地图' },
     { key: 'district', label: '城区边界' },
     { key: 'road', label: '道路' },
     { key: 'marker', label: '地点标记' },
@@ -64,6 +66,10 @@ const GisMap = forwardRef(function GisMap(props, ref) {
         historyMode = false,
         focus = null,               // {x,z,zoom}
         autoFitBbox = null,         // {minX,minZ,maxX,maxZ}：世界/维度切换后自动缩放到数据范围
+        blockMap = null,            // { enabled, worldId, dimension, palette, dataBbox }：Mc 方块彩色地图（浏览器端渲染）
+        blockAvailable = false,
+        onToggleLayer = null,       // (key, value) => void：图层开关（不传则为只读展示）
+        onBlockStats = null,        // 方块图层性能/截断统计
         height = 'calc(100vh - 220px)',
         zoomLabel = null,
         onCursor
@@ -73,6 +79,11 @@ const GisMap = forwardRef(function GisMap(props, ref) {
     const mapRef = useRef(null);
     const libRef = useRef(null);
     const groupsRef = useRef({});
+    const blockLayerRef = useRef(null);
+    const blockStatsRef = useRef(onBlockStats);
+    blockStatsRef.current = onBlockStats;
+    const blockAvailableRef = useRef(blockAvailable);
+    blockAvailableRef.current = blockAvailable;
     const draftRef = useRef([]);
     const draftLayerRef = useRef(null);
     const onBoundsRef = useRef(onBoundsChange);
@@ -95,6 +106,14 @@ const GisMap = forwardRef(function GisMap(props, ref) {
     pickerRef.current = picker;
     onPickRef.current = onPick;
 
+    const bmEnabled = !!(blockMap && blockMap.enabled);
+    const bmWorldId = blockMap ? blockMap.worldId : null;
+    const bmDimension = blockMap ? blockMap.dimension : null;
+    const bmPalette = blockMap ? blockMap.palette : null;
+    const bmDataBbox = blockMap ? blockMap.dataBbox : null;
+    const bmDataBboxKey = bmDataBbox
+        ? `${bmDataBbox.minX},${bmDataBbox.minZ},${bmDataBbox.maxX},${bmDataBbox.maxZ}` : '';
+
     /* ---------------- 初始化 Leaflet（动态 import，避免 SSR 访问 window） ---------------- */
     useEffect(() => {
         let alive = true;
@@ -115,7 +134,7 @@ const GisMap = forwardRef(function GisMap(props, ref) {
             map.setView([0, 0], -3);
 
             const groups = {};
-            for (const g of ['grid', 'hillshade', 'district', 'road', 'marker', 'market', 'contour', 'missing', 'edit', 'draft', 'vertices', 'pick']) {
+            for (const g of ['grid', 'hillshade', 'contour', 'missing', 'district', 'road', 'marker', 'market', 'edit', 'draft', 'vertices', 'pick']) {
                 groups[g] = L.layerGroup().addTo(map);
             }
             groupsRef.current = groups;
@@ -506,6 +525,44 @@ const GisMap = forwardRef(function GisMap(props, ref) {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [ready, missingRects, layerState.missing]);
 
+    /* ---------------- Mc 方块彩色地图（浏览器端 Canvas 实时渲染，按视口请求） ---------------- */
+    useEffect(() => {
+        const L = libRef.current;
+        const map = mapRef.current;
+        if (!L || !map || !ready) return undefined;
+        if (blockLayerRef.current) {
+            map.removeLayer(blockLayerRef.current);
+            blockLayerRef.current = null;
+        }
+        if (!bmEnabled || !bmWorldId || !bmPalette) return undefined;
+        const layer = createBlockLayer(L, {
+            worldId: bmWorldId,
+            dimension: bmDimension || 'overworld',
+            palette: bmPalette,
+            dataBbox: bmDataBbox || null,
+            zIndex: 0,
+            enabled: true,
+            onStats: (s) => { if (blockStatsRef.current) blockStatsRef.current(s); }
+        });
+        layer.addTo(map);
+        blockLayerRef.current = layer;
+        return () => {
+            if (blockLayerRef.current === layer) {
+                try { map.removeLayer(layer); } catch (e) { /* ignore */ }
+                blockLayerRef.current = null;
+            }
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [ready, bmEnabled, bmWorldId, bmDimension, bmPalette]);
+
+    // 数据范围变化：只更新 bbox 并重绘，不重建图层（保留 chunk 缓存）
+    useEffect(() => {
+        if (blockLayerRef.current && bmDataBboxKey) {
+            blockLayerRef.current.setDataBbox(bmDataBbox || null);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [bmDataBboxKey]);
+
     /* ---------------- 山体阴影（客户端渲染真实高程，不伪造） ---------------- */
     useEffect(() => {
         const L = libRef.current;
@@ -548,12 +605,21 @@ const GisMap = forwardRef(function GisMap(props, ref) {
     const layerToggles = [];
     layerToggles.push(
         <div className="gis-layer-toggles" key="toggles">
-            {LAYER_DEFS.filter((d) => ['district', 'road', 'marker', 'market'].includes(d.key)).map((d) => (
-                <label key={d.key} className={`gis-toggle ${layerState[d.key] ? 'on' : ''}`}>
-                    <input type="checkbox" checked={layerState[d.key] !== false} readOnly disabled />
-                    <span>{d.label}</span>
-                </label>
-            ))}
+            {LAYER_DEFS.filter((d) => d.key !== 'blocks' || blockAvailable).map((d) => {
+                const on = layerState[d.key] !== false;
+                return (
+                    <label key={d.key} className={`gis-toggle ${on ? 'on' : ''}`}>
+                        <input
+                            type="checkbox"
+                            checked={on}
+                            readOnly={!onToggleLayer}
+                            disabled={!onToggleLayer}
+                            onChange={(e) => { if (onToggleLayer) onToggleLayer(d.key, e.target.checked); }}
+                        />
+                        <span>{d.label}</span>
+                    </label>
+                );
+            })}
         </div>
     );
 

@@ -79,13 +79,17 @@ export default function Gis() {
     const [creating, setCreating] = useState(null);        // {type, data}
     const [newForm, setNewForm] = useState(null);
 
-    const [layers, setLayers] = useState({ district: true, road: true, marker: true, market: false });
+    const [layers, setLayers] = useState({ blocks: true, district: true, road: true, marker: true, market: false });
     const [terrain, setTerrain] = useState({ contour: false, interval: 10, hillshade: false, missing: false });
     const [contours, setContours] = useState(null);
     const [hillshade, setHillshade] = useState(null);
     const [missingRects, setMissingRects] = useState(null);
     const [marketPlaces, setMarketPlaces] = useState([]);
     const [coverageVersion, setCoverageVersion] = useState(0);
+    // 方块彩色地图（浏览器端渲染）：调色板 + 覆盖度索引 + 渲染统计
+    const [palette, setPalette] = useState(null);
+    const [mapIndex, setMapIndex] = useState(null);
+    const [blockStats, setBlockStats] = useState(null);
 
     const [panel, setPanel] = useState('attr');
     const [history, setHistory] = useState(null);          // {label, objects}
@@ -102,6 +106,43 @@ export default function Gis() {
         return { minX: Number(b.minX), minZ: Number(b.minZ), maxX: Number(b.maxX), maxZ: Number(b.maxZ) };
     }, [currentWorld, dimension]);
     const [jump, setJump] = useState({ x: '', z: '' });
+
+    /* ---------------- 方块彩色地图：调色板 + 覆盖度索引 ---------------- */
+    useEffect(() => {
+        let alive = true;
+        api.get('/api/gis/map/palette').then((d) => { if (alive) setPalette(d); }).catch(() => { });
+        return () => { alive = false; };
+    }, []);
+    useEffect(() => {
+        if (!worldId) { setMapIndex(null); return undefined; }
+        let alive = true;
+        api.get(`/api/gis/map/index?worldId=${worldId}`)
+            .then((d) => { if (alive) setMapIndex(d); })
+            .catch(() => { if (alive) setMapIndex(null); });
+        return () => { alive = false; };
+    }, [worldId, coverageVersion]);
+    /** 当前维度是否有方块底图数据（chunkCount>0 才显示图层开关） */
+    const mapDim = mapIndex && mapIndex.dimensions ? mapIndex.dimensions[dimension] : null;
+    const blockAvailable = !!(mapDim && Number(mapDim.chunkCount) > 0);
+    const blockBbox = useMemo(() => {
+        const b = mapDim && mapDim.bbox;
+        if (b && Number.isFinite(Number(b.minX)) && Number.isFinite(Number(b.maxX))) {
+            return { minX: Number(b.minX), minZ: Number(b.minZ), maxX: Number(b.maxX), maxZ: Number(b.maxZ) };
+        }
+        return dataBbox || null;
+    }, [mapDim, dataBbox]);
+    // 有方块数据默认开启，无数据自动隐藏（符合设计文档 3.2）
+    useEffect(() => {
+        setLayers((l) => ({ ...l, blocks: blockAvailable }));
+    }, [blockAvailable, worldId, dimension]);
+    /** 图层开关：方块/矢量 → layers，地形类 → terrain */
+    const toggleLayer = useCallback((key, value) => {
+        if (key === 'contour' || key === 'hillshade' || key === 'missing') {
+            setTerrain((t) => ({ ...t, [key]: value }));
+        } else {
+            setLayers((l) => ({ ...l, [key]: value }));
+        }
+    }, []);
     // 首次进入有地形数据的世界/维度时，自动开启山体阴影 + 等高线 + 无数据区标记，
     // 避免用户看到「只有网格和矢量」而误以为地图不渲染（可随时在地形面板关掉）。
     const terrainAutoRef = useRef('');
@@ -675,6 +716,10 @@ export default function Gis() {
                         objects={history ? history.objects : displayObjects}
                         showLayers={{ ...layers, contour: terrain.contour, hillshade: terrain.hillshade, missing: terrain.missing }}
                         onBoundsChange={onBoundsChange}
+                        blockMap={{ enabled: layers.blocks && blockAvailable, worldId, dimension, palette, dataBbox: blockBbox }}
+                        blockAvailable={blockAvailable}
+                        onToggleLayer={toggleLayer}
+                        onBlockStats={setBlockStats}
                         selectedKey={selected && selected.type !== 'market_place' ? objectKey(selected) : null}
                         onSelect={onSelect}
                         drawMode={drawMode}
@@ -699,6 +744,18 @@ export default function Gis() {
                         <span><i className="gis-dot" style={{ background: '#ffd166' }} />集市地点</span>
                         <span><i className="gis-dot gis-dot-outline" />无数据区</span>
                         <span className="gis-dim">滚轮缩放 · 拖动平移 · 双击绘制结束 · Esc 取消</span>
+                        {blockAvailable && (
+                            <span className="gis-dim">
+                                方块底图 {layers.blocks ? '开' : '关'}
+                                {blockStats ? ` · tile ${blockStats.tiles} · 请求 ${blockStats.requests} · 缓存命中 ${blockStats.cacheHits} · 绘制 ${blockStats.paintMs ?? blockStats.lastMs}ms（峰值 ${blockStats.paintMaxMs ?? '-'}ms）` : ''}
+                                {blockStats && blockStats.truncated ? ' · 已截断（放大看更多）' : ''}
+                            </span>
+                        )}
+                        {mapDim && (
+                            <span className="gis-dim">
+                                数据 {mapDim.chunkCount} chunk（彩色 {mapDim.surfaceChunks} / 高度兜底 {mapDim.fallbackChunks}）
+                            </span>
+                        )}
                     </div>
                 </div>
 

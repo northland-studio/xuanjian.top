@@ -15,6 +15,7 @@ const router = express.Router();
 
 const gis = require('../lib/gis');
 const { constants, errors, geo, worlds, objects, terrain, history, places, jobs, client, audit } = gis;
+const { map, mapPalette } = gis;
 const { LIMITS, PERMISSIONS, DIMENSIONS, MARKER_CATEGORIES, MARKER_CATEGORY_LABEL, CONTOUR_INTERVALS, OBJECT_TYPES, DIMENSION_LABEL } = constants;
 const { wrap } = errors;
 
@@ -521,6 +522,38 @@ router.get('/jobs', requirePermission(PERMISSIONS.access), wrap(async (req, res)
 
 router.get('/jobs/:id', requirePermission(PERMISSIONS.access), wrap(async (req, res) => {
     res.json({ ok: true, job: await jobs.getJob(geo.parseId(req.params.id, 'id')) });
+}));
+
+/* ==================================================================
+ * 方块彩色地图数据（浏览器端渲染，服务端只出数据、不做任何图片编码）
+ * 契约：docs/gis-canvas-map.md
+ * ================================================================== */
+
+/** 调色板：hash16 → 颜色 / 水面 / 群系兜底 / 高度色带（公开读，可长缓存） */
+router.get('/map/palette', (req, res) => {
+    res.set('Cache-Control', 'public, max-age=3600');
+    res.set('ETag', `W/"gis-palette-v${mapPalette.PALETTE_VERSION}"`);
+    res.json({ ok: true, ...mapPalette.getPalette() });
+});
+
+/** 视野区块数据：bbox 必填 + lod 抽样；只返回已采集区块，未采集透明 */
+router.get('/map/chunks', wrap(async (req, res) => {
+    const worldId = geo.parseId(req.query.worldId, 'worldId');
+    const dimension = String(req.query.dimension || '');
+    const data = await map.queryChunks({
+        worldId, dimension, bbox: req.query.bbox, lod: req.query.lod
+    });
+    // 浏览器端渲染，数据随覆盖度变化；短缓存便于平移复用
+    res.set('Cache-Control', 'public, max-age=30');
+    res.json({ ok: true, ...data, serverTime: worlds.localTs() });
+}));
+
+/** 覆盖度索引：判断方块底图是否可用（该维度 chunkCount=0 时前端自动隐藏图层） */
+router.get('/map/index', wrap(async (req, res) => {
+    const worldId = geo.parseId(req.query.worldId, 'worldId');
+    const data = await map.getIndex({ worldId });
+    res.set('Cache-Control', 'public, max-age=60');
+    res.json({ ok: true, ...data, limits: { maxBboxArea: map.MAP_MAX_BBOX_AREA, maxChunks: map.MAP_MAX_CHUNKS, maxLod: map.MAP_MAX_LOD } });
 }));
 
 /* ==================================================================

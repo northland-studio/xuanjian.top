@@ -133,3 +133,14 @@ GET /api/gis/map/index?worldId=3
 2. 浏览器：真实数据下 `/gis` 打开即见彩色方块底图（截图验收），缩放/平移只请求视口数据（Network 面板证据），矢量图层叠加正常
 3. 性能：tile 绘制 < 5ms、接口 < 100ms（本地 51 区块量级）
 4. 兼容：旧客户端/chunk 不报错，显示 fallback 着色
+
+---
+
+## 6. 实现说明（2026-11-15 落地于 xuanjian.top）
+
+- **抽样字段**：`/api/gis/map/chunks` 每个 chunk 额外返回 `samplesPerSide`（每边采样点数 = `max(1, 16 >> lod)`：lod 0→16、1→8、2→4、3→2、4/5/6→1），`blocks` / `heights` / `biomes` 的长度 = `samplesPerSide²`；响应体积随 lod 反相关。这是对本文件 §2.2 中 `u16[256]` 示例的澄清（256 仅适用于 lod=0）。
+- **渲染**：`frontend/src/components/gis/GisBlockLayer.js`（`L.GridLayer` + Canvas `putImageData`），tile 按 `tile ∩ 数据 bbox` 请求；`lod = clamp(-zoom, 0, 6)`，`zoom > 0` 时复用 lod=0 数据并按 `2^zoom` 像素放大。
+- **缓存**：模块级共享 chunk 数据 LRU（4096，key = world:dimension:lod:cx:cz，跨图层实例/开关复用）+ 每图层 tile canvas LRU（256）；平移回来 0 请求。
+- **兜底与性能**：surface 缺失 → 高度色带 + 群系色 + 邻域高差明暗；无数据 → 透明（不伪造）；单 tile 绘制实测 0.1–6 ms。
+- **上限处理**：单次请求 bbox 面积 > 4,000,000 或区块数 > 512 时，前端把请求收缩到 tile 中心区域（其余透明、放大自动补全），服务端同时返回 `truncated:true`。
+- **可见性**：`/api/gis/map/index` 该维度 `chunkCount=0` 时前端自动隐藏「Mc 方块地图」开关；有数据默认开启。
