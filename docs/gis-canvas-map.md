@@ -152,3 +152,32 @@ GET /api/gis/map/index?worldId=3
 - **兜底与性能**：surface 缺失 → 高度色带 + 群系色 + 邻域高差明暗；无数据 → 透明（不伪造）；单 tile 绘制实测 0.1–6 ms。
 - **上限处理**：单次请求 bbox 面积 > 4,000,000 或区块数 > 512 时，前端把请求收缩到 tile 中心区域（其余透明、放大自动补全），服务端同时返回 `truncated:true`。
 - **可见性**：`/api/gis/map/index` 该维度 `chunkCount=0` 时前端自动隐藏「Mc 方块地图」开关；有数据默认开启。
+
+---
+
+## 7. 附录：客户端参考实现（Java 伪代码，供 xuanjian-map-mod 对齐）
+
+```java
+// 1) 方块 hash（与 zlib.crc32 / 服务端 map-palette.crc32 一致）
+static int hash16(String resourceName) {           // 例 "minecraft:grass_block"
+    CRC32 crc = new CRC32();
+    crc.update(resourceName.getBytes(StandardCharsets.UTF_8));
+    return (int) (crc.getValue() & 0xFFFF);
+}
+// 自检向量：grass_block=54839, water=9188, stone=12820, sand=64584, oak_planks=1922
+
+// 2) 采集：每列顶层非空气方块（水面取水方块本身），无数据/空列写 0xFFFF
+short[] surface = new short[16 * 16];   // u16 值用 short 承载
+for (int z = 0; z < 16; z++)
+  for (int x = 0; x < 16; x++)
+    surface[z * 16 + x] = (short) (topBlockId(chunk, x, z) & 0xFFFF);  // 0xFFFF = 无数据
+
+// 3) 打包：顺序必须是 height → biome(可选) → blockHist(可选) → surface，flags bit3 置位
+int flags = 1 | 8;                      // bit0 height + bit3 surface
+// ... 先写 header(chunkX,chunkZ,sampleStep,sampleSize,minY,maxY,flags)
+// ... 再写 heightMatrix(i16[256])、biome(可选)、blockHist(可选)
+for (short v : surface) writeU16LE(v);  // 最后写 surfaceBlockMatrix
+// flags |= 2 / |= 4 时对应字段同样按上面的固定顺序输出
+```
+
+上传后可用 `GET /api/gis/map/index?worldId=<id>` 观察 `surfaceChunks` 是否从 0 变为 >0；网页端无需发版即自动从兜底着色切换到彩色地表。
