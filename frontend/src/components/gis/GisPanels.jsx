@@ -68,6 +68,9 @@ export function GisReviewPanel({ worldId, busy, onSelect, onAction, version }) {
 export function GisTerrainPanel({ worldId, dimension, bbox, settings, onChange, refreshKey }) {
     const [coverage, setCoverage] = useState(null);
     const [stats, setStats] = useState(null);
+    const [slope, setSlope] = useState(null);
+    const [distribution, setDistribution] = useState(null);
+    const [jobs, setJobs] = useState([]);
     const [profile, setProfile] = useState(null);
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
@@ -82,12 +85,18 @@ export function GisTerrainPanel({ worldId, dimension, bbox, settings, onChange, 
         try {
             const base = `worldId=${worldId}&dimension=${dimension}`;
             const bboxQ = bbox ? `&bbox=${bbox.minX},${bbox.minZ},${bbox.maxX},${bbox.maxZ}` : '';
-            const [cov, st] = await Promise.all([
+            const [cov, st, sl, dist, jobList] = await Promise.all([
                 api.get(`/api/gis/terrain/coverage?${base}${bboxQ}`),
-                bbox ? api.get(`/api/gis/terrain/stats?${base}${bboxQ}`).catch(() => null) : Promise.resolve(null)
+                bbox ? api.get(`/api/gis/terrain/stats?${base}${bboxQ}`).catch(() => null) : Promise.resolve(null),
+                bbox ? api.get(`/api/gis/terrain/slope?${base}${bboxQ}&resolution=4`).catch(() => null) : Promise.resolve(null),
+                bbox ? api.get(`/api/gis/terrain/distribution?${base}${bboxQ}&bucket=10`).catch(() => null) : Promise.resolve(null),
+                api.get('/api/gis/jobs?limit=5').catch(() => null)
             ]);
             setCoverage(cov);
             setStats(st);
+            setSlope(sl);
+            setDistribution(dist);
+            setJobs((jobList && jobList.items) || []);
         } catch (e) {
             setError(e.message || '地形数据加载失败');
         } finally {
@@ -184,6 +193,32 @@ export function GisTerrainPanel({ worldId, dimension, bbox, settings, onChange, 
                     <div className="gis-kv"><span>标准差</span><b>{stats.stdev}</b></div>
                 </>
             )}
+            {slope && slope.hasData && (
+                <>
+                    <div className="gis-subhead">坡度</div>
+                    <div className="gis-kv"><span>平均 / 最大</span><b>{slope.mean}° / {slope.max}°</b></div>
+                    <div className="gis-hint">基于真实高程差分计算（网格步长 {slope.step} 方块）；缺失采样不参与坡度计算。</div>
+                </>
+            )}
+            {distribution && distribution.hasData && (
+                <>
+                    <div className="gis-subhead">高程分布（每 {distribution.bucket} m）</div>
+                    <div className="gis-bars">
+                        {distribution.bins.map((b) => {
+                            const maxCount = Math.max(...distribution.bins.map((x) => x.count));
+                            return (
+                                <div key={b.from} className="gis-bar-row" title={`${b.from}~${b.to} m：${b.count} 个采样`}>
+                                    <span className="gis-bar-label">{b.from}</span>
+                                    <span className="gis-bar-track">
+                                        <span className="gis-bar-fill" style={{ width: `${maxCount ? Math.round((b.count / maxCount) * 100) : 0}%` }} />
+                                    </span>
+                                    <span className="gis-bar-count">{b.count}</span>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </>
+            )}
 
             <div className="gis-subhead">地形剖面</div>
             <div className="gis-form-row">
@@ -211,7 +246,7 @@ export function GisTerrainPanel({ worldId, dimension, bbox, settings, onChange, 
                 </div>
             )}
             {profile && !chart && <div className="gis-empty">剖面范围内没有高程数据</div>}
-            <div className="gis-hint">等高线/统计按需计算并有面积上限；大范围预热可用「异步任务」按钮（上方工具栏）。</div>
+            <div className="gis-hint">等高线/统计按需计算并有面积上限；大范围预热可用「创建等高线预热任务」（异步任务，不阻塞普通接口）。</div>
             <button className="btn btn-ghost btn-sm" onClick={async () => {
                 try {
                     await api.post('/api/gis/terrain/jobs', {
@@ -219,8 +254,20 @@ export function GisTerrainPanel({ worldId, dimension, bbox, settings, onChange, 
                         bbox: bbox ? `${bbox.minX},${bbox.minZ},${bbox.maxX},${bbox.maxZ}` : undefined,
                         interval
                     });
+                    load();
                 } catch (e) { setError(e.message || '任务创建失败'); }
             }}>创建等高线预热任务</button>
+            {jobs.length > 0 && (
+                <>
+                    <div className="gis-subhead">最近异步任务</div>
+                    {jobs.map((j) => (
+                        <div key={j.id} className="gis-kv">
+                            <span>#{j.id} {j.kind}</span>
+                            <b>{j.status}{j.status === 'RUNNING' ? ` ${Math.round((j.progress || 0) * 100)}%` : ''}</b>
+                        </div>
+                    ))}
+                </>
+            )}
         </div>
     );
 }

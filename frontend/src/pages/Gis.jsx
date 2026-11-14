@@ -94,8 +94,13 @@ export default function Gis() {
 
     const currentWorld = useMemo(() => worlds.find((w) => w.id === Number(worldId)) || null, [worlds, worldId]);
     const dimensions = useMemo(() => {
+        const ORDER = ['overworld', 'nether', 'end', 'custom'];
         const ds = currentWorld ? currentWorld.dimensions.map((d) => d.dimension) : ['overworld'];
-        return ds.length ? ds : ['overworld'];
+        const list = ds.length ? ds : ['overworld'];
+        return [...list].sort((a, b) => {
+            const ia = ORDER.indexOf(a); const ib = ORDER.indexOf(b);
+            return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+        });
     }, [currentWorld]);
 
     const displayObjects = useMemo(() => {
