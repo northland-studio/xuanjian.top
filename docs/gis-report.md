@@ -221,6 +221,7 @@ node scripts/tests/gis-market-test.js     # 10/10 ✅
 | #1 | `20261115-gis-fe` | GIS 前端首次上线（`/gis` 页面 + 集市选点器）+ `lib/gis/terrain.js` 覆盖率修复 | 全部 8 步通过；`market_store_locations` 2 行逐字节一致 |
 | #2 | `20261115-gis-fe2` | 世界归档管理 UI（归档/启用/设为当前、归档世界只读浏览、无 ACTIVE 世界横幅）+ `lib/gis/client.js` bootstrap 本地模式语义 + 地形面板坡度/分布/异步任务 | 全部 9 步通过；worlds 仍 ACTIVE（归档在下一步单独执行） |
 | #3 | `20261115-gis-fe3` | 集市选点器在「无 ACTIVE 世界」时改用已归档世界坐标平面选点（不让选点能力断掉） | 全部 7 步通过；bundle 校验 gis-page/gis-picker/gis-banner 命中；集市地点仍 2 行一致 |
+| #4 | `20261115-gis-canvasmap` | **方块彩色地图**：3 个数据接口（palette/chunks/index）+ v2 surfaceBlockMatrix 解析入库 + 浏览器端 Canvas 图层（图层开关/按视口请求/共享缓存） | 9 步全部通过；生产实测见 §12.5 |
 
 ### 8.1 通用流程（每次均执行）
 
@@ -425,7 +426,35 @@ palette 一致性（已知 CRC32 向量、hash16、颜色格式、水面/材质/
 
 全量回归：`gis-api-test` 50/50、`gis-migration-test` 7/7、`gis-terrain-test` 15/15、`gis-market-test` 10/10、`gis-map-canvas` 11/11 → **93/93 通过**（契约快照已更新 v2 字段）。
 
-### 12.5 部署计划（待 Lead 确认窗口）
+### 12.5 生产部署（2026-11-15 完成，tag `20261115-gis-canvasmap`）
+
+- 迁移 `--dry-run`：12/12 已应用，**0 pending**（本功能无迁移）
+- 备份：`frontend/dist.bak-20261115-gis-canvasmap`、`frontend/dist-ssr.bak-20261115-gis-canvasmap`、`/root/backups/gis-20261115-gis-canvasmap/`（7 个后端文件 + worlds/market 快照）
+- 上传：`lib/gis/{map,map-palette,terrain,client,constants,index}.js`、`routes/gis.js`、`frontend/dist`、`frontend/dist-ssr`；`node --check` 7/7 通过；SSG 重建 116 页；`pm2 restart` online
+- 生产验证：
+  - `GET /api/gis/map/palette` 200：`blocks=106, water=6, materials=8, biomes=94, heightShade.ramp=9, blockNames` ✓
+  - `GET /api/gis/map/index?worldId=3` 200：`overworld {chunkCount:60, surfaceChunks:0, fallbackChunks:60, bbox:2320..2448/122976..123120}` ✓
+  - `GET /api/gis/map/chunks?...bbox=2320,122976,2448,123120&lod=2` 200：`step=4, samplesPerSide=4, chunks=60, mode 全 fallback, truncated=false` ✓
+  - 参数校验：缺 bbox → 400 `bbox_required`；超限 → 400 `bbox_too_large`；`lod=9` → 400 `invalid_argument` ✓
+  - `/gis` 200：浏览器真机打开即显示方块底图（12 tile、**4 个 chunks 请求**、绘制 1.2ms、`数据 60 chunk（彩色 0 / 高度兜底 60）`），「Mc 方块地图」开关默认开，无 JS 异常 ✓
+  - 旧接口回归：`/api/gis/worlds`、`/api/gis/objects?...`、`/api/gis/terrain/coverage`、`/api/gis/market/locations(/count)`、`/api/gis/client/contract` 全 200；`marketLocations:2, consistent:true` ✓
+  - 页面：`/ /gis /market /market/merchant /market/map /wiki /admin` 全 200 ✓
+  - 数据：`PRAGMA integrity_check=ok`；`market_store_locations` 2 行且逐字节一致；18 张 gis 表；elevation chunks 60；**表结构未变（无 surface 列）** ✓
+  - pm2 错误日志：无 require/exception/GIS 相关错误 ✓
+- 截图：`browser-screenshots/gis-canvas-prod-1.png`（生产真实数据 fallback 方块底图 + 矢量叠加）
+- 回滚命令：
+  ```bash
+  cd /var/www/xuanjian-guild && rm -rf frontend/dist frontend/dist-ssr frontend/prerender \
+   && mv frontend/dist.bak-20261115-gis-canvasmap frontend/dist \
+   && mv frontend/dist-ssr.bak-20261115-gis-canvasmap frontend/dist-ssr \
+   && cp -a /root/backups/gis-20261115-gis-canvasmap/lib /root/backups/gis-20261115-gis-canvasmap/routes . \
+   && node scripts/prerender.js --clean && pm2 restart xuanjian-guild
+  ```
+  数据库无需回退（本功能零迁移、未改旧数据）。
+
+**生产现状说明**：当前生产 60 个 chunk 均为 **v1（无 surface）**，所以网页显示的是**高度兜底着色**（能看地形起伏/群系，但看不出草/水/建筑材质）；等模组按 v2 上传 `surfaceBlockMatrix`（`flags|=8`，CRC32 与 palette 同算法，见 `docs/gis-api.md` §2.2.1 测试向量）后自动变彩色，前端无需再发版。
+
+### 12.6 原部署计划（已完成，留档）
 
 `node migrations/run.js --dry-run`（应 0 pending，本功能无迁移）→ 备份 `frontend/dist.bak-canvasmap-<tag>` + `/root/backups/gis-canvasmap-<tag>/`（`lib/gis/{terrain,client,map,map-palette,index,constants}.js`、`routes/gis.js`）→ 上传后端 + `frontend/dist*`（`build-frontend.sh` 等价三件套）→ `node --check` → `pm2 restart` → 验证 `/api/gis/map/{palette,chunks,index}`、`/gis` 页面与方块底图、`market_store_locations` 仍 2 行、旧接口回归 → 失败回滚（`.bak-canvasmap-<tag>` 还原 + restart，数据库无需回退）。
 
