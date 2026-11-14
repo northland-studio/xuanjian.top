@@ -66,7 +66,7 @@ export const TAB_PERMISSIONS = {
   wiki: ['wiki.access'],
   announcements: ['announcement.create', 'announcement.edit', 'announcement.delete'],
   logs: ['economy.contribution_points.manage'],
-  permissions: ['admin.permissions.manage']
+  permissions: ['admin.permissions.manage', 'admin.permissions.view']
 };
 
 /** 仅超级管理员可见的页签（原有语义） */

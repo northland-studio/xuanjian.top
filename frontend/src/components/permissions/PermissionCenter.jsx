@@ -8,6 +8,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { api } from '../../api';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../UI';
+import { isPermissionAdmin } from './usePermissions';
 import './permissions.css';
 
 const STATUS_LABEL = { ACTIVE: '启用', DISABLED: '禁用', ARCHIVED: '归档' };
@@ -38,6 +39,7 @@ export default function PermissionCenter() {
   const { user } = useAuth();
   const { showToast } = useToast();
   const isSuper = Number(user?.level) >= 2;
+  const canManage = isPermissionAdmin(user);
   const [innerTab, setInnerTab] = useState('roles');
   const [registry, setRegistry] = useState(null);
   const [templates, setTemplates] = useState([]);
@@ -118,10 +120,17 @@ export default function PermissionCenter() {
           </div>
           <div className="adm-toolbar-right">
             <button className="btn btn-secondary btn-sm" onClick={refreshAll}>刷新</button>
-            <button className="btn btn-primary btn-sm" onClick={() => { setCreateTemplate(''); setCreateOpen(true); }}>新建角色</button>
+            {canManage && (
+              <button className="btn btn-primary btn-sm" onClick={() => { setCreateTemplate(''); setCreateOpen(true); }}>新建角色</button>
+            )}
           </div>
         </div>
 
+        {!canManage && (
+          <div className="adm-alert" style={{ margin: '0 0 12px' }}>
+            只读模式：你拥有权限中心查看权（admin.permissions.view），修改角色/权限/成员需要「权限管理员」（admin.permissions.manage，由超级管理员指定）。
+          </div>
+        )}
         <div className="adm-tabs">
           {[
             ['roles', `角色（${roleTotal}）`],
@@ -195,6 +204,7 @@ export default function PermissionCenter() {
                 registry={registry}
                 modules={modules}
                 isSuper={isSuper}
+                canManage={canManage}
                 onChanged={refreshAll}
                 showToast={showToast}
               />
@@ -252,12 +262,12 @@ export default function PermissionCenter() {
 }
 
 /* ================= 角色详情 ================= */
-function RoleDetail({ role, registry, modules, isSuper, onChanged, showToast }) {
+function RoleDetail({ role, registry, modules, isSuper, canManage, onChanged, showToast }) {
   const [tab, setTab] = useState('permissions');
   const [name, setName] = useState(role.name);
   const [description, setDescription] = useState(role.description || '');
   const [savingInfo, setSavingInfo] = useState(false);
-  const readOnly = role.isSystem && !isSuper;
+  const readOnly = !canManage || (role.isSystem && !isSuper);
 
   const changeStatus = async (status) => {
     const ok = window.confirm(
@@ -300,13 +310,13 @@ function RoleDetail({ role, registry, modules, isSuper, onChanged, showToast }) 
           </div>
         </div>
         <div className="perm-row">
-          {role.status !== 'ACTIVE' && (
+          {canManage && role.status !== 'ACTIVE' && (
             <button className="btn btn-secondary btn-sm" onClick={() => changeStatus('ACTIVE')}>恢复 / 启用</button>
           )}
-          {role.status === 'ACTIVE' && (
+          {canManage && role.status === 'ACTIVE' && (
             <button className="btn btn-secondary btn-sm" onClick={() => changeStatus('DISABLED')}>禁用</button>
           )}
-          {role.status !== 'ARCHIVED' && (
+          {canManage && role.status !== 'ARCHIVED' && (
             <button className="btn btn-secondary btn-sm" onClick={() => changeStatus('ARCHIVED')}>归档</button>
           )}
         </div>
@@ -319,9 +329,9 @@ function RoleDetail({ role, registry, modules, isSuper, onChanged, showToast }) 
       </div>
 
       {tab === 'permissions' && (
-        <PermissionEditor key={role.id} role={role} registry={registry} modules={modules} isSuper={isSuper} onChanged={onChanged} showToast={showToast} />
+        <PermissionEditor key={role.id} role={role} registry={registry} modules={modules} isSuper={isSuper} canManage={canManage} onChanged={onChanged} showToast={showToast} />
       )}
-      {tab === 'members' && <RoleMembers key={role.id} role={role} onChanged={onChanged} showToast={showToast} />}
+      {tab === 'members' && <RoleMembers key={role.id} role={role} canManage={canManage} onChanged={onChanged} showToast={showToast} />}
       {tab === 'info' && (
         <div className="adm-form-grid" style={{ marginTop: 12 }}>
           <div className="adm-field">
@@ -345,10 +355,10 @@ function RoleDetail({ role, registry, modules, isSuper, onChanged, showToast }) 
 }
 
 /* ================= 权限编辑器 ================= */
-function PermissionEditor({ role, registry, modules, isSuper, onChanged, showToast }) {
+function PermissionEditor({ role, registry, modules, isSuper, canManage, onChanged, showToast }) {
   const [selected, setSelected] = useState(() => new Set(role.permissionKeys || []));
   const [saving, setSaving] = useState(false);
-  const readOnly = role.isSystem && !isSuper;
+  const readOnly = !canManage || (role.isSystem && !isSuper);
   const archived = role.status === 'ARCHIVED';
 
   const grouped = useMemo(() => {
@@ -391,7 +401,8 @@ function PermissionEditor({ role, registry, modules, isSuper, onChanged, showToa
 
   return (
     <div style={{ marginTop: 12 }}>
-      {readOnly && <div className="adm-alert" style={{ marginBottom: 10 }}>系统角色的权限只能由超级管理员修改。</div>}
+      {!canManage && <div className="adm-alert" style={{ marginBottom: 10 }}>只读模式：修改角色权限需要权限管理员。</div>}
+      {canManage && readOnly && <div className="adm-alert" style={{ marginBottom: 10 }}>系统角色的权限只能由超级管理员修改。</div>}
       {archived && <div className="adm-warn" style={{ marginBottom: 10 }}>角色已归档：请先恢复再修改权限。</div>}
       {Object.entries(grouped).map(([mod, list]) => {
         if (role.scope === 'module' && mod !== role.module) return null;
@@ -438,7 +449,7 @@ function PermissionEditor({ role, registry, modules, isSuper, onChanged, showToa
 }
 
 /* ================= 角色成员 ================= */
-function RoleMembers({ role, onChanged, showToast }) {
+function RoleMembers({ role, canManage, onChanged, showToast }) {
   const [members, setMembers] = useState([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -522,7 +533,7 @@ function RoleMembers({ role, onChanged, showToast }) {
             onKeyDown={e => e.key === 'Enter' && loadMembers()}
           />
           <button className="btn btn-secondary btn-sm" onClick={loadMembers}>筛选</button>
-          <span className="adm-hint">共 {total} 名成员</span>
+          <span className="adm-hint">共 {total} 名成员{canManage ? '' : '（只读，修改成员需要权限管理员）'}</span>
         </div>
       </div>
 
@@ -541,13 +552,13 @@ function RoleMembers({ role, onChanged, showToast }) {
                 {m.frozen && <span className="perm-tag disabled" style={{ marginLeft: 6 }}>已冻结</span>}
               </div>
               <span className="adm-hint">{fmtDate(m.joinedAt)}</span>
-              <button className="btn btn-secondary btn-sm" onClick={() => removeMember(m.id)}>移除</button>
+              {canManage && <button className="btn btn-secondary btn-sm" onClick={() => removeMember(m.id)}>移除</button>}
             </div>
           ))}
         </div>
       )}
 
-      <div className="adm-card" style={{ marginTop: 14, padding: 12 }}>
+      {canManage && <div className="adm-card" style={{ marginTop: 14, padding: 12 }}>
         <div className="adm-card-title" style={{ fontSize: 13 }}>添加成员（支持批量）</div>
         <div className="perm-row">
           <input
@@ -593,7 +604,7 @@ function RoleMembers({ role, onChanged, showToast }) {
         <p className="adm-hint" style={{ marginTop: 8 }}>
           禁用/归档角色不能分配新成员；批量操作逐条返回结果，单个失败不影响其他目标。
         </p>
-      </div>
+      </div>}
     </div>
   );
 }

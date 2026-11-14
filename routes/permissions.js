@@ -35,6 +35,8 @@ function clientIp(req) {
 }
 
 const requireManager = requirePermission('admin.permissions.manage');
+/** 权限中心只读访问：权限管理员，或 Level 1 管理员基础权限（admin.permissions.view） */
+const requireViewer = requirePermission(['admin.permissions.manage', 'admin.permissions.view']);
 
 /* ============ 我的有效权限（前端刷新权限状态用） ============ */
 router.get('/me', authMiddleware, handle(async (req, res) => {
@@ -56,7 +58,7 @@ router.get('/me', authMiddleware, handle(async (req, res) => {
 }));
 
 /* ============ 权限注册表 / 模板 ============ */
-router.get('/registry', requireManager, handle(async (req, res) => {
+router.get('/registry', requireViewer, handle(async (req, res) => {
     const rows = await db.all(
         `SELECT key, module, resource, action, description, is_protected, status FROM permission_definitions ORDER BY module, key`
     );
@@ -79,7 +81,7 @@ router.get('/registry', requireManager, handle(async (req, res) => {
     });
 }));
 
-router.get('/templates', requireManager, handle(async (req, res) => {
+router.get('/templates', requireViewer, handle(async (req, res) => {
     res.json({ ok: true, templates: await roles.listTemplates() });
 }));
 
@@ -90,7 +92,7 @@ router.post('/registry/sync', requireLevel(2), handle(async (req, res) => {
 }));
 
 /* ============ 角色 ============ */
-router.get('/roles', requireManager, handle(async (req, res) => {
+router.get('/roles', requireViewer, handle(async (req, res) => {
     const out = await roles.listRoles({
         search: req.query.search || '',
         status: req.query.status || '',
@@ -107,7 +109,7 @@ router.post('/roles', requireManager, handle(async (req, res) => {
     res.status(201).json({ ok: true, message: '角色已创建', role });
 }));
 
-router.get('/roles/:id', requireManager, handle(async (req, res) => {
+router.get('/roles/:id', requireViewer, handle(async (req, res) => {
     const role = await roles.getRoleById(req.params.id);
     if (!role) return res.status(404).json({ ok: false, error: '角色不存在', code: 'ROLE_NOT_FOUND' });
     res.json({ ok: true, role });
@@ -134,7 +136,7 @@ router.post('/roles/:id/status', requireManager, handle(async (req, res) => {
 }));
 
 /* ============ 角色成员（双向成员管理的角色侧） ============ */
-router.get('/roles/:id/members', requireManager, handle(async (req, res) => {
+router.get('/roles/:id/members', requireViewer, handle(async (req, res) => {
     const out = await roles.listRoleMembers(req.params.id, {
         page: req.query.page, limit: req.query.limit, search: req.query.search || ''
     });
@@ -154,7 +156,7 @@ router.delete('/roles/:id/members/:userId', requireManager, handle(async (req, r
 
 /* ============ 用户侧（双向成员管理 + 权限溯源） ============ */
 /** 用户搜索（成员选择器用；权限管理员也需要） */
-router.get('/users/search', requireManager, handle(async (req, res) => {
+router.get('/users/search', requireViewer, handle(async (req, res) => {
     const q = String(req.query.q || '').trim();
     const limit = Math.min(30, Math.max(1, parseInt(req.query.limit, 10) || 10));
     const params = [];
@@ -194,7 +196,7 @@ router.put('/users/:id/roles', requireManager, handle(async (req, res) => {
 }));
 
 /* ============ 审计日志 ============ */
-router.get('/audit', requireManager, handle(async (req, res) => {
+router.get('/audit', requireViewer, handle(async (req, res) => {
     const out = await roles.listAudit({
         page: req.query.page,
         limit: req.query.limit,
