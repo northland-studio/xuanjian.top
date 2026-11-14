@@ -83,8 +83,17 @@ async function main() {
         assert.strictEqual(r.json.code, 'UNAUTHORIZED');
     });
 
-    await runner.test('普通用户（无 gis.submit）创建 Marker → 403 PERMISSION_DENIED', async () => {
+    await runner.test('Level 0 普通用户可创建 Marker 草稿（基础权限 gis.submit）', async () => {
         const r = await api.post('/api/gis/objects/marker', { name: '普通玩家的标记', worldId, dimension: 'overworld', point: { x: 1, y: 64, z: 1 } }, { token: normalToken });
+        assert.ok(r.status === 200 || r.status === 201, `期望 200/201，实际 ${r.status}：${JSON.stringify(r.json).slice(0, 200)}`);
+        const id = r.json.object ? r.json.object.id : r.json.id;
+        assert.ok(id, `响应缺少 id：${JSON.stringify(r.json).slice(0, 200)}`);
+        global.__normalMarkerId = id;
+    });
+
+    await runner.test('Level 0 普通用户无 gis.object.review，不能审核/发布他人提交 → 403', async () => {
+        const id = global.__normalMarkerId;
+        const r = await api.post(`/api/gis/objects/marker/${id}/publish`, {}, { token: normalToken });
         expect.status(r, 403);
         const body = JSON.stringify(r.json);
         assert.ok(body.includes('PERMISSION_DENIED') || body.includes('权限'), `实际：${body}`);

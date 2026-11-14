@@ -55,8 +55,15 @@ const h = require('./permissions-harness');
         r = await api('GET', '/api/admin/users', { token: member.token });
         t.check('Level 0 无法访问用户管理', r.status === 403, r.status);
         r = await api('GET', '/api/permissions/roles', { token: member.token });
-        t.check('Level 0 无法进入权限中心', r.status === 403, r.status);        r = await api('GET', '/api/auth/me', { token: member.token });
-        t.check('Level 0 /me 返回空权限集', r.status === 200 && Array.isArray(r.data.permissions) && r.data.permissions.length === 0, r.data && r.data.permissions);
+        t.check('Level 0 无法进入权限中心', r.status === 403, r.status);
+        r = await api('GET', '/api/auth/me', { token: member.token });
+        t.check('Level 0 /me 仅含基础权限 gis.submit（可提交 GIS 草稿，不能发布/审核）',
+            r.status === 200 && Array.isArray(r.data.permissions)
+            && r.data.permissions.length === 1 && r.data.permissions[0] === 'gis.submit',
+            r.data && r.data.permissions);
+        t.check('Level 0 不含 gis.object.review / gis.road.edit 等管理权限',
+            !r.data.permissions.includes('gis.object.review') && !r.data.permissions.includes('gis.road.edit'),
+            r.data.permissions);
         t.check('无经济资格 /me 不返回真实余额（contribution = null）', r.data.contribution === null, r.data.contribution);
         t.check('/me 返回 economy 字段且 access=false', r.data.economy && r.data.economy.access === false, r.data.economy);
 
