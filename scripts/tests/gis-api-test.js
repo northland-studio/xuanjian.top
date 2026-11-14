@@ -518,6 +518,34 @@ async function main() {
     });
 
     /* ---------------- 管理接口与安全 ---------------- */
+    await runner.test('归档后客户端 bootstrap：不再返回 ACTIVE 世界，明确进入本地模式', async () => {
+        // 独立服务器，避免其它测试世界的干扰
+        const boot = await kit.seedServerAndWorld({ serverKey: 'boot_srv', serverName: '引导服', worldKey: 'boot-main' });
+        const bootWorldId = boot.world.id;
+        const arch = await api.post('/api/gis/history/archive', { worldId: bootWorldId }, { token: adminToken });
+        expect.ok(arch);
+        const r = await api.get('/api/gis/client/bootstrap?serverKey=boot_srv', { token: adminToken });
+        expect.ok(r);
+        const active = (r.json.worlds || []).filter((w) => w.status === 'ACTIVE');
+        assert.strictEqual(active.length, 0, '归档后不应有 ACTIVE 世界');
+        assert.strictEqual(r.json.uploadEnabled, false, '没有 ACTIVE 世界时必须禁止上传（本地模式）');
+        assert.strictEqual(r.json.reason, 'no_active_world');
+        assert.ok(r.json.localModeHint && r.json.localModeHint.includes('本地模式'));
+        // resolve-world 对归档世界给出 world_archived
+        const rw = await api.post('/api/gis/client/resolve-world', {
+            serverKey: 'boot_srv', worldId: bootWorldId, worldKey: boot.world.worldKey, dimension: 'overworld'
+        }, { token: adminToken });
+        expect.error(rw, 'world_archived', 409);
+        // 未归档的主世界不受影响
+        const main = await api.get('/api/gis/client/bootstrap?serverKey=yl', { token: adminToken });
+        expect.ok(main);
+        assert.ok((main.json.worlds || []).some((w) => w.status === 'ACTIVE'));
+        // 集市地点核对不受影响
+        const count = await api.get('/api/gis/market/locations/count');
+        expect.ok(count);
+        assert.strictEqual(count.json.consistent, true);
+    });
+
     await runner.test('管理接口：普通用户 403，管理员 200', async () => {
         let r = await api.get('/api/gis/admin/stats');
         expect.status(r, 401);

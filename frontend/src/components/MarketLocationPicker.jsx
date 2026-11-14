@@ -27,7 +27,8 @@ export default function MarketLocationPicker({ value, onChange, disabled = false
                 const [cfg, wl] = await Promise.all([api.get('/api/gis/config'), api.get('/api/gis/worlds')]);
                 if (!alive) return;
                 setConfig(cfg);
-                setWorlds((wl.worlds || []).filter((w) => w.status === 'ACTIVE'));
+                // 选点需要所有世界（含已归档：只读坐标平面仍可用于选点）
+                setWorlds(wl.worlds || []);
             } catch (e) {
                 if (alive) setError('GIS 地图服务暂不可用，可直接手输坐标');
             }
@@ -39,7 +40,12 @@ export default function MarketLocationPicker({ value, onChange, disabled = false
     const pickerDimension = value?.dimension || 'overworld';
     const world = useMemo(() => {
         const candidates = worlds.filter((w) => w.serverKey === pickerServerKey);
-        return candidates.find((w) => w.dimensions.some((d) => d.dimension === pickerDimension)) || candidates[0] || null;
+        // 选点只需要坐标平面：优先 ACTIVE 世界，没有 ACTIVE 时用已归档世界（只读浏览不影响选点）
+        return candidates.find((w) => w.status === 'ACTIVE' && w.dimensions.some((d) => d.dimension === pickerDimension))
+            || candidates.find((w) => w.status === 'ACTIVE')
+            || candidates.find((w) => w.dimensions.some((d) => d.dimension === pickerDimension))
+            || candidates[0]
+            || null;
     }, [worlds, pickerServerKey, pickerDimension]);
 
     const set = useCallback((patch) => {
@@ -120,17 +126,24 @@ export default function MarketLocationPicker({ value, onChange, disabled = false
             {mapOpen && (
                 <div className="gis-picker-map">
                     {world ? (
-                        <GisMap
-                            worldId={world.id}
-                            dimension={value?.dimension || 'overworld'}
-                            objects={[]}
-                            picker
-                            pickValue={pickValue}
-                            onPick={onPick}
-                            focus={focus}
-                            height={height}
-                            showLayers={{ district: false, road: false, marker: false, market: false, contour: false, hillshade: false, missing: false }}
-                        />
+                        <>
+                            {world.status !== 'ACTIVE' && (
+                                <div className="gis-hint" style={{ padding: '6px 8px' }}>
+                                    当前世界「{world.worldKey}」为 {world.status} 状态：仅用于坐标选点与展示，客户端不会同步该世界数据。
+                                </div>
+                            )}
+                            <GisMap
+                                worldId={world.id}
+                                dimension={value?.dimension || 'overworld'}
+                                objects={[]}
+                                picker
+                                pickValue={pickValue}
+                                onPick={onPick}
+                                focus={focus}
+                                height={height}
+                                showLayers={{ district: false, road: false, marker: false, market: false, contour: false, hillshade: false, missing: false }}
+                            />
+                        </>
                     ) : (
                         <div className="gis-warn">该服务器还没有在 GIS 注册世界，暂不能地图选点（可直接手输坐标）。</div>
                     )}

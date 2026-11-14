@@ -43,6 +43,17 @@
 
 世界的创建与状态变更**只能由管理员**完成，客户端不能创建世界。
 
+### 管理员操作步骤（新服务器上线时）
+
+1. **注册服务器**：`POST /api/gis/admin/servers` `{ "serverKey": "yl", "serverName": "樱梨", "mcVersion": "1.21.11" }`
+   （或在 `/gis` →「管理」页填写 serverKey 点「注册」）。`serverKey` 与集市 `market_store_locations.server_key` 对齐。
+2. **注册世界**：`POST /api/gis/admin/worlds` `{ "worldKey": "yl-main", "serverKey": "yl", "serverName": "樱梨", "mcVersion": "1.21.11" }`
+   （世界 key 由服务器管理员确定，客户端只会收到服务端分配的 key）。
+3. **设为当前**：`PUT /api/gis/admin/worlds/:id` `{ "isCurrent": true }`（同服务器内自动唯一，并置为 ACTIVE）。
+4. **旧服世界归档**：`PUT /api/gis/admin/worlds/:id` `{ "status": "ARCHIVED" }`（数据全部保留、只读；客户端不再拿到它）。
+   或在 `/gis` →「管理」页逐条点「归档 / 启用 / 设为当前」。
+5. 客户端 `GET /api/gis/client/bootstrap?serverKey=yl` 只会返回 ACTIVE 世界；若全部归档则进入本地模式（见 §一）。
+
 ### `GET /api/gis/worlds`
 公开。查询参数：`status`（ACTIVE/ARCHIVED/SNAPSHOT，可逗号分隔）、`serverKey`。
 
@@ -66,6 +77,7 @@
 ```json
 { "ok": true, "contract": 1, "serverTime": "2026-11-14 12:00:00",
   "server": { "serverKey": "yl", "serverName": "樱梨", "uploadPolicy": "member" },
+  "uploadEnabled": true, "activeWorldCount": 1, "reason": null, "localModeHint": null,
   "worlds": [{ "id": 1, "worldKey": "yl-main", "status": "ACTIVE", "isCurrent": true,
                "mcVersion": "1.21.11", "dimensions": ["overworld","nether","end"] }],
   "limits": { "maxChunkBatch": 64, "maxCompressedBytes": 4194304, "maxDecompressedBytes": 8388608,
@@ -73,6 +85,11 @@
               "uploadRatePerMinute": 60, "encodings": ["zstd","gzip","deflate","identity"] },
   "sync": { "endpoint": "/api/gis/client/sync", "cursorField": "cursor" } }
 ```
+
+**没有 ACTIVE 世界是合法状态**（例如旧服世界全部归档、新服尚未注册）：
+此时 `uploadEnabled:false`、`activeWorldCount:0`、`reason:"no_active_world"`、`worlds:[]`，并附 `localModeHint`。
+客户端应进入**本地模式**：本地采集 / 本地地图 / HUD 全部可用，**禁止上传**（上传接口会返回 `world_archived` / `world_not_registered`）。
+其它 `reason`：`upload_closed`（服务器 uploadPolicy=closed）、`server_disabled`。
 
 #### `POST /api/gis/client/resolve-world`
 需要登录。校验「服务器 ↔ 世界 ↔ Dimension」绑定，通过后返回写入用的身份。

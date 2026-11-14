@@ -67,6 +67,25 @@
   min-width: 0;
 }
 
+.gis-banner {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(200, 150, 50, 0.5);
+  background: rgba(120, 84, 20, 0.22);
+  color: #ffe0a3;
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+
+.gis-banner b {
+  color: #ffd166;
+}
+
 .gis-side {
   display: flex;
   flex-direction: column;

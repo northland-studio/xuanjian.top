@@ -58,7 +58,7 @@ export default function Gis() {
     const canAnyEdit = can.roadEdit || can.districtEdit || can.submit;
 
     const [config, setConfig] = useState(null);
-    const [worlds, setWorlds] = useState([]);
+    const [allWorlds, setAllWorlds] = useState([]);
     const [worldId, setWorldId] = useState(null);
     const [dimension, setDimension] = useState('overworld');
     const [bbox, setBbox] = useState(null);
@@ -92,7 +92,13 @@ export default function Gis() {
     const [stats, setStats] = useState(null);
     const [busy, setBusy] = useState(false);
 
-    const currentWorld = useMemo(() => worlds.find((w) => w.id === Number(worldId)) || null, [worlds, worldId]);
+    const currentWorld = useMemo(() => allWorlds.find((w) => w.id === Number(worldId)) || null, [allWorlds, worldId]);
+    /** 可浏览世界：ACTIVE 在前，ARCHIVED/SNAPSHOT 作为只读历史世界 */
+    const worlds = useMemo(() => {
+        const rank = (w) => (w.status === 'ACTIVE' ? 0 : w.status === 'SNAPSHOT' ? 1 : 2);
+        return [...allWorlds].sort((a, b) => rank(a) - rank(b) || Number(b.isCurrent) - Number(a.isCurrent) || a.id - b.id);
+    }, [allWorlds]);
+    const readOnlyWorld = !!currentWorld && currentWorld.status !== 'ACTIVE';
     const dimensions = useMemo(() => {
         const ORDER = ['overworld', 'nether', 'end', 'custom'];
         const ds = currentWorld ? currentWorld.dimensions.map((d) => d.dimension) : ['overworld'];
@@ -113,22 +119,35 @@ export default function Gis() {
     const districtOptions = useMemo(() => displayObjects.filter((o) => o.type === 'district').map((o) => ({ id: o.id, name: o.name })), [displayObjects]);
 
     /* ---------------- 初始化 ---------------- */
+    const loadWorlds = useCallback(async () => {
+        try {
+            const wl = await api.get('/api/gis/worlds');
+            const list = wl.worlds || [];
+            setAllWorlds(list);
+            const active = list.filter((w) => w.status === 'ACTIVE');
+            const preferred = active.find((w) => w.isCurrent) || active[0] || list[0] || null;
+            setWorldId((prev) => (prev && list.some((w) => w.id === Number(prev)) ? prev : (preferred ? preferred.id : null)));
+            if (preferred) {
+                const dims = preferred.dimensions.map((d) => d.dimension);
+                setDimension((prev) => (dims.includes(prev) ? prev : (dims.includes('overworld') ? 'overworld' : (dims[0] || 'overworld'))));
+            }
+            return list;
+        } catch (e) {
+            showToast(e.message || '世界列表加载失败', 'error');
+            return [];
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
     useEffect(() => {
         let alive = true;
         (async () => {
             try {
-                const [cfg, wl] = await Promise.all([api.get('/api/gis/config'), api.get('/api/gis/worlds')]);
+                const cfg = await api.get('/api/gis/config');
                 if (!alive) return;
                 setConfig(cfg);
                 if (cfg.limits && cfg.limits.maxBboxArea) setLimits(cfg.limits);
-                const list = (wl.worlds || []).filter((w) => w.status === 'ACTIVE');
-                setWorlds(list);
-                const preferred = list.find((w) => w.isCurrent) || list[0];
-                if (preferred) {
-                    setWorldId(preferred.id);
-                    const dims = preferred.dimensions.map((d) => d.dimension);
-                    setDimension(dims.includes('overworld') ? 'overworld' : (dims[0] || 'overworld'));
-                }
+                await loadWorlds();
             } catch (e) {
                 showToast(e.message || 'GIS 配置加载失败', 'error');
             }
@@ -504,10 +523,16 @@ export default function Gis() {
     useEffect(() => { if (panel === 'admin') loadStats(); /* eslint-disable-next-line */ }, [panel]);
 
     const reloadWorlds = async () => {
-        try {
-            const wl = await api.get('/api/gis/worlds');
-            setWorlds((wl.worlds || []).filter((w) => w.status === 'ACTIVE'));
-        } catch (e) { /* ignore */ }
+        const list = await loadWorlds();
+        // 归档/切换后如果当前世界不可读写，清掉编辑态
+        const cur = list.find((w) => w.id === Number(worldId));
+        if (cur && cur.status !== 'ACTIVE') {
+            setDrawMode('none');
+            setCreating(null);
+            setNewForm(null);
+            setVertexEdit(false);
+            setGeometryDraft(null);
+        }
     };
 
     const panelTabs = [
@@ -520,9 +545,9 @@ export default function Gis() {
     ].filter((t) => t.show);
 
     const drawButtons = [
-        { mode: 'road', label: '绘制道路', show: can.roadEdit },
-        { mode: 'district', label: '绘制城区', show: can.districtEdit },
-        { mode: 'marker', label: '添加标记', show: can.submit }
+        { mode: 'road', label: '绘制道路', show: can.roadEdit && !readOnlyWorld && !!worldId },
+        { mode: 'district', label: '绘制城区', show: can.districtEdit && !readOnlyWorld && !!worldId },
+        { mode: 'marker', label: '添加标记', show: can.submit && !readOnlyWorld && !!worldId }
     ].filter((b) => b.show);
 
     const currentObjectsCount = displayObjects.length;
@@ -539,8 +564,13 @@ export default function Gis() {
                         const dims = w ? w.dimensions.map((d) => d.dimension) : ['overworld'];
                         setDimension(dims.includes(dimension) ? dimension : (dims.includes('overworld') ? 'overworld' : dims[0]));
                     }}>
-                        {worlds.length === 0 && <option value="">（未注册世界）</option>}
-                        {worlds.map((w) => <option key={w.id} value={w.id}>{w.serverName} · {w.worldKey}{w.isCurrent ? '（当前）' : ''}</option>)}
+                        {allWorlds.length === 0 && <option value="">（未注册世界）</option>}
+                        {worlds.map((w) => (
+                            <option key={w.id} value={w.id}>
+                                {w.serverName} · {w.worldKey}
+                                {w.status === 'ACTIVE' ? (w.isCurrent ? '（当前）' : '') : `（${w.status === 'ARCHIVED' ? '已归档·只读' : '快照·只读'}）`}
+                            </option>
+                        ))}
                     </select>
                     <select className="form-select gis-select-sm" value={dimension} onChange={(e) => { setDimension(e.target.value); setSelected(null); setDetail(null); setHistory(null); }}>
                         {dimensions.map((d) => <option key={d} value={d}>{DIM_LABEL[d] || d}</option>)}
@@ -567,6 +597,7 @@ export default function Gis() {
                         {history ? ' · 历史视图' : ''}
                     </span>
                     {history && <button className="btn btn-secondary btn-sm" onClick={exitHistory}>返回当前</button>}
+                    {readOnlyWorld && <span className="gis-dim gis-count">（该世界已归档：只读浏览，禁止编辑/上传）</span>}
                     {!user && <Link className="btn btn-secondary btn-sm" to="/login">登录后可编辑</Link>}
                     {user && !can.access && <span className="gis-dim">（只读模式：需要 gis.access 权限才能编辑）</span>}
                 </div>
@@ -574,6 +605,23 @@ export default function Gis() {
 
             <div className="gis-body">
                 <div className="gis-map-col">
+                    {allWorlds.length > 0 && !allWorlds.some((w) => w.status === 'ACTIVE') && (
+                        <div className="gis-banner">
+                            <b>当前没有 ACTIVE 世界。</b>
+                            已注册世界均为归档/快照：地图只读浏览历史数据；Minecraft 客户端会进入本地模式（本地采集/地图/HUD 可用，上传被禁止）。
+                            {can.admin
+                                ? <button className="btn btn-secondary btn-sm" onClick={() => setPanel('admin')}>去「管理」启用或注册世界</button>
+                                : <span>请联系 GIS 管理员注册新世界后使用。</span>}
+                        </div>
+                    )}
+                    {allWorlds.length === 0 && (
+                        <div className="gis-banner">
+                            尚未注册任何 GIS 世界。
+                            {can.admin
+                                ? <button className="btn btn-secondary btn-sm" onClick={() => setPanel('admin')}>去「管理」注册服务器与世界</button>
+                                : <span>请联系 GIS 管理员注册服务器与世界。</span>}
+                        </div>
+                    )}
                     <GisMap
                         ref={mapRef}
                         worldId={worldId}
@@ -752,7 +800,7 @@ export default function Gis() {
                         />
                     )}
                     {panel === 'admin' && can.admin && (
-                        <GisAdminPanel worlds={worlds} servers={config ? config.servers : []} stats={stats} canAdmin={can.admin} onChanged={reloadWorlds} />
+                        <GisAdminPanel worlds={allWorlds} servers={config ? config.servers : []} stats={stats} canAdmin={can.admin} onChanged={reloadWorlds} />
                     )}
                     {panel === 'attr' && !user && (
                         <div className="gis-panel">

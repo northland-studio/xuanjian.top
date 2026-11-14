@@ -472,7 +472,12 @@ export function GisAdminPanel({ worlds, servers, stats, canAdmin, onChanged }) {
             {stats && (
                 <div className="gis-kv"><span>待审 / 服务器</span><b>{stats.reviewPending} / {stats.servers}</b></div>
             )}
-            <div className="gis-subhead">服务器与世界</div>
+            <div className="gis-subhead">服务器与世界（含归档）</div>
+            <div className="gis-hint">
+                操作步骤：① 注册服务器（serverKey，如 `yl`）→ ② 注册世界（worldKey，如 `yl-main`，绑定到服务器）→
+                ③ 对真实服务器启用该世界并「设为当前」；客户端 `bootstrap` 只会拿到 ACTIVE 世界。
+                归档 = 旧服世界只读保留（数据不删），新服世界设为 ACTIVE + 当前 即可切换。
+            </div>
             <div className="gis-list">
                 {(worlds || []).map((w) => (
                     <div key={w.id} className="gis-list-row">

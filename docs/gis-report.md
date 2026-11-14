@@ -23,7 +23,7 @@
 | Minecraft 客户端接入（采集/上传/同步） | ⏳ 未接入 | 契约与接口已就绪并有测试；模组侧上线后才有对象与高程数据 |
 | Xaero Overlay 渲染 | ⏳ 模组侧 | 结论见 §9 |
 
-**测试**：4 套自动化测试 **78/78 通过**（详见 §7）。**部署**：生产已上线并验证（详见 §8）。
+**测试**：4 套自动化测试 **79/79 通过**（详见 §7）。**部署**：已 3 次上线并通过生产验证（详见 §8）。
 
 ---
 
@@ -162,6 +162,19 @@ GIS 只读投影 `GET /api/gis/market/locations` 与库内坐标一致，`GET /a
 
 **按需加载**：地图 `moveend/zoomend` → 上报 bbox（超面积自动以中心裁剪）→ `GET /api/gis/objects?bbox=...`（limit 800，`truncated` 提示放大）。低缩放下地形请求自动收敛到中心 512×512 方块（服务端同步计算上限），避免 2G2H 服务器被大范围计算拖垮。
 
+### 5.1 集市地点选择器验证（阶段 5）
+
+本地端到端（临时库 + 真实 `routes/market.js`，联调后已删除临时库）：
+1. `/market/merchant` →「位置」→「添加位置」→ 出现 GIS 选点器：服务器下拉（来自 `gis_servers`）+ 维度下拉 + **X/Y/Z 手输** + 「在地图上选点」+「定位到坐标」；
+2. 选服务器 `樱梨` → 打开地图选点 → 地图正常渲染（Leaflet 坐标平面）；
+3. 在地图上点击 → **X/Z 输入框自动回填**（实测 X=448，Z=-130.75），实现「地图选点 + 坐标手输」双入口；
+4. 保存 → 走**集市既有接口** `POST /api/market/merchant/stores/:id/locations` → `market_store_locations` 新增第 3 行（`server_key=yl, x=448, z=-130.75, label=GIS 选点测试`）；`GET /api/gis/market/locations` 投影到同一坐标；`count` 接口 `consistent:true`；
+5. 旧数据（id=1/2）坐标/标签完全未变。
+
+线上只读回归（生产）：`/market/merchant` 200、bundle 命中 `gis-picker`、`GET /api/gis/config`（选点器服务器来源）200、`GET /api/gis/market/locations` 返回 2 行且坐标与库内一致、`count` 接口 `consistent:true`；写路径沿用原接口且有自动化测试覆盖（gis-market-test 10/10）。
+**注意**：生产当前没有 ACTIVE 世界，选点器会使用已归档世界作为**坐标平面**（仅用于选点/展示，客户端不同步），并在界面明确提示该世界状态；坐标手输始终可用。
+
+
 ---
 
 ## 6. 客户端上传契约（已冻结，模组侧按此实现）
@@ -178,7 +191,7 @@ GIS 只读投影 `GET /api/gis/market/locations` 与库内坐标一致，`GET /a
 运行方式（仓库根目录，使用 `data/gis-test-<pid>.db` 临时库 + 真实执行 `migrations/run.js`，**绝不碰 `data/guild.db`**）：
 
 ```
-node scripts/tests/gis-api-test.js        # 46/46 ✅
+node scripts/tests/gis-api-test.js        # 47/47 ✅
 node scripts/tests/gis-migration-test.js  #  7/7  ✅
 node scripts/tests/gis-terrain-test.js    # 15/15 ✅
 node scripts/tests/gis-market-test.js     # 10/10 ✅
@@ -186,7 +199,7 @@ node scripts/tests/gis-market-test.js     # 10/10 ✅
 
 | 套件 | 覆盖要点 |
 |---|---|
-| API（46） | 契约快照、401/403、Marker 9 类校验、道路/城区创建、Draft→Review→Published（revision N+1）、乐观锁 409、回滚、Wiki 关联+反链、审核队列、bbox 缺失/超限拒绝、空间搜索、点位归属（含道路宽度缓冲）、zstd 上传 + 幂等重放 `duplicate:true`、维度/世界越权拒绝、增量同步 tombstones、等高线/剖面/坡度/统计/阴影/网格、未采集区 `hasData:false`、历史快照/按时间重建/diff、集市地点投影与核对、XBed 地点引用 CRUD、归档世界拒写、管理接口权限、审计 |
+| API（47） | 契约快照、401/403、Marker 9 类校验、道路/城区创建、Draft→Review→Published（revision N+1）、乐观锁 409、回滚、Wiki 关联+反链、审核队列、bbox 缺失/超限拒绝、空间搜索、点位归属（含道路宽度缓冲）、zstd 上传 + 幂等重放 `duplicate:true`、维度/世界越权拒绝、增量同步 tombstones、等高线/剖面/坡度/统计/阴影/网格、未采集区 `hasData:false`、历史快照/按时间重建/diff、集市地点投影与核对、XBed 地点引用 CRUD、归档世界拒写、**归档后 bootstrap 本地模式语义（uploadEnabled/reason/localModeHint）**、管理接口权限、审计 |
 | 迁移（7） | 120-126 全应用、18 表+索引齐备、旧地点零丢失（id/坐标/时间戳逐字段）、World Registry 种子正确、重复执行 0 pending、**每个迁移 up() 重放 2 次幂等**、编号不冲突（仅 120-139） |
 | 地形（15） | 二进制往返（含 -32768 缺口，zstd/gzip）、magic/version/sampleSize/截断/尾部/缺高程全拒、覆盖 bbox、单点高程真实值/无数据 null、等高线来自真实高程（斜坡走向与等高距网格）、5/10/20/50/100 层级单调、未采集区 `available:false`+`missingRects`、坡度 26.57° 校准、剖面单调与缺失段、统计 p50/p90/stdev、网格自适应步长、阴影 0-255 与缺失 null、直方图计数=采样数、**数据更新使缓存失效**、几何工具（bbox/点面/洞/距离/简化/面积） |
 | 集市（10） | 迁移前后 2 行 id/坐标/时间戳完全一致、新列默认 NULL、GIS 只读不改集市、新增/编辑/删除走原接口且数量回到 2、集市 config/stores/map 正常、GIS 写入不改店铺/订单行数 |
@@ -200,43 +213,81 @@ node scripts/tests/gis-market-test.js     # 10/10 ✅
 
 ## 8. 部署记录
 
-**部署时间**：2026-11-15 ｜ **tag**：`20261115-gis-fe` ｜ 部署脚本：`scripts/deploy-gis-20261115.ps1` + `scripts/deploy-gis-remote-20261115.sh`（均已入库）。
+共 3 次上线（同一 tag 系列），脚本均已入库：`scripts/deploy-gis-20261115{,b,c}.ps1` + `scripts/deploy-gis-remote-20261115{,b,c}.sh`。
 
-### 8.1 流程与结果（远端脚本 8 步全部通过）
+| 次序 | tag | 内容 | 结果 |
+|---|---|---|---|
+| #1 | `20261115-gis-fe` | GIS 前端首次上线（`/gis` 页面 + 集市选点器）+ `lib/gis/terrain.js` 覆盖率修复 | 全部 8 步通过；`market_store_locations` 2 行逐字节一致 |
+| #2 | `20261115-gis-fe2` | 世界归档管理 UI（归档/启用/设为当前、归档世界只读浏览、无 ACTIVE 世界横幅）+ `lib/gis/client.js` bootstrap 本地模式语义 + 地形面板坡度/分布/异步任务 | 全部 9 步通过；worlds 仍 ACTIVE（归档在下一步单独执行） |
+| #3 | `20261115-gis-fe3` | 集市选点器在「无 ACTIVE 世界」时改用已归档世界坐标平面选点（不让选点能力断掉） | 全部 7 步通过；bundle 校验 gis-page/gis-picker/gis-banner 命中；集市地点仍 2 行一致 |
 
-| 步 | 内容 | 结果 |
-|---|---|---|
-| 0 | `node migrations/run.js --dry-run` | 12/12 已应用，**0 pending** |
-| 1 | 备份 | `frontend/dist.bak-20261115-gis-fe`、`frontend/dist-ssr.bak-20261115-gis-fe`、`/root/backups/gis-20261115-gis-fe/{terrain.js, market-locations-before/after.txt}` |
-| 2 | 后端 `lib/gis/terrain.js`（覆盖率计算修复 + 直接调用兜底） | `node --check` 通过；`routes/gis.js` 未变更（线上 hash 与本地一致，不覆盖） |
-| 3 | 前端 `frontend/dist` + `frontend/dist-ssr` | 新入口 `assets/index-CHDFJT7W.js`（首次上线） |
-| 4 | 重建 SSG 静态页 | 116 个 |
-| 5 | `pm2 restart xuanjian-guild` | online（restarts 2） |
-| 6 | HTTP 验证 | `/`、`/gis`、`/market`、`/market/map`、`/market/merchant`、`/wiki`、`/admin` 全 200；9 个 GIS/market API 全 200 |
-| 7 | 数据核对 | 集市地点 2 行逐字节一致；线上 bundle 命中 `gis-page`（确认非 SPA 回退页） |
-| 8 | 错误日志 | 无 GIS 相关错误 |
+### 8.1 通用流程（每次均执行）
 
-**未上传**：`routes/market.js`（线上版本含权限组后续改动，本次不覆盖）、`frontend/package.json/lock`（服务器不跑 npm install）、迁移文件（编号未变）。
+`node migrations/run.js --dry-run`（0 pending）→ 备份 `frontend/dist.bak-<tag>` / `dist-ssr.bak-<tag>` / `/root/backups/gis-<tag>/`（含被替换后端文件与数据快照）→ 替换产物 → `node --check` → 重建 SSG（116 页）→ `pm2 restart` → HTTP/接口/DB 校验 → 失败回滚。
 
-### 8.2 验证截图（本机路径）
+**备份路径**：
+- `frontend/dist.bak-20261115-gis-fe{,2,3}`、`frontend/dist-ssr.bak-20261115-gis-fe{,2,3}`
+- `/root/backups/gis-20261115-gis-fe/{terrain.js, market-locations-before/after.txt}`
+- `/root/backups/gis-20261115-gis-fe2/{client.js, gis-worlds-before.txt, market-locations-before/after.txt}`
+- `/root/backups/gis-20261115-gis-fe3/{market-before/after.txt, worlds-before.txt}`
 
-- `browser-screenshots/gis-prod-1.png` — 生产 `/gis` 真机渲染（世界/维度、地图、图层、面板）
-- `browser-screenshots/gis-2.png` — 本地联调：城区/道路/Marker 图层渲染
-- `browser-screenshots/gis-3.png` — 本地联调：地形分析面板（覆盖率/统计）
-- `browser-screenshots/gis-5-terrain.png` — 本地联调：等高线叠加
-- `browser-screenshots/gis-6-profile.png` — 本地联调：剖面/坡度/分布面板
-（本地联调用临时库 `data/gis-demo.db`，已删除，不入库。）
+### 8.2 生产验证（最终态）
 
-### 8.3 回滚命令
+| 项 | 结果 |
+|---|---|
+| `/` `/gis` `/market` `/market/map` `/market/merchant` `/wiki` `/admin` | 全 **200** |
+| GIS API（config/worlds/contract/objects/terrain/market locations/count） | 全 **200** |
+| 前端入口 | `assets/index-YiBnf1Rk.js`；bundle 命中 `gis-page` / `gis-picker` / `gis-inspector` / `gis-banner` |
+| 真机渲染 | `/gis` 显示「当前没有 ACTIVE 世界」横幅、世界下拉为「已归档·只读」、编辑按钮按权限隐藏、无 JS 异常 |
+| 集市地点 | **2 行**，`id/坐标/label/is_public/updated_at` 与部署前逐字节一致 |
+| 迁移 | 12/12 已应用，0 pending |
+| 错误日志 | 无 GIS 相关错误 |
+
+### 8.3 世界归档操作（站方决定，2026-11-15 执行）
+
+按站方口径：`yl-main`(id=1) 与 `樱梨-main`(id=2) **都归档**（`status=ARCHIVED`、`is_current=0`），**不删任何数据、不删服务器注册**。
+
+- 执行方式：通过**管理员接口** `PUT /api/gis/admin/worlds/{1,2}` `{"status":"ARCHIVED"}`（服务端自动写审计），脚本：`scripts/gis-archive-worlds-20261115.sh`；
+- 备份：`/root/backups/gis-20261115-gis-fe2/gis-worlds-before.txt`；
+- 审计：`gis_audit` 新增 2 条 `world_update`（actor=2, world_id=1/2, detail `{"status":"ARCHIVED"}`）；
+- 验证：
+  - `GET /api/gis/worlds` → 两个世界均 `ARCHIVED`、`isCurrent:false`；
+  - `GET /api/gis/client/bootstrap?serverKey=yl` → `{uploadEnabled:false, activeWorldCount:0, reason:"no_active_world", worlds:[], localModeHint:"…进入本地模式…"}`；
+  - `POST /api/gis/client/resolve-world`（归档世界）→ `409 world_archived`；
+  - 归档世界的已发布对象与地形仍可读（`200`）——历史数据保留；
+  - `GET /api/gis/market/locations/count` → `consistent:true`。
+
+### 8.4 未来真实服务器上线时如何注册新世界（管理员）
+
+1. `/gis` →「管理」页（或 `POST /api/gis/admin/servers`）注册服务器：`serverKey`（如 `yl`）+ 服务器名；
+2. 注册世界：`worldKey`（如 `yl-2027-main`）绑定到该服务器：`POST /api/gis/admin/worlds`；
+3. 点「设为当前」：`PUT /api/gis/admin/worlds/:id {"isCurrent":true}`（同服务器内唯一，并自动置 ACTIVE）；
+4. 客户端 `bootstrap?serverKey=yl` 即可拿到该 ACTIVE 世界并开始上传；旧世界保持 ARCHIVED 只读。
+（同样步骤也写在 `docs/gis-api.md` §一。）
+
+### 8.5 回滚命令
 
 ```bash
+# 第三次（前端）回滚
 cd /var/www/xuanjian-guild && rm -rf frontend/dist frontend/dist-ssr frontend/prerender \
- && mv frontend/dist.bak-20261115-gis-fe frontend/dist \
- && mv frontend/dist-ssr.bak-20261115-gis-fe frontend/dist-ssr \
- && cp /root/backups/gis-20261115-gis-fe/terrain.js lib/gis/terrain.js \
+ && mv frontend/dist.bak-20261115-gis-fe3 frontend/dist \
+ && mv frontend/dist-ssr.bak-20261115-gis-fe3 frontend/dist-ssr \
  && node scripts/prerender.js --clean && pm2 restart xuanjian-guild
+
+# 若需同时回滚第二次的后端 client.js：
+#   cp /root/backups/gis-20261115-gis-fe2/client.js lib/gis/client.js && pm2 restart xuanjian-guild
 ```
-数据库无需回退：120-126 迁移幂等且只新增表/可空列，未修改或删除任何旧数据。
+数据库无需回退：120-126 迁移幂等且只新增表/可空列，未修改或删除任何旧数据；世界归档只改状态，可随时用管理接口改回 ACTIVE。
+
+### 8.6 验证截图（本机路径）
+
+- `browser-screenshots/gis-prod-1.png` — 生产 `/gis` 首次上线真机渲染
+- `browser-screenshots/gis-prod-2-archived.png` — 生产 `/gis` 归档后：无 ACTIVE 世界横幅 + 只读世界
+- `browser-screenshots/gis-2.png` — 本地：城区/道路/Marker 图层
+- `browser-screenshots/gis-3.png` / `gis-7-terrain-panel.png` — 地形分析面板（覆盖率/统计/坡度/分布）
+- `browser-screenshots/gis-5-terrain.png` / `gis-8-contours.png` — 等高线叠加
+- `browser-screenshots/gis-6-profile.png` — 剖面/分布面板
+（本地联调用临时库，测试后已删除，不入库。）
 
 ---
 
@@ -312,7 +363,7 @@ cd /var/www/xuanjian-guild && rm -rf frontend/dist frontend/dist-ssr frontend/pr
 |---|---|---|
 | Minecraft 模组本体（采集/上传队列/HUD/Xaero Overlay） | 模组组进行中 | 属 `xuanjian-map-mod` 仓库；官网侧契约、接口、权限、幂等与测试已就绪，模组接入后即可产生对象与高程数据 |
 | 生产当前无 GIS 对象/无高程数据 | 预期 | 客户端尚未接入；`/gis` 会显示空图层与「无数据区」，地形面板显示覆盖率 0（这是**正确**行为，不代表故障） |
-| 两个 ACTIVE 世界都 `isCurrent=1`（`yl` 与 `樱梨`） | 待站主口径 | 历史集市数据里存在两种 `server_key`，迁移 126 各自种子一个世界；`/gis` 管理页已提供「归档 / 设为当前」操作入口，等口径确认后由管理员点击处理，不写脚本改库 |
+| 两个世界已按站方口径**全部归档**（`ARCHIVED`/`is_current=0`） | ✅ 已执行 | 2026-11-15 通过管理员接口归档并写审计；数据与服务器注册均保留；客户端 bootstrap 进入本地模式；未来真实服务器注册新世界后可设为当前（步骤见 §8.4 与 docs/gis-api.md） |
 | 3D 扩展 | 未实现（数据结构已兼容） | 首版为 2D 编辑；几何存 GeoJSON、Y 作为高度属性，未来可扩 |
 | 等高线/统计的更大范围离线预热 | 已提供异步任务入口 | `POST /terrain/jobs`（contour-prewarm/terrain-stats）；首版未做定时自动预热，避免 2G2H 被后台任务占用 |
 | XBed 完整集成 | 未做（按规范仅预留） | 已提供 `gis_place_refs` + `/api/gis/places*`，未改 xbed/xbed-plugin 仓库 |
