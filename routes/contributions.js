@@ -5,7 +5,8 @@ const express = require('express');
 const logger = require('../lib/logger');
 const db = require('../database');
 const { getLocalTimestamp } = require('../database');
-const { authMiddleware, adminMiddleware, superAdminMiddleware } = require('../middleware/auth');
+const { authMiddleware, adminMiddleware, requirePermission, adminOrPermission } = require('../middleware/auth');
+const perms = require('../lib/permissions');
 const { addContributionLog } = require('../lib/contribution');
 const { createNotification } = require('./notifications');
 const router = express.Router();
@@ -14,7 +15,7 @@ const router = express.Router();
 const DAILY_TRANSFER_LIMIT = 1000;
 
 // 贡献点互转
-router.post('/transfer', authMiddleware, async (req, res) => {
+router.post('/transfer', requirePermission('economy.contribution_points.transfer'), async (req, res) => {
     try {
         const { toUserId, amount, note } = req.body;
         const toId = parseInt(toUserId);
@@ -95,7 +96,7 @@ router.post('/transfer', authMiddleware, async (req, res) => {
 });
 
 // 我的贡献点流水
-router.get('/logs', authMiddleware, async (req, res) => {
+router.get('/logs', requirePermission('economy.contribution_points.access'), async (req, res) => {
     try {
         const { page = 1, limit = 30, type } = req.query;
         const offset = (page - 1) * limit;
@@ -118,7 +119,7 @@ router.get('/logs', authMiddleware, async (req, res) => {
 });
 
 // 管理端：全部贡献点流水（可筛选用户/类型）
-router.get('/all-logs', authMiddleware, adminMiddleware, async (req, res) => {
+router.get('/all-logs', adminOrPermission('economy.contribution_points.manage'), async (req, res) => {
     try {
         const { page = 1, limit = 30, userId, type } = req.query;
         const offset = (page - 1) * limit;
@@ -148,7 +149,7 @@ router.get('/all-logs', authMiddleware, adminMiddleware, async (req, res) => {
 });
 
 // 管理端：全部转账记录
-router.get('/all-transfers', authMiddleware, adminMiddleware, async (req, res) => {
+router.get('/all-transfers', adminOrPermission('economy.contribution_points.manage'), async (req, res) => {
     try {
         const { page = 1, limit = 30 } = req.query;
         const offset = (page - 1) * limit;
@@ -170,38 +171,67 @@ router.get('/all-transfers', authMiddleware, adminMiddleware, async (req, res) =
 });
 
 // 管理端：手动调整用户贡献点（正负均可，记 admin 流水）
-router.put('/admin/:userId', authMiddleware, superAdminMiddleware, async (req, res) => {
+// 权限：economy.contribution_points.manage（Level 2 天然拥有；也可由「经济管理员」角色授予）
+// 审计：操作者 / 目标用户 / 金额 / 理由 / 调整前后余额 / 时间 —— 禁止直接改余额而不写账本
+router.put('/admin/:userId', requirePermission('economy.contribution_points.manage'), async (req, res) => {
     try {
         const { userId } = req.params;
-        const { amount, note } = req.body;
+        const { amount, note, reason } = req.body;
         const amt = parseInt(amount);
+        const adjustReason = String(reason || note || '').trim().slice(0, 200) || '管理员调整';
 
         if (!amt || amt === 0) {
-            return res.status(400).json({ error: '调整数量不能为0' });
+            return res.status(400).json({ error: '调整数量不能为0', code: 'VALIDATION_ERROR' });
         }
 
-        const target = await db.get('SELECT id, nickname, username FROM users WHERE id = ?', [userId]);
+        const target = await db.get('SELECT id, nickname, username, COALESCE(contribution, 0) AS contribution FROM users WHERE id = ?', [userId]);
         if (!target) {
-            return res.status(404).json({ error: '用户不存在' });
+            return res.status(404).json({ error: '用户不存在', code: 'USER_NOT_FOUND' });
+        }
+        if (Number(target.level) < 0) {
+            return res.status(400).json({ error: '系统账号不能人工调整贡献点', code: 'SYSTEM_ACCOUNT' });
         }
 
-        await db.transaction(async () => {
-            if (amt > 0) {
-                await db.run('UPDATE users SET contribution = COALESCE(contribution, 0) + ? WHERE id = ?', [amt, userId]);
-            } else {
-                const u = await db.get('SELECT COALESCE(contribution, 0) AS c FROM users WHERE id = ?', [userId]);
-                if (u.c + amt < 0) {
-                    throw new Error('调整后贡献点为负数，操作取消');
-                }
-                await db.run('UPDATE users SET contribution = COALESCE(contribution, 0) + ? WHERE id = ?', [amt, userId]);
-            }
-            await addContributionLog(userId, amt, 'admin', req.userId, note?.trim() || '管理员调整');
+        const beforeBalance = Number(target.contribution || 0);
+        const afterBalance = beforeBalance + amt;
+        if (afterBalance < 0) {
+            return res.status(400).json({ error: '调整后贡献点为负数，操作取消', code: 'NEGATIVE_BALANCE' });
+        }
+
+        const ip = (req.headers['x-forwarded-for'] || req.ip || '').toString().split(',')[0].trim();
+        const logId = await db.transaction(async () => {
+            await db.run(
+                'UPDATE users SET contribution = COALESCE(contribution, 0) + ? WHERE id = ?',
+                [amt, target.id]
+            );
+            // 账本：operator_id / balance_before / balance_after 全部落库（migration 104 新增列）
+            const r = await db.run(
+                `INSERT INTO contribution_logs
+                    (user_id, amount, type, ref_id, note, balance_after, balance_before, operator_id, created_at)
+                 VALUES (?, ?, 'admin', ?, ?, ?, ?, ?, ?)`,
+                [target.id, amt, req.userId, adjustReason, afterBalance, beforeBalance, req.userId, getLocalTimestamp()]
+            );
+            await perms.audit.record({
+                actorId: req.userId, action: 'economy_adjust', targetType: 'user', targetId: target.id,
+                before: { balance: beforeBalance },
+                after: { balance: afterBalance, amount: amt, reason: adjustReason, logId: r.id },
+                note: '人工调整贡献点：' + (target.nickname || target.username) + ' ' + (amt > 0 ? '+' : '') + amt + '（' + adjustReason + '）',
+                ip
+            });
+            return r.id;
         });
 
-        res.json({ message: '贡献点调整成功' });
+        res.json({
+            message: '贡献点调整成功',
+            userId: target.id,
+            amount: amt,
+            balanceBefore: beforeBalance,
+            balanceAfter: afterBalance,
+            logId
+        });
     } catch (error) {
-        if (error.message.includes('负数')) {
-            return res.status(400).json({ error: error.message });
+        if (String(error.message || '').includes('负数')) {
+            return res.status(400).json({ error: error.message, code: 'NEGATIVE_BALANCE' });
         }
         logger.error('管理调整贡献点错误:', error);
         res.status(500).json({ error: '调整失败' });

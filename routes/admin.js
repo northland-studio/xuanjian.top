@@ -3,11 +3,12 @@ const logger = require('../lib/logger');
 const bcrypt = require('bcryptjs');
 const db = require('../database');
 const { getLocalTimestamp } = require('../database');
-const { authMiddleware, adminMiddleware, superAdminMiddleware } = require('../middleware/auth');
+const { authMiddleware, adminMiddleware, superAdminMiddleware, requirePermission, requireAnyPermission } = require('../middleware/auth');
+const perms = require('../lib/permissions');
 const router = express.Router();
 
 // 获取所有用户（管理员）
-router.get('/users', authMiddleware, adminMiddleware, async (req, res) => {
+router.get('/users', requirePermission('admin.users.view'), async (req, res) => {
     try {
         const { page = 1, limit = 20, search } = req.query;
         const offset = (page - 1) * limit;
@@ -55,7 +56,7 @@ router.get('/users', authMiddleware, adminMiddleware, async (req, res) => {
 });
 
 // 更新用户信息（管理员）
-router.put('/users/:id', authMiddleware, adminMiddleware, async (req, res) => {
+router.put('/users/:id', requirePermission('admin.users.edit'), async (req, res) => {
     try {
         const { id } = req.params;
         const { nickname, email, password } = req.body;
@@ -98,21 +99,44 @@ router.put('/users/:id', authMiddleware, adminMiddleware, async (req, res) => {
 });
 
 // 设置用户等级（超级管理员）
-router.put('/users/:id/level', authMiddleware, superAdminMiddleware, async (req, res) => {
+router.put('/users/:id/level', requirePermission('admin.users.level'), async (req, res) => {
     try {
         const { id } = req.params;
-        const { level } = req.body;
-        
-        if (level === undefined || level < 0 || level > 2) {
-            return res.status(400).json({ error: '无效的用户等级（有效值：0-2）' });
+        const level = Number(req.body?.level);
+
+        if (req.body?.level === undefined || !Number.isInteger(level) || level < 0 || level > 2) {
+            return res.status(400).json({ error: '无效的用户等级（有效值：0-2）', code: 'VALIDATION_ERROR' });
         }
-        
-        await db.run(
-            'UPDATE users SET level = ?, updated_at = ? WHERE id = ?',
-            [level, getLocalTimestamp(), id]
-        );
-        
-        res.json({ message: '用户等级设置成功' });
+
+        const target = await db.get('SELECT id, username, nickname, level FROM users WHERE id = ?', [id]);
+        if (!target) return res.status(404).json({ error: '用户不存在', code: 'USER_NOT_FOUND' });
+        if (Number(target.level) < 0) return res.status(400).json({ error: '系统账号不能调整等级', code: 'SYSTEM_ACCOUNT' });
+        // 超级管理员保护：只有 Level 2 能设置 Level 2；非 Level 2 不能修改任何 Level 2 账号
+        if (Number(req.userLevel) < 2 && (level >= 2 || Number(target.level) >= 2)) {
+            return res.status(403).json({ error: '只有超级管理员可以管理 Level 2 账号', code: 'SUPER_ADMIN_PROTECTED' });
+        }
+        // 不允许把最后一个 Level 2 降级（避免权限体系失去最高管理入口）
+        if (level < 2 && Number(target.level) >= 2) {
+            const supers = await db.get('SELECT COUNT(*) AS c FROM users WHERE level >= 2');
+            if (supers.c <= 1) {
+                return res.status(400).json({ error: '不能降级最后一个超级管理员', code: 'LAST_SUPER_ADMIN' });
+            }
+        }
+
+        if (Number(target.level) !== level) {
+            await db.run(
+                'UPDATE users SET level = ?, updated_at = ? WHERE id = ?',
+                [level, getLocalTimestamp(), target.id]
+            );
+            await perms.audit.record({
+                actorId: req.userId, action: 'user_level_update', targetType: 'user', targetId: target.id,
+                before: { level: target.level }, after: { level },
+                note: '调整用户「' + (target.nickname || target.username) + '」等级 ' + target.level + ' → ' + level,
+                ip: (req.headers['x-forwarded-for'] || req.ip || '').toString().split(',')[0].trim()
+            });
+        }
+
+        res.json({ message: '用户等级设置成功', level, effectiveNextRequest: true });
     } catch (error) {
         logger.error('设置用户等级错误:', error);
         res.status(500).json({ error: '设置用户等级失败' });
@@ -120,7 +144,7 @@ router.put('/users/:id/level', authMiddleware, superAdminMiddleware, async (req,
 });
 
 // 获取所有内容（管理员）
-router.get('/posts', authMiddleware, adminMiddleware, async (req, res) => {
+router.get('/posts', requirePermission('admin.posts.moderate'), async (req, res) => {
     try {
         const { page = 1, limit = 20, type, status } = req.query;
         const offset = (page - 1) * limit;
@@ -166,7 +190,7 @@ router.get('/posts', authMiddleware, adminMiddleware, async (req, res) => {
 });
 
 // 置顶/取消置顶内容
-router.put('/posts/:id/pin', authMiddleware, adminMiddleware, async (req, res) => {
+router.put('/posts/:id/pin', requirePermission('admin.posts.moderate'), async (req, res) => {
     try {
         const { id } = req.params;
         const { is_pinned: isPinned } = req.body;
@@ -184,7 +208,7 @@ router.put('/posts/:id/pin', authMiddleware, adminMiddleware, async (req, res) =
 });
 
 // 获取公告列表
-router.get('/announcements', authMiddleware, adminMiddleware, async (req, res) => {
+router.get('/announcements', requireAnyPermission(['announcement.create', 'announcement.edit', 'announcement.delete']), async (req, res) => {
     try {
         const announcements = await db.all(
             `SELECT a.*, u.nickname as creator_nickname 
@@ -201,7 +225,7 @@ router.get('/announcements', authMiddleware, adminMiddleware, async (req, res) =
 });
 
 // 创建公告
-router.post('/announcements', authMiddleware, adminMiddleware, async (req, res) => {
+router.post('/announcements', requirePermission('announcement.create'), async (req, res) => {
     try {
         const { title, content, isPopup, isActive } = req.body;
         
@@ -225,11 +249,18 @@ router.post('/announcements', authMiddleware, adminMiddleware, async (req, res) 
 });
 
 // 更新公告
-router.put('/announcements/:id', authMiddleware, adminMiddleware, async (req, res) => {
+router.put('/announcements/:id', requirePermission('announcement.edit'), async (req, res) => {
     try {
         const { id } = req.params;
         const { title, content, isPopup, isActive } = req.body;
-        
+
+        // 上线（isActive 置真）额外要求 announcement.publish；离线编辑只需 announcement.edit
+        if (isActive && !(req.permissionSet && req.permissionSet.has('announcement.publish'))) {
+            return res.status(403).json({
+                error: '缺少公告发布权限', code: 'PERMISSION_DENIED', required: 'announcement.publish'
+            });
+        }
+
         await db.run(
             'UPDATE announcements SET title = ?, content = ?, is_popup = ?, is_active = ?, updated_at = ? WHERE id = ?',
             [title, content, isPopup ? 1 : 0, isActive ? 1 : 0, getLocalTimestamp(), id]
@@ -243,7 +274,7 @@ router.put('/announcements/:id', authMiddleware, adminMiddleware, async (req, re
 });
 
 // 删除公告
-router.delete('/announcements/:id', authMiddleware, adminMiddleware, async (req, res) => {
+router.delete('/announcements/:id', requirePermission('announcement.delete'), async (req, res) => {
     try {
         const { id } = req.params;
         
@@ -257,7 +288,7 @@ router.delete('/announcements/:id', authMiddleware, adminMiddleware, async (req,
 });
 
 // 获取统计数据
-router.get('/statistics', authMiddleware, adminMiddleware, async (req, res) => {
+router.get('/statistics', requirePermission('admin.statistics.view'), async (req, res) => {
     try {
         const userCount = await db.get('SELECT COUNT(*) as count FROM users');
         const postCount = await db.get('SELECT COUNT(*) as count FROM posts WHERE status = "active"');
@@ -291,7 +322,7 @@ router.get('/statistics', authMiddleware, adminMiddleware, async (req, res) => {
 });
 
 // 数据可视化看板（v2.2.0）
-router.get('/dashboard', authMiddleware, adminMiddleware, async (req, res) => {
+router.get('/dashboard', requirePermission('admin.dashboard.view'), async (req, res) => {
     try {
         // 贡献点总量与今日变动
         const totalContribution = await db.get(
@@ -378,7 +409,7 @@ router.get('/theme', async (req, res) => {
 });
 
 // 设置主题（管理员）
-router.put('/theme', authMiddleware, adminMiddleware, async (req, res) => {
+router.put('/theme', requirePermission('admin.theme.manage'), async (req, res) => {
     try {
         const { theme } = req.body;
         

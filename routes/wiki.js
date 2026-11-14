@@ -16,7 +16,7 @@ const db = require('../database');
 const wiki = require('../lib/wiki');
 const glm = require('../lib/glm');
 const wikiRender = require('../lib/wiki-render');
-const { authMiddleware, adminMiddleware, superAdminMiddleware } = require('../middleware/auth');
+const { authMiddleware, adminMiddleware, superAdminMiddleware, requirePermission, requireAnyPermission, hasPermission } = require('../middleware/auth');
 const { createNotification } = require('./notifications');
 const router = express.Router();
 
@@ -144,7 +144,7 @@ router.get('/categories', optionalAuthMiddleware, async (req, res) => {
 });
 
 /** 编辑器用：标题 → slug 预览（含查重后的实际可用值） */
-router.get('/slug-suggest', authMiddleware, adminMiddleware, async (req, res) => {
+router.get('/slug-suggest', requireAnyPermission(['wiki.page.create', 'wiki.page.edit']), async (req, res) => {
     try {
         const title = String(req.query.title || '');
         const excludeId = req.query.id ? parseInt(req.query.id, 10) : null;
@@ -156,7 +156,7 @@ router.get('/slug-suggest', authMiddleware, adminMiddleware, async (req, res) =>
 });
 
 /** 管理端统计 */
-router.get('/stats', authMiddleware, adminMiddleware, async (req, res) => {
+router.get('/stats', requirePermission('wiki.access'), async (req, res) => {
     try {
         res.json({ ok: true, stats: await wiki.wikiStats() });
     } catch (e) {
@@ -165,7 +165,7 @@ router.get('/stats', authMiddleware, adminMiddleware, async (req, res) => {
 });
 
 /** 管理端页面列表（含草稿/归档，支持筛选） */
-router.get('/admin/pages', authMiddleware, adminMiddleware, async (req, res) => {
+router.get('/admin/pages', requirePermission('wiki.access'), async (req, res) => {
     try {
         const result = await wiki.listPages({
             status: req.query.status || 'all',
@@ -183,7 +183,7 @@ router.get('/admin/pages', authMiddleware, adminMiddleware, async (req, res) => 
 });
 
 /** 管理端：最近的全站版本记录 */
-router.get('/admin/revisions', authMiddleware, adminMiddleware, async (req, res) => {
+router.get('/admin/revisions', requirePermission('wiki.access'), async (req, res) => {
     try {
         res.json({ ok: true, revisions: await wiki.listRecentRevisions(req.query.limit || 50) });
     } catch (e) {
@@ -260,7 +260,7 @@ router.post('/', authMiddleware, async (req, res) => {
     try {
         validatePayload(req.body);
         const body = req.body || {};
-        if (req.userLevel >= 1) {
+        if (hasPermission(req, 'wiki.page.create')) {
             const page = await wiki.createPage({ ...body, status: body.status || 'published' }, req.userId);
             if (page.status === 'published' && body.notify) await notifyWikiPublish(page, req.userId);
             return res.status(201).json({ ok: true, message: '页面已创建', page });
@@ -304,7 +304,7 @@ router.post('/preview', authMiddleware, async (req, res) => {
 });
 
 /** 新建分类 */
-router.post('/categories', authMiddleware, adminMiddleware, async (req, res) => {
+router.post('/categories', requirePermission('wiki.category.manage'), async (req, res) => {
     try {
         const cat = await wiki.createCategory(req.body || {}, req.userId);
         res.status(201).json({ ok: true, message: '分类已创建', category: cat });
@@ -314,7 +314,7 @@ router.post('/categories', authMiddleware, adminMiddleware, async (req, res) => 
 });
 
 /** 更新分类 */
-router.put('/categories/:id', authMiddleware, adminMiddleware, async (req, res) => {
+router.put('/categories/:id', requirePermission('wiki.category.manage'), async (req, res) => {
     try {
         const cat = await wiki.updateCategory(req.params.id, req.body || {});
         res.json({ ok: true, message: '分类已更新', category: cat });
@@ -324,7 +324,7 @@ router.put('/categories/:id', authMiddleware, adminMiddleware, async (req, res) 
 });
 
 /** 删除分类（超管） */
-router.delete('/categories/:id', authMiddleware, superAdminMiddleware, async (req, res) => {
+router.delete('/categories/:id', requirePermission('wiki.category.delete'), async (req, res) => {
     try {
         await wiki.deleteCategory(req.params.id);
         res.json({ ok: true, message: '分类已删除' });
@@ -334,7 +334,7 @@ router.delete('/categories/:id', authMiddleware, superAdminMiddleware, async (re
 });
 
 /** 读取自动审核配置（apiKey 只回显是否已配置 + 末 4 位） */
-router.get('/review-config', authMiddleware, adminMiddleware, async (req, res) => {
+router.get('/review-config', requirePermission('wiki.review.config'), async (req, res) => {
     try {
         res.json({ ok: true, config: glm.publicConfig(await glm.getConfig()) });
     } catch (e) {
@@ -343,7 +343,7 @@ router.get('/review-config', authMiddleware, adminMiddleware, async (req, res) =
 });
 
 /** 保存自动审核配置（apiKey 传空字符串 = 不改动；传 null = 清空） */
-router.put('/review-config', authMiddleware, adminMiddleware, async (req, res) => {
+router.put('/review-config', requirePermission('wiki.review.config'), async (req, res) => {
     try {
         const b = req.body || {};
         const patch = {};
@@ -360,7 +360,7 @@ router.put('/review-config', authMiddleware, adminMiddleware, async (req, res) =
 });
 
 /** 测试 GLM 连通性 */
-router.post('/review-config/test', authMiddleware, adminMiddleware, async (req, res) => {
+router.post('/review-config/test', requirePermission('wiki.review.config'), async (req, res) => {
     try {
         const r = await glm.testConnection();
         res.json({ ok: r.ok, result: r });
@@ -378,7 +378,7 @@ router.put('/:id', authMiddleware, async (req, res) => {
         const page = await wiki.getPageById(id);
         if (!page) return res.status(404).json({ error: '页面不存在' });
 
-        if (req.userLevel >= 1) {
+        if (hasPermission(req, 'wiki.page.edit')) {
             const saved = await wiki.updatePage(id, body, req.userId, body.revision_note);
             return res.json({ ok: true, message: '页面已保存', page: saved });
         }
@@ -410,7 +410,7 @@ router.put('/:id', authMiddleware, async (req, res) => {
 });
 
 /** 删除页面（超管：彻底删除，连带版本与内链） */
-router.delete('/:id', authMiddleware, superAdminMiddleware, async (req, res) => {
+router.delete('/:id', requirePermission('wiki.page.delete'), async (req, res) => {
     try {
         const page = await wiki.getPageById(req.params.id);
         if (!page) return res.status(404).json({ error: '页面不存在' });
@@ -423,7 +423,7 @@ router.delete('/:id', authMiddleware, superAdminMiddleware, async (req, res) => 
 });
 
 /** 发布 */
-router.post('/:id/publish', authMiddleware, adminMiddleware, async (req, res) => {
+router.post('/:id/publish', requirePermission('wiki.page.review'), async (req, res) => {
     try {
         const page = await wiki.setPageStatus(req.params.id, 'published', req.userId);
         const notified = req.body?.notify ? await notifyWikiPublish(page, req.userId) : 0;
@@ -434,7 +434,7 @@ router.post('/:id/publish', authMiddleware, adminMiddleware, async (req, res) =>
 });
 
 /** 归档 */
-router.post('/:id/archive', authMiddleware, adminMiddleware, async (req, res) => {
+router.post('/:id/archive', requirePermission('wiki.page.review'), async (req, res) => {
     try {
         const page = await wiki.setPageStatus(req.params.id, 'archived', req.userId);
         res.json({ ok: true, message: '页面已归档', page });
@@ -444,7 +444,7 @@ router.post('/:id/archive', authMiddleware, adminMiddleware, async (req, res) =>
 });
 
 /** 从归档恢复（回到草稿，管理员再决定是否发布） */
-router.post('/:id/restore', authMiddleware, adminMiddleware, async (req, res) => {
+router.post('/:id/restore', requirePermission('wiki.page.review'), async (req, res) => {
     try {
         const target = req.body?.status === 'published' ? 'published' : 'draft';
         const page = await wiki.setPageStatus(req.params.id, target, req.userId);
@@ -455,7 +455,7 @@ router.post('/:id/restore', authMiddleware, adminMiddleware, async (req, res) =>
 });
 
 /** 恢复某个历史版本（会生成一条新 revision，不覆盖历史） */
-router.post('/:id/revisions/:revisionId/restore', authMiddleware, adminMiddleware, async (req, res) => {
+router.post('/:id/revisions/:revisionId/restore', requirePermission('wiki.revision.restore'), async (req, res) => {
     try {
         const page = await wiki.restoreRevision(req.params.id, req.params.revisionId, req.userId);
         logger.info(`Wiki 恢复历史版本：页面 #${req.params.id} ← 版本 #${req.params.revisionId}（操作者 ${req.userId}）`);
@@ -628,7 +628,7 @@ router.get('/submissions/mine', authMiddleware, async (req, res) => {
 });
 
 /** 待审数量（后台红点 / 导航提示） */
-router.get('/submissions/pending-count', authMiddleware, adminMiddleware, async (req, res) => {
+router.get('/submissions/pending-count', requirePermission('wiki.access'), async (req, res) => {
     try {
         res.json({ ok: true, count: await wiki.pendingSubmissionCount() });
     } catch (e) {
@@ -637,7 +637,7 @@ router.get('/submissions/pending-count', authMiddleware, adminMiddleware, async 
 });
 
 /** 待审队列 */
-router.get('/submissions', authMiddleware, adminMiddleware, async (req, res) => {
+router.get('/submissions', requireAnyPermission(['wiki.access', 'wiki.page.review']), async (req, res) => {
     try {
         const out = await wiki.listSubmissions({
             status: req.query.status || 'pending',
@@ -654,7 +654,7 @@ router.get('/submissions', authMiddleware, adminMiddleware, async (req, res) => 
 });
 
 /** 提交单详情（含待审正文与"当前线上正文"，供对比；附作者回赠情况给管理员参考） */
-router.get('/submissions/:id', authMiddleware, adminMiddleware, async (req, res) => {
+router.get('/submissions/:id', requireAnyPermission(['wiki.access', 'wiki.page.review']), async (req, res) => {
     try {
         const sub = await wiki.getSubmissionById(req.params.id);
         if (!sub) return res.status(404).json({ error: '提交不存在' });
@@ -676,7 +676,7 @@ router.get('/submissions/:id', authMiddleware, adminMiddleware, async (req, res)
 });
 
 /** 通过（可同时发放贡献点回赠；AI 建议只作参考，最终值由管理员定） */
-router.post('/submissions/:id/approve', authMiddleware, adminMiddleware, async (req, res) => {
+router.post('/submissions/:id/approve', requirePermission('wiki.page.review'), async (req, res) => {
     try {
         const out = await wiki.approveSubmission(req.params.id, req.userId, req.body?.note || '');
         let reward = null;
@@ -697,7 +697,7 @@ router.post('/submissions/:id/approve', authMiddleware, adminMiddleware, async (
 });
 
 /** 补发贡献点（自动通过的投稿事后由管理员补分；幂等，已发过会返回 already） */
-router.post('/submissions/:id/reward', authMiddleware, adminMiddleware, async (req, res) => {
+router.post('/submissions/:id/reward', requirePermission('wiki.page.review'), async (req, res) => {
     try {
         const sub = await wiki.getSubmissionById(req.params.id);
         if (!sub) return res.status(404).json({ error: '提交不存在' });
@@ -715,7 +715,7 @@ router.post('/submissions/:id/reward', authMiddleware, adminMiddleware, async (r
 });
 
 /** 驳回 */
-router.post('/submissions/:id/reject', authMiddleware, adminMiddleware, async (req, res) => {
+router.post('/submissions/:id/reject', requirePermission('wiki.page.review'), async (req, res) => {
     try {
         const sub = await wiki.rejectSubmission(req.params.id, req.userId, req.body?.note || '');
         await notifySubmitterReviewed(sub, false, false);

@@ -6,6 +6,7 @@ const crypto = require('crypto');
 const db = require('../database');
 const { getLocalTimestamp } = require('../database');
 const { JWT_SECRET, authMiddleware } = require('../middleware/auth');
+const perms = require('../lib/permissions');
 const { sendVerificationCode, sendAbnormalLoginAlert } = require('../config/mail');
 const router = express.Router();
 
@@ -38,6 +39,34 @@ async function countRecentFailures(username) {
 // 生成6位验证码
 function generateCode() {
     return crypto.randomInt(100000, 999999).toString();
+}
+
+/**
+ * 给用户对象附加实时权限字段（登录/QQ 回调与 /me 保持同一形状，前端可直接读权限）
+ * 无贡献点经济资格时不返回余额（余额与流水不可见，但数据本身保留）。
+ */
+async function withPermissions(user) {
+    if (!user) return user;
+    try {
+        const ctx = await perms.resolveUser(user.id);
+        if (!ctx) return user;
+        const out = { ...user };
+        out.level = ctx.level;
+        out.permissions = ctx.permissions;
+        out.roles = ctx.roles.map(r => ({
+            id: r.id, key: r.key, name: r.name, scope: r.scope, module: r.module,
+            status: r.status, active: r.status === 'ACTIVE'
+        }));
+        out.economy = ctx.economy;
+        out.economy_access = ctx.economy.access;
+        out.is_permission_admin = perms.isPermissionAdmin(ctx);
+        out.frozen = ctx.frozen;
+        if (!ctx.economy.access) out.contribution = null;
+        return out;
+    } catch (e) {
+        logger.error('附加用户权限字段失败:', e.message);
+        return user;
+    }
 }
 
 // 发送验证码
@@ -187,7 +216,7 @@ router.post('/login', async (req, res) => {
         res.json({
             message: '登录成功',
             token,
-            user
+            user: await withPermissions(user)
         });
     } catch (error) {
         logger.error('登录错误:', error);
@@ -222,6 +251,23 @@ router.get('/me', authMiddleware, async (req, res) => {
         user.qq_bound = !!(user.openid && user.openid !== '');
         user.email_bound = !!(user.email && user.email.trim() !== '');
         delete user.openid;
+
+        // ===== 权限体系：实时有效权限（JWT 只做身份，权限以数据库最新结果为准）=====
+        const ctx = req.permCtx;
+        if (ctx) {
+            user.level = ctx.level;
+            user.permissions = ctx.permissions;
+            user.roles = ctx.roles.map(r => ({
+                id: r.id, key: r.key, name: r.name, scope: r.scope, module: r.module,
+                status: r.status, active: r.status === 'ACTIVE'
+            }));
+            user.economy = ctx.economy;
+            user.economy_access = ctx.economy.access;
+            user.is_permission_admin = perms.isPermissionAdmin(ctx);
+            user.frozen = ctx.frozen;
+            // 没有贡献点经济资格时：不返回余额（余额/流水不得可见；数据本身仍保留在库中）
+            if (!ctx.economy.access) user.contribution = null;
+        }
 
         res.json(user);
     } catch (error) {
@@ -657,6 +703,7 @@ router.get('/qq/callback', async (req, res) => {
         delete safeUser.password;
         safeUser.qq_bound = true;
         safeUser.email_bound = !!(user.email && user.email.trim() !== '');
+        const enrichedUser = await withPermissions(safeUser);
 
         // 返回HTML页面，前端自动保存登录态后跳转
         const redirect = msg || '/';
@@ -674,7 +721,7 @@ router.get('/qq/callback', async (req, res) => {
     </div>
     <script>
         localStorage.setItem('token', ${JSON.stringify(token)});
-        localStorage.setItem('user', ${JSON.stringify(safeUser)});
+        localStorage.setItem('user', ${JSON.stringify(enrichedUser)});
         window.location.href = ${JSON.stringify(redirect)};
     </script>
 </body>
