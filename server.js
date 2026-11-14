@@ -145,7 +145,13 @@ if (!require('fs').existsSync(uploadsPath)) {
 }
 app.use('/uploads', express.static(uploadsPath));
 
+// ============ 权限体系：经济资格中央闸门 ============
+// 贡献点经济资格由角色决定；所有贡献点变更/读取入口在路由前统一校验，防止绕过前端直接调接口。
+// 只拦截 lib/permissions/economy.js 规则表命中的路径，其余请求直接放行。
+app.use('/api', require('./lib/permissions').economyGate);
+
 // API路由
+app.use('/api/permissions', require('./routes/permissions'));
 app.use('/api/auth', authRoutes);
 app.use('/api/posts', postRoutes);
 app.use('/api/admin', adminRoutes);
@@ -200,6 +206,11 @@ app.use('/api/market', marketRoutes);
 // 集市短链：/q/<code> → 店铺/商品/地图页（二维码扫出来的地址）
 app.use('/q', marketRoutes.shortRouter);
 
+// 玄剑 GIS（世界地理信息系统）：矢量按需加载、编辑审核、地形与历史，API 契约见 docs/gis-api.md
+// 说明：GIS 路由不依赖前端构建产物，单独 mount，便于与站点其它模块解耦。
+const gisRoutes = require('./routes/gis');
+app.use('/api/gis', gisRoutes);
+
 // ============ React前端（frontend/dist）托管 ============
 const frontendDist = path.join(__dirname, 'frontend', 'dist');
 // 带版本hash的构建产物：长缓存
@@ -244,6 +255,9 @@ const server = app.listen(PORT, () => {
 // WebSocket 实时通知
 const { initRealtime } = require('./lib/realtime');
 initRealtime(server);
+
+// 玄剑 GIS 异步任务（地形重计算/快照）轮询启动；失败不影响站点启动
+require('./lib/gis').startJobs();
 
 // SSR/SSG 预热：提前加载服务端渲染产物，避免首个请求变慢（失败自动退回纯 SPA）
 ssr.warmup().then(r => {
