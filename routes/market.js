@@ -824,12 +824,16 @@ router.post('/merchant/stores/:id/locations', authMiddleware, async (req, res) =
         const b = req.body || {};
         const dims = ['overworld', 'nether', 'end', 'custom'];
         const dimension = dims.includes(b.dimension) ? b.dimension : 'overworld';
+        // GIS 关联字段（可选、可空）：只做可选关联，不改动地点本身的权威数据
+        const gisWorldId = Number.isInteger(Number(b.world_id)) && Number(b.world_id) > 0 ? Number(b.world_id) : null;
+        const gisMarkerId = Number.isInteger(Number(b.gis_marker_id)) && Number(b.gis_marker_id) > 0 ? Number(b.gis_marker_id) : null;
         const r = await db.run(
-            `INSERT INTO market_store_locations (store_id, server_key, server_name, dimension, dimension_custom, x, y, z, label, note, is_public, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            `INSERT INTO market_store_locations (store_id, server_key, server_name, dimension, dimension_custom, x, y, z, label, note, is_public, world_id, gis_marker_id, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [store.id, String(b.server_key || 's115').slice(0, 40), String(b.server_name || '').slice(0, 60), dimension,
                 String(b.dimension_custom || '').slice(0, 40), Number(b.x) || 0, Number(b.y) || 64, Number(b.z) || 0,
-                String(b.label || '').slice(0, 40), String(b.note || '').slice(0, 200), b.is_public === false ? 0 : 1, market.now(), market.now()]
+                String(b.label || '').slice(0, 40), String(b.note || '').slice(0, 200), b.is_public === false ? 0 : 1,
+                gisWorldId, gisMarkerId, market.now(), market.now()]
         );
         res.status(201).json({ ok: true, location: await db.get('SELECT * FROM market_store_locations WHERE id = ?', [r.id]) });
     } catch (e) { fail(res, e, '添加位置失败'); }
@@ -842,9 +846,16 @@ router.put('/merchant/locations/:id', authMiddleware, async (req, res) => {
         const isAdmin = Number(req.userLevel) >= 1;
         if (!store || (Number(store.owner_id) !== Number(req.userId) && !isAdmin)) return res.status(403).json({ error: '无权修改' });
         const b = req.body || {};
+        // GIS 关联字段（可选、可空）：world_id / gis_marker_id 仅做空间关联，不改变地点权威数据
+        const gisWorldId = b.world_id !== undefined
+            ? (Number.isInteger(Number(b.world_id)) && Number(b.world_id) > 0 ? Number(b.world_id) : null)
+            : (loc.world_id === undefined ? null : loc.world_id);
+        const gisMarkerId = b.gis_marker_id !== undefined
+            ? (Number.isInteger(Number(b.gis_marker_id)) && Number(b.gis_marker_id) > 0 ? Number(b.gis_marker_id) : null)
+            : (loc.gis_marker_id === undefined ? null : loc.gis_marker_id);
         await db.run(
             `UPDATE market_store_locations SET server_key = ?, server_name = ?, dimension = ?, dimension_custom = ?, x = ?, y = ?, z = ?,
-                label = ?, note = ?, is_public = ?, updated_at = ? WHERE id = ?`,
+                label = ?, note = ?, is_public = ?, world_id = ?, gis_marker_id = ?, updated_at = ? WHERE id = ?`,
             [b.server_key !== undefined ? String(b.server_key).slice(0, 40) : loc.server_key,
                 b.server_name !== undefined ? String(b.server_name).slice(0, 60) : loc.server_name,
                 b.dimension !== undefined && market.DIMENSIONS[b.dimension] ? b.dimension : loc.dimension,
@@ -853,6 +864,7 @@ router.put('/merchant/locations/:id', authMiddleware, async (req, res) => {
                 b.label !== undefined ? String(b.label).slice(0, 40) : loc.label,
                 b.note !== undefined ? String(b.note).slice(0, 200) : loc.note,
                 b.is_public !== undefined ? (b.is_public ? 1 : 0) : loc.is_public,
+                gisWorldId, gisMarkerId,
                 market.now(), loc.id]
         );
         res.json({ ok: true, location: await db.get('SELECT * FROM market_store_locations WHERE id = ?', [loc.id]) });
