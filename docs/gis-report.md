@@ -488,6 +488,17 @@ palette 一致性（已知 CRC32 向量、hash16、颜色格式、水面/材质/
 
 **测试**：`gis-map-canvas` 扩到 **15/15**；全量 **97/97**（api 50、migration 7、terrain 15、market 10、canvas 15）。
 
+**部署与生产验证（tag `20261115-gis-regions` → `20261115-gis-regions2`）**
+- 第一轮（`regions`）上线后发现生产数据仍在增长，紫雪城 chunk 数（222）反超工业区（205），若严格按「最大 chunk 区域」当默认，会把默认视野落在紫雪城而非主城区。因此第二轮（`regions2`）把默认「主城区」选择改为**启发式**：`objectCount`（区域内已发布对象数）降序 → `firstSeen`（该区域最早采集时间）升序 → chunk 数降序；`region` 增加 `objectCount / firstSeen` 字段（`regions` 数组本身仍按 chunkCount 降序，符合契约）。
+- 迁移 dry-run：12/12 已应用、0 pending；`node --check` 5/5；SSG 116 页；`pm2 restart` online。
+- 生产接口实测：
+  - `map/index`：`chunkCount=431~435、outlierChunks=213~217、regions=[紫雪城(222, districtId=2, objects=1, firstSeen 11-15), 工业区(205, districtId=1, objects=1, firstSeen 11-14), 区域3(8, 无名)]`；
+  - `map/palette`：`version=2, blockColors=1311, blocks=2583, transparent=16, water=12, unknown=#7A7A7A`；
+  - `palette?withUnknown=1`：扫描 427+ chunk / 109,312+ 采样，**未知率 0%**；
+  - `/gis` 真机：默认选中「工业区（205 chunk）」，视野 X2368/Z123040（不再 11 万方块空白）、彩色底图正常；区域下拉切「紫雪城（222 chunk）」→ 跳到 X117840/Z-52690，方块底图正常、城区多边形叠加；
+  - 旧数据核对：集市地点 2 行逐字节一致、`integrity_check=ok`、worlds 不变、GIS 错误日志 0。
+- 截图：`browser-screenshots/gis-prod-region-main.png`（生产默认主城区）、`browser-screenshots/gis-prod-region-zixue.png`（切到紫雪城）、`gis-region-main-default.png`（本地核验默认选中）。
+
 ---
 
 ## 11. 文件清单（本次新增/修改）
