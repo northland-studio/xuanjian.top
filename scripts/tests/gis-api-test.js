@@ -293,10 +293,16 @@ async function main() {
         assert.ok(r.json.limits.maxChunkBatch === 64);
     });
 
-    await runner.test('Level 0 普通成员（仅 gis.submit）也能 bootstrap（客户端采集入口）', async () => {
+    await runner.test('Level 0 普通成员（gis.submit + gis.access）也能 bootstrap（客户端采集入口）', async () => {
         const r = await api.get('/api/gis/client/bootstrap?serverKey=yl', { token: normalToken });
         expect.ok(r);
         assert.ok(r.json.contract === 1);
+    });
+
+    await runner.test('Level 0 普通成员可调用 /client/sync（Level 0 基础权限含 gis.access）', async () => {
+        const r = await api.get(`/api/gis/client/sync?worldId=${worldId}&dimension=overworld&since=0`, { token: normalToken });
+        expect.ok(r);
+        assert.ok(Array.isArray(r.json.objects), 'sync 应返回 objects 数组');
     });
 
     await runner.test('resolve-world 兼容命名空间维度（minecraft:overworld / the_nether）', async () => {

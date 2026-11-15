@@ -57,9 +57,10 @@ const h = require('./permissions-harness');
         r = await api('GET', '/api/permissions/roles', { token: member.token });
         t.check('Level 0 无法进入权限中心', r.status === 403, r.status);
         r = await api('GET', '/api/auth/me', { token: member.token });
-        t.check('Level 0 /me 仅含基础权限 gis.submit（可提交 GIS 草稿，不能发布/审核）',
+        t.check('Level 0 /me 仅含基础权限 gis.submit + gis.access（可采集上传/同步 GIS，不能发布/审核）',
             r.status === 200 && Array.isArray(r.data.permissions)
-            && r.data.permissions.length === 1 && r.data.permissions[0] === 'gis.submit',
+            && r.data.permissions.length === 2
+            && r.data.permissions.includes('gis.submit') && r.data.permissions.includes('gis.access'),
             r.data && r.data.permissions);
         t.check('Level 0 不含 gis.object.review / gis.road.edit 等管理权限',
             !r.data.permissions.includes('gis.object.review') && !r.data.permissions.includes('gis.road.edit'),
