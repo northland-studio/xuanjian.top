@@ -155,7 +155,32 @@ GET /api/gis/map/index?worldId=3
 
 ---
 
-## 7. 附录：客户端参考实现（Java 伪代码，供 xuanjian-map-mod 对齐）
+## 7. 数据区域（region）聚类与命名（2026-11-15 第二轮）
+
+**背景**：一个世界/维度里可能存在**多块合法但相距很远**的采集区域（如主城区 + 紫雪城）。若把整体 bbox 当成「数据范围」，地图会缩放到十几万方块、绝大部分是空的，用户看到「一片黑」。
+
+**实现**：`lib/gis/regions.js`
+
+- 对 `(worldId, dimension)` 的所有 chunk 做**连通聚类**：chunk 网格上 Chebyshev 距离 ≤ 8（128 方块）归为同一区域（9×9 分桶 + 并查集，10 万级 chunk 仍快）；
+- 每个区域返回 `{id, bbox, chunkCount, centerX, centerZ, surfaceChunks, fallbackChunks, districtId, districtName}`，按 `chunkCount` 降序（`id=1` 为最大区域）；
+- **命名**：与 `gis_published` 中 `object_type='district'` 的几何 bbox **相交/包含**时取重叠面积最大的城区名（`districtId`+`districtName`）；无命中保持空名，前端用「主城区 / 区域 N」中性名（不编造）；
+- 结果缓存 60s，签名包含 chunk 数与 published district 数（城区发布/改名后自动刷新）；
+- `/api/gis/map/index` 每个维度返回 `regions` 与 `outlierChunks`（= 非最大区域 chunk 数，**不是脏数据**）；整体 `bbox` 仍覆盖全部数据，远区不丢弃；
+- 前端「定位到数据」与自动视野 = **最大区域 bbox**；顶部新增「区域」下拉（`工业区（201 chunk）` / `紫雪城（152 chunk）` / `区域 3（8 chunk，X… Z…）`），切换即跳到该区域并按需加载。
+
+---
+
+## 8. 调色板覆盖扩展（2026-11-15 第二轮）
+
+- `lib/gis/block-colors.json` 由 `scripts/gis-gen-block-colors.js` 生成：覆盖 **1311 个 vanilla 方块**（≥300 要求已超额），常用地表/建材/水/植被给接近材质主色，阶梯/台阶/墙/门等功能方块继承基础材质色；认不出的落灰（`#7A7A7A`）。
+- **hash 双登记**：每个方块同时登记 `CRC32("minecraft:x")&0xFFFF`（契约）与 `CRC32("x")&0xFFFF`（当前客户端实际输出）两种 hash，颜色一致 → 线上历史数据不会变灰；`blockNames` 可反查。
+- 空气类（`air/cave_air/void_air/barrier/light/structure_void` 等）登记为 `transparent`，浏览器画透明（不是灰色/黑色）。
+- 未知 hash 使用 `materials.unknown = #7A7A7A`（灰、非黑），并可通过 `GET /api/gis/map/palette?withUnknown=1[&worldId=&dimension=]` 返回 `unknownSurfaceStats`（扫描数、总样本、未登记样本率、Top 100 未登记 hash），便于增量补色。
+- 实测：生产 361 个 surface chunk、92,416 个采样点 **未知率 0%**（此前 22 种 hash 未登记、主导方块占 49%）。
+
+---
+
+## 9. 附录：客户端参考实现（Java 伪代码，供 xuanjian-map-mod 对齐）
 
 ```java
 // 1) 方块 hash（与 zlib.crc32 / 服务端 map-palette.crc32 一致）

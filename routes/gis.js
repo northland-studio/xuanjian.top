@@ -535,12 +535,21 @@ router.get('/jobs/:id', requirePermission(PERMISSIONS.access), wrap(async (req, 
  * 契约：docs/gis-canvas-map.md
  * ================================================================== */
 
-/** 调色板：hash16 → 颜色 / 水面 / 群系兜底 / 高度色带（公开读，可长缓存） */
-router.get('/map/palette', (req, res) => {
+/** 调色板：hash16 → 颜色 / 水面 / 群系兜底 / 高度色带（公开读，可长缓存）
+ *  ?withUnknown=1[&worldId=&dimension=] 额外返回「未登记 hash 统计」，便于增量补色排查。 */
+router.get('/map/palette', wrap(async (req, res) => {
     res.set('Cache-Control', 'public, max-age=3600');
     res.set('ETag', `W/"gis-palette-v${mapPalette.PALETTE_VERSION}"`);
-    res.json({ ok: true, ...mapPalette.getPalette() });
-});
+    const body = { ok: true, ...mapPalette.getPalette() };
+    if (String(req.query.withUnknown || '') === '1') {
+        const stats = await map.getUnknownSurfaceStats({
+            worldId: req.query.worldId ? Number(req.query.worldId) : null,
+            dimension: req.query.dimension || null
+        });
+        body.unknownSurfaceStats = stats;
+    }
+    res.json(body);
+}));
 
 /** 视野区块数据：bbox 必填 + lod 抽样；只返回已采集区块，未采集透明 */
 router.get('/map/chunks', wrap(async (req, res) => {
@@ -554,12 +563,22 @@ router.get('/map/chunks', wrap(async (req, res) => {
     res.json({ ok: true, ...data, serverTime: worlds.localTs() });
 }));
 
-/** 覆盖度索引：判断方块底图是否可用（该维度 chunkCount=0 时前端自动隐藏图层） */
+/** 覆盖度索引：各维度 chunk 数 / surface 数 / 区域聚类（regions）/ 最大区域外的 chunk 数 */
 router.get('/map/index', wrap(async (req, res) => {
     const worldId = geo.parseId(req.query.worldId, 'worldId');
+    const dimension = req.query.dimension ? String(req.query.dimension) : null;
+    if (dimension && !DIMENSIONS.includes(dimension)) throw errors.invalid('dimension 不合法', 'dimension');
     const data = await map.getIndex({ worldId });
+    const body = { ok: true, ...data, limits: { maxBboxArea: map.MAP_MAX_BBOX_AREA, maxChunks: map.MAP_MAX_CHUNKS, maxLod: map.MAP_MAX_LOD } };
+    if (dimension) {
+        const dim = data.dimensions[dimension] || null;
+        body.dimension = dimension;
+        body.regions = dim ? dim.regions : [];
+        body.outlierChunks = dim ? dim.outlierChunks : 0;
+        body.bbox = dim ? dim.bbox : null;
+    }
     res.set('Cache-Control', 'public, max-age=60');
-    res.json({ ok: true, ...data, limits: { maxBboxArea: map.MAP_MAX_BBOX_AREA, maxChunks: map.MAP_MAX_CHUNKS, maxLod: map.MAP_MAX_LOD } });
+    res.json(body);
 }));
 
 /* ==================================================================

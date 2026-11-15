@@ -45,12 +45,13 @@ async function main() {
         } catch (e) { /* ignore */ }
     });
 
-    await runner.test('GET /map/palette：颜色/水面/材质/高度色带齐全且格式合法', async () => {
+    await runner.test('GET /map/palette：颜色/水面/材质/高度色带齐全且格式合法（覆盖 >=300 项）', async () => {
         const r = await api.get('/api/gis/map/palette');
         expect.ok(r);
         const p = r.json;
-        assert.strictEqual(p.version, 1);
-        assert.ok(Object.keys(p.blocks).length > 50, '常用方块颜色应 >= 50');
+        assert.strictEqual(p.version, 2);
+        assert.ok(p.stats.blockColors >= 300, `vanilla 方块色表应 >=300 项，实际 ${p.stats.blockColors}`);
+        assert.ok(Object.keys(p.blocks).length >= 600, 'hash 条目（含命名空间别名）应 >=600');
         for (const [hash, color] of Object.entries(p.blocks)) {
             assert.ok(/^\d+$/.test(hash), `hash key 应为十进制字符串：${hash}`);
             assert.ok(/^#[0-9a-fA-F]{6}$/.test(color), `颜色格式不合法：${color}`);
@@ -68,6 +69,120 @@ async function main() {
         // 响应不应包含任何图片编码
         assert.ok(!JSON.stringify(p).includes('data:image'), '调色板不应含图片数据');
     });
+
+    await runner.test('palette：未知 hash 落灰（非黑）、空气透明、命名空间别名兼容生产数据', async () => {
+        const p = palette.getPalette();
+        // 1) 未知 hash 不登记颜色 → 客户端使用 materials.unknown，且必须不是黑色
+        const unknownHash = 0xFFFE;
+        assert.strictEqual(p.blocks[String(unknownHash)], undefined, '未登记 hash 不应有颜色');
+        assert.ok(/^#[0-9a-fA-F]{6}$/.test(p.materials.unknown));
+        assert.notStrictEqual(p.materials.unknown.toLowerCase(), '#000000', '未知方块兜底色不能是黑色');
+        // 2) 空气类必须标记为透明（否则稀疏列会画成灰）
+        assert.strictEqual(p.transparent[String(palette.hash16('minecraft:air'))], true);
+        assert.strictEqual(p.transparent[String(palette.hash16('air'))], true);
+        // 3) 生产数据用「无命名空间路径」hash：必须命中颜色（兼容别名）
+        const prodSamples = { water: 5338, dirt: 57782, grass_block: 29901 };
+        for (const [name, hash] of Object.entries(prodSamples)) {
+            assert.strictEqual(palette.hash16(name), hash, `${name} 的 path-only hash 应稳定`);
+            assert.ok(p.blocks[String(hash)], `${name} 的 path-only hash ${hash} 应命中颜色`);
+            assert.strictEqual(p.blocks[String(hash)], p.blocks[String(palette.hash16(`minecraft:${name}`))], '两种 hash 颜色应一致');
+        }
+        // 4) 回归：契约 hash（带命名空间）同样命中
+        assert.ok(p.blocks[String(palette.hash16('minecraft:grass_block'))]);
+    });
+
+    let regionWorldId = null;
+    await runner.test('数据区域聚类：主区域 60 chunk + 远区 3 chunk → 2 个 region，远区单独成块', async () => {
+        await worlds.registerServer({ serverKey: 'region-srv', serverName: 'region-srv', mcVersion: '1.21.11' });
+        const w = await worlds.registerWorld({ worldKey: `region-${Date.now()}`, serverKey: 'region-srv', serverName: 'region-srv', mcVersion: '1.21.11', status: 'ACTIVE' });
+        regionWorldId = w.id;
+        const chunks = [];
+        const make = (cx, cz, surfaceHash) => {
+            const heights = new Array(256).fill(70);
+            const surface = new Array(256).fill(surfaceHash);
+            return { chunkX: cx, chunkZ: cz, sampleStep: 1, sampleSize: 16, heights, surface };
+        };
+        // 主区域：10×6 = 60 个连续 chunk（X 1600~1760 / Z 0~96）
+        for (let cx = 100; cx < 110; cx++) for (let cz = 0; cz < 6; cz++) chunks.push(make(cx, cz, GRASS));
+        // 远区（合法数据，如紫雪城区）：3 个连续 chunk，距离主城 10 万方块
+        const FAR = [[7365, -3290], [7365, -3291], [7366, -3290]];
+        for (const [cx, cz] of FAR) chunks.push(make(cx, cz, STONE));
+        await terrain.storeChunks({ worldId: w.id, dimension: 'overworld', chunks }, {});
+
+        const idx = await map.getIndex({ worldId: w.id });
+        const dim = idx.dimensions.overworld;
+        assert.strictEqual(dim.chunkCount, 63);
+        assert.ok(Array.isArray(dim.regions), 'map/index 应返回区域聚类');
+        assert.strictEqual(dim.regions.length, 2, '应为 2 个独立区域');
+        // 首个区域 = 最大区域（60 chunk），且不包含远区
+        assert.strictEqual(dim.regions[0].chunkCount, 60);
+        assert.strictEqual(dim.regions[0].bbox.minX, 1600);
+        assert.strictEqual(dim.regions[0].bbox.maxX, 1760);
+        assert.ok(dim.regions[0].bbox.minZ >= 0 && dim.regions[0].bbox.maxZ <= 96);
+        // 远区 bbox 正确（X≈117,840 / Z≈-52,640）
+        assert.strictEqual(dim.regions[1].chunkCount, 3);
+        assert.strictEqual(dim.regions[1].bbox.minX, 7365 * 16);
+        assert.strictEqual(dim.regions[1].bbox.maxX, 7366 * 16 + 16);
+        assert.strictEqual(dim.regions[1].bbox.minZ, -3291 * 16);
+        assert.strictEqual(dim.regions[1].bbox.maxZ, -3290 * 16 + 16);
+        // outlierChunks = 非最大区域 chunk 数（不是脏数据）
+        assert.strictEqual(dim.outlierChunks, 3);
+        // 整体 bbox 仍覆盖全部数据（远区不被丢弃）
+        assert.ok(dim.bbox.maxX >= 7366 * 16);
+        // HTTP 层：?dimension= 顶层便于前端直接消费
+        const r = await api.get(`/api/gis/map/index?worldId=${w.id}&dimension=overworld`);
+        expect.ok(r);
+        assert.strictEqual(r.json.regions.length, 2);
+        assert.strictEqual(r.json.outlierChunks, 3);
+    });
+
+    await runner.test('区域命名：published district bbox 相交 → districtId/districtName（无则不编造）', async () => {
+        assert.ok(regionWorldId, '区域聚类用例应先创建世界');
+        const insertDistrict = async (objectId, seq, name, minX, minZ, maxX, maxZ) => {
+            const payload = JSON.stringify({
+                type: 'district', id: objectId, worldId: regionWorldId, dimension: 'overworld',
+                name, status: 'PUBLISHED', revision: 1, publishedRevision: 1,
+                geometry: { type: 'Polygon', coordinates: [[[minX, minZ], [maxX, minZ], [maxX, maxZ], [minX, maxZ], [minX, minZ]]] }
+            });
+            await db.run(
+                `INSERT INTO gis_published (object_type, object_id, world_id, dimension, revision, seq, payload,
+                    min_x, max_x, min_z, max_z, deleted, updated_at)
+                 VALUES ('district', ?, ?, 'overworld', 1, ?, ?, ?, ?, ?, ?, 0, ?)`,
+                [objectId, regionWorldId, seq, payload, minX, maxX, minZ, maxZ, '2026-11-15 00:00:00']);
+        };
+        // 主区域：工业区（覆盖 X1600~1760 / Z0~96 的主簇）
+        await insertDistrict(11, 9001, '工业区', 1600, 0, 1760, 96);
+        // 远区：紫雪城（覆盖 X≈117840 / Z≈-52600 的远簇）
+        await insertDistrict(12, 9002, '紫雪城', 7365 * 16, -3291 * 16, 7366 * 16 + 16, -3290 * 16 + 16);
+        const idx = await map.getIndex({ worldId: regionWorldId });
+        const dim = idx.dimensions.overworld;
+        assert.strictEqual(dim.regions[0].districtId, 11, '主区域应命中工业区');
+        assert.strictEqual(dim.regions[0].districtName, '工业区');
+        assert.strictEqual(dim.regions[1].districtId, 12, '远区应命中紫雪城');
+        assert.strictEqual(dim.regions[1].districtName, '紫雪城');
+        // 未命中任何 district 的维度：不编造名字
+        const idxEmpty = await map.getIndex({ worldId: regionWorldId });
+        assert.ok(idxEmpty.dimensions.overworld.regions.every((r) => typeof r.districtName === 'string' || r.districtName === null));
+    });
+
+    await runner.test('palette?withUnknown=1：返回未登记 hash 统计（便于增量补色）', async () => {
+        await worlds.registerServer({ serverKey: 'unknown-srv', serverName: 'unknown-srv', mcVersion: '1.21.11' });
+        const w = await worlds.registerWorld({ worldKey: `unknown-${Date.now()}`, serverKey: 'unknown-srv', serverName: 'unknown-srv', mcVersion: '1.21.11', status: 'ACTIVE' });
+        const UNKNOWN = 0xABCD;
+        const heights = new Array(256).fill(64);
+        const surface = new Array(256).fill(UNKNOWN);
+        for (let i = 0; i < 128; i++) surface[i] = GRASS; // 一半已知
+        await terrain.storeChunks({ worldId: w.id, dimension: 'overworld', chunks: [{ chunkX: 0, chunkZ: 0, sampleStep: 1, sampleSize: 16, heights, surface }] }, {});
+        const r = await api.get(`/api/gis/map/palette?withUnknown=1&worldId=${w.id}&dimension=overworld`);
+        expect.ok(r);
+        const stats = r.json.unknownSurfaceStats;
+        assert.ok(stats, '应返回 unknownSurfaceStats');
+        assert.strictEqual(stats.unknownSamples, 128);
+        assert.ok(stats.totalSamples >= 256);
+        const item = stats.unknownBlocks.find((x) => x.hash === UNKNOWN);
+        assert.ok(item && item.count === 128, '应统计到未知 hash 0xABCD 128 个样本');
+    });
+
 
     await runner.test('v2 载荷：surfaceBlockMatrix 编解码往返 + 入库到 block_hist JSON', async () => {
         const heights = new Array(256).fill(70);

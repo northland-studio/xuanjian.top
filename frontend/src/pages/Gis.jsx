@@ -135,6 +135,36 @@ export default function Gis() {
     useEffect(() => {
         setLayers((l) => ({ ...l, blocks: blockAvailable }));
     }, [blockAvailable, worldId, dimension]);
+
+    /* ---------------- 数据区域（region）聚类：默认只看最大区域 ---------------- */
+    const regionList = useMemo(() => (mapDim && Array.isArray(mapDim.regions) ? mapDim.regions : []), [mapDim]);
+    const firstRegionId = regionList.length ? regionList[0].id : null;
+    const [activeRegionId, setActiveRegionId] = useState(null);
+    useEffect(() => {
+        // 世界/维度/索引变化：默认选最大区域（regions[0]）
+        setActiveRegionId(firstRegionId);
+    }, [worldId, dimension, firstRegionId]);
+    const activeRegion = useMemo(
+        () => regionList.find((r) => r.id === activeRegionId) || regionList[0] || null,
+        [regionList, activeRegionId]
+    );
+    /** 「定位到数据」/自动视野：优先最大区域，避免一次缩放到 11 万方块 */
+    const autoFitBbox = useMemo(() => {
+        const b = (activeRegion && activeRegion.bbox) || (regionList[0] && regionList[0].bbox);
+        if (b) return b;
+        return dataBbox || null;
+    }, [activeRegion, regionList, dataBbox]);
+    const regionLabel = useCallback((r, idx) => {
+        const name = r.districtName || (idx === 0 ? '主城区' : `区域 ${r.id}`);
+        if (r.districtName) return `${name}（${r.chunkCount} chunk）`;
+        if (idx === 0) return `${name}（${r.chunkCount} chunk）`;
+        return `${name}（${r.chunkCount} chunk，X${r.centerX} Z${r.centerZ}）`;
+    }, []);
+    const focusRegion = useCallback((id) => {
+        const r = regionList.find((x) => x.id === id);
+        setActiveRegionId(id);
+        if (r && mapRef.current) mapRef.current.fitBbox(r.bbox);
+    }, [regionList]);
     /** 图层开关：方块/矢量 → layers，地形类 → terrain */
     const toggleLayer = useCallback((key, value) => {
         if (key === 'contour' || key === 'hillshade' || key === 'missing') {
@@ -644,6 +674,13 @@ export default function Gis() {
                     <select className="form-select gis-select-sm" value={dimension} onChange={(e) => { setDimension(e.target.value); setSelected(null); setDetail(null); setHistory(null); }}>
                         {dimensions.map((d) => <option key={d} value={d}>{DIM_LABEL[d] || d}</option>)}
                     </select>
+                    {regionList.length > 0 && (
+                        <select className="form-select gis-select-sm gis-select-region" value={activeRegionId || ''}
+                            title={regionList.length > 1 ? '已采集多个数据区域，切换查看' : '当前维度的数据区域'}
+                            onChange={(e) => focusRegion(Number(e.target.value))}>
+                            {regionList.map((r, idx) => <option key={r.id} value={r.id}>{regionLabel(r, idx)}</option>)}
+                        </select>
+                    )}
                     <input className="form-input gis-input-xy" type="number" placeholder="X" value={jump.x}
                         onChange={(e) => setJump((j) => ({ ...j, x: e.target.value }))}
                         onKeyDown={(e) => { if (e.key === 'Enter') doJump(); }} />
@@ -651,9 +688,9 @@ export default function Gis() {
                         onChange={(e) => setJump((j) => ({ ...j, z: e.target.value }))}
                         onKeyDown={(e) => { if (e.key === 'Enter') doJump(); }} />
                     <button className="btn btn-secondary btn-sm" onClick={doJump}>跳转坐标</button>
-                    <button className="btn btn-secondary btn-sm" disabled={!dataBbox}
-                        title={dataBbox ? '缩放到当前世界/维度的已采集范围' : '当前世界/维度还没有采集数据'}
-                        onClick={() => { if (dataBbox && mapRef.current) mapRef.current.fitBbox(dataBbox); }}>定位到数据</button>
+                    <button className="btn btn-secondary btn-sm" disabled={!autoFitBbox}
+                        title={autoFitBbox ? '缩放到当前数据区域（默认最大区域）' : '当前世界/维度还没有采集数据'}
+                        onClick={() => { if (autoFitBbox && mapRef.current) mapRef.current.fitBbox(autoFitBbox); }}>定位到数据</button>
                 </div>
                 <div className="gis-topbar-right">
                     {drawButtons.map((b) => (
@@ -696,8 +733,11 @@ export default function Gis() {
                     {dataBbox && !history && !loadingObjects && currentObjectsCount === 0 && (
                         <div className="gis-banner">
                             <b>当前视野内没有对象。</b>
-                            当前世界/维度的已采集数据范围是 X {dataBbox.minX}~{dataBbox.maxX} / Z {dataBbox.minZ}~{dataBbox.maxZ}。
-                            <button className="btn btn-secondary btn-sm" onClick={() => mapRef.current && mapRef.current.fitBbox(dataBbox)}>定位到数据</button>
+                            {regionList.length > 1
+                                ? <>已采集 {regionList.length} 个数据区域，当前显示第 {regionList.findIndex((r) => r.id === (activeRegion && activeRegion.id)) + 1} 个（{activeRegion && activeRegion.districtName ? activeRegion.districtName : '最大区域'}，{activeRegion ? activeRegion.chunkCount : 0} chunk）。</>
+                                : <>当前数据区域范围是 X {autoFitBbox ? autoFitBbox.minX : dataBbox.minX}~{autoFitBbox ? autoFitBbox.maxX : dataBbox.maxX} / Z {autoFitBbox ? autoFitBbox.minZ : dataBbox.minZ}~{autoFitBbox ? autoFitBbox.maxZ : dataBbox.maxZ}。</>}
+                            <button className="btn btn-secondary btn-sm" onClick={() => autoFitBbox && mapRef.current && mapRef.current.fitBbox(autoFitBbox)}>定位到数据</button>
+                            {regionList.length > 1 && <span className="gis-dim">可用顶部「区域」下拉切换（如紫雪城区）。</span>}
                             <span className="gis-dim">或用顶部「跳转坐标」输入城区/标记的坐标。</span>
                         </div>
                     )}
@@ -732,7 +772,7 @@ export default function Gis() {
                         missingRects={terrain.missing ? missingRects : null}
                         marketPlaces={marketPlaces}
                         historyMode={!!history}
-                        autoFitBbox={dataBbox}
+                        autoFitBbox={autoFitBbox}
                         height="calc(100vh - 200px)"
                         zoomLabel={`缩放 ${zoom}`}
                     />

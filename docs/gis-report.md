@@ -24,7 +24,7 @@
 | Minecraft 客户端接入（采集/上传/同步） | ⏳ 未接入 | 契约与接口已就绪并有测试；模组侧上线后才有对象与高程数据 |
 | Xaero Overlay 渲染 | ⏳ 模组侧 | 结论见 §9 |
 
-**测试**：5 套自动化测试 **93/93 通过**（详见 §7、§12.4）。**部署**：主功能已 3 次上线并通过生产验证（详见 §8）；方块彩色地图待 Lead 确认窗口后部署（§12.5）。
+**测试**：5 套自动化测试 **97/97 通过**（详见 §7、§12.4、§12.7）。**部署**：主功能已 3 次上线并通过生产验证（详见 §8）；方块彩色地图 2 次上线（§12.5、§12.7）。
 
 ---
 
@@ -222,6 +222,7 @@ node scripts/tests/gis-market-test.js     # 10/10 ✅
 | #2 | `20261115-gis-fe2` | 世界归档管理 UI（归档/启用/设为当前、归档世界只读浏览、无 ACTIVE 世界横幅）+ `lib/gis/client.js` bootstrap 本地模式语义 + 地形面板坡度/分布/异步任务 | 全部 9 步通过；worlds 仍 ACTIVE（归档在下一步单独执行） |
 | #3 | `20261115-gis-fe3` | 集市选点器在「无 ACTIVE 世界」时改用已归档世界坐标平面选点（不让选点能力断掉） | 全部 7 步通过；bundle 校验 gis-page/gis-picker/gis-banner 命中；集市地点仍 2 行一致 |
 | #4 | `20261115-gis-canvasmap` | **方块彩色地图**：3 个数据接口（palette/chunks/index）+ v2 surfaceBlockMatrix 解析入库 + 浏览器端 Canvas 图层（图层开关/按视口请求/共享缓存） | 9 步全部通过；生产实测见 §12.5 |
+| #5 | `20261115-gis-regions` | **分区展示 + 调色板全覆盖**：区域聚类/命名（工业区/紫雪城）、map/index regions、palette 1311 方块双 hash + 未知诊断接口 | 见 §12.7（部署与验证记录） |
 
 ### 8.1 通用流程（每次均执行）
 
@@ -424,7 +425,7 @@ cd /var/www/xuanjian-guild && rm -rf frontend/dist frontend/dist-ssr frontend/pr
 新增 `scripts/tests/gis-map-canvas.js` **11/11 通过**：
 palette 一致性（已知 CRC32 向量、hash16、颜色格式、水面/材质/高度色带、群系覆盖）、v2 载荷编解码 + 入库不新增列、旧数据兼容（fallback/旧格式 block_hist）、lod 抽样正确（lod0 原值 / lod3 区域众数 / fallback 区域均值忽略 -32768）、bbox 上限与 `bbox_required`/`invalid lod`、未采集透明、**512 区块 truncated + chunksTotal 真实**、`/map/index` 计数与 bbox、**服务端零图像编码断言**、三接口公开读。
 
-全量回归：`gis-api-test` 50/50、`gis-migration-test` 7/7、`gis-terrain-test` 15/15、`gis-market-test` 10/10、`gis-map-canvas` 11/11 → **93/93 通过**（契约快照已更新 v2 字段）。
+全量回归：`gis-api-test` 50/50、`gis-migration-test` 7/7、`gis-terrain-test` 15/15、`gis-market-test` 10/10、`gis-map-canvas` 15/15 → **97/97 通过**（契约快照已更新 v2 字段；区域聚类/调色板全覆盖用例见 §12.7）。
 
 ### 12.5 生产部署（2026-11-15 完成，tag `20261115-gis-canvasmap`）
 
@@ -452,11 +453,40 @@ palette 一致性（已知 CRC32 向量、hash16、颜色格式、水面/材质/
   ```
   数据库无需回退（本功能零迁移、未改旧数据）。
 
-**生产现状说明**：当前生产 60 个 chunk 均为 **v1（无 surface）**，所以网页显示的是**高度兜底着色**（能看地形起伏/群系，但看不出草/水/建筑材质）；等模组按 v2 上传 `surfaceBlockMatrix`（`flags|=8`，CRC32 与 palette 同算法，见 `docs/gis-api.md` §2.2.1 测试向量）后自动变彩色，前端无需再发版。
+**生产现状说明**：方块地图上线时生产 60 个 chunk 均为 **v1（无 surface）**；随后模组开启 v2 上传，现已 361 个 chunk 全带 surface（见 §12.7）。
 
 ### 12.6 原部署计划（已完成，留档）
 
 `node migrations/run.js --dry-run`（应 0 pending，本功能无迁移）→ 备份 `frontend/dist.bak-canvasmap-<tag>` + `/root/backups/gis-canvasmap-<tag>/`（`lib/gis/{terrain,client,map,map-palette,index,constants}.js`、`routes/gis.js`）→ 上传后端 + `frontend/dist*`（`build-frontend.sh` 等价三件套）→ `node --check` → `pm2 restart` → 验证 `/api/gis/map/{palette,chunks,index}`、`/gis` 页面与方块底图、`market_store_locations` 仍 2 行、旧接口回归 → 失败回滚（`.bak-canvasmap-<tag>` 还原 + restart，数据库无需回退）。
+
+### 12.7 生产问题修复：区域聚类 + 调色板全覆盖（2026-11-15 第二轮，tag `20261115-gis-regions`）
+
+**问题 1：「地图一片黑 / 大片空白」**
+- 根因：world 3 里混有**合法但相距很远**的采集区域（主城区 bbox X2240~2496 / 紫雪城 X≈117,840 / Z≈-52,600 / 另有一个 8 chunk 小区域）。`/api/gis/map/index` 与 `/api/gis/worlds` 的维度 bbox 被撑成 11 万方块，前端「定位到数据」缩放到该范围 → 绝大部分空白深色背景。
+- 修复（**不删任何数据**）：
+  1. 新增 `lib/gis/regions.js`：chunk 连通聚类（Chebyshev ≤8 chunk / 128 方块），返回 `regions[{id,bbox,chunkCount,centerX,centerZ,surfaceChunks,fallbackChunks,districtId,districtName}]`（按 chunkCount 降序）+ `outlierChunks`（= 非最大区域 chunk 数，语义已澄清不是脏数据）；60s 缓存，签名含 chunk 与 published district 变化。
+  2. 区域命名：与 `gis_published` 的 **published district 几何 bbox 相交/包含**时取重叠面积最大者带 `districtId/districtName`（生产：主区域「工业区」、远区「紫雪城」）；无命中不编造。
+  3. `/api/gis/map/index` 每个维度返回 `regions` + `outlierChunks`；支持 `?dimension=` 顶层直接返回该维度 regions/bbox/outlierChunks。
+  4. 前端：「定位到数据」与自动视野改为**最大区域**；顶部新增「区域」下拉（工业区（201 chunk）/紫雪城（152 chunk）/区域 3（8 chunk，X-8632 Z-245776）），切换跳转并按需加载；banner 文案「已采集 N 个区域，当前显示第 1 个（…）」。
+  5. `map/chunks` 仍按 bbox 返回，远区只有跳过去才请求（按需加载不变）。
+- 测试：`gis-map-canvas.js` 造「主区域 60 chunk + 远区 3 chunk」→ 断言 `regions.length=2`、首个 60 chunk 且 bbox 不含远区、远区 bbox 精确（X=117840..117872 / Z=-52656..-52624）、`outlierChunks=3`；另测 published district 命名（工业区/紫雪城 命中、无命中为 null）。
+
+**问题 2：surface 颜色大量命中未知（灰）**
+- 根因两层：① palette 只登记 ~100 种方块；② 客户端实际写入的是 `CRC32("grass_block")&0xFFFF`（**不含命名空间**），而契约是 `CRC32("minecraft:grass_block")&0xFFFF`，导致连草/水/泥土都未命中（实测 22 种 hash 未登记，主导 hash 57782 占 49%）。
+- 修复：
+  1. `lib/gis/block-colors.json`（脚本 `scripts/gis-gen-block-colors.js` 生成）覆盖 **1311 个 vanilla 方块**，常用方块手工精修；功能方块继承基础材质色。
+  2. palette 对每个方块**双登记**「契约 hash」与「path-only hash」，颜色一致；`blockNames` 反查。
+  3. 空气类标记 `transparent`（透明而非灰/黑）；未知 hash 使用 `materials.unknown=#7A7A7A`（灰非黑）。
+  4. 新增 `GET /api/gis/map/palette?withUnknown=1[&worldId=&dimension=]` → `unknownSurfaceStats`（扫描 chunk 数、样本总数、未知率、Top100 未登记 hash），便于后续增量补色。
+- 实测（生产 361 chunk / 92,416 采样）：**未知率 0%**；主城区浏览器截图能看到水（蓝）、草（绿）、沙（黄）、建筑（灰/棕）等真实材质色。
+
+**浏览器实测（本地复刻生产 361 chunk + 2 个 district）**
+- 默认打开：居中主城区「工业区」，彩色底图，zoom 1（不再 11 万方块空白）；
+- 区域下拉：`工业区（201 chunk）` / `紫雪城（152 chunk）` / `区域 3（8 chunk，X-8632 Z-245776）`；
+- 切到紫雪城：地图跳到 X117856/Z-52712、方块底图正常渲染、城区多边形叠加；整页仅 18 个 chunks 请求（按需）；
+- 截图：`browser-screenshots/gis-region-main.png`、`browser-screenshots/gis-region-zixue.png`。
+
+**测试**：`gis-map-canvas` 扩到 **15/15**；全量 **97/97**（api 50、migration 7、terrain 15、market 10、canvas 15）。
 
 ---
 

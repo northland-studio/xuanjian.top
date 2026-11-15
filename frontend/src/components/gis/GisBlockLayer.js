@@ -90,10 +90,12 @@ function buildPaletteIndex(palette) {
     for (const [k, v] of Object.entries(palette.materials || {})) materials[k] = hexToU32(v);
     const biomes = {};
     for (const [k, v] of Object.entries(palette.biomes || {})) biomes[k] = hexToU32(v);
+    const transparent = {};
+    for (const hash of Object.keys(palette.transparent || {})) transparent[hash] = true;
     const ramp = (palette.heightShade && palette.heightShade.ramp ? palette.heightShade.ramp : [])
         .map((r) => ({ y: Number(r.y), u32: hexToU32(r.color) }));
     return {
-        blocks, water, materials, biomes, ramp,
+        blocks, water, transparent, materials, biomes, ramp,
         waterU32: materials.water || hexToU32('#3C6ECC'),
         unknownU32: materials.unknown || hexToU32('#7A7A7A'),
         heightColor: makeHeightColor(ramp)
@@ -352,8 +354,9 @@ export function createBlockLayer(L, options = {}) {
                         if (chunk.mode === 'surface') {
                             const hash = chunk.values[idx];
                             if (hash === NODATA_U16) continue;
+                            if (p.transparent[hash]) continue; // 空气类：透明而不是灰
                             color = p.blocks[hash];
-                            if (!color) color = p.unknownU32;
+                            if (!color) color = p.unknownU32;  // 未登记：灰（非黑）
                             if (p.water[hash]) color = shadeU32(color, 0.78); // 水面降对比
                         } else {
                             const height = chunk.values[idx];
