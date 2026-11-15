@@ -14,10 +14,15 @@ const express = require('express');
 const router = express.Router();
 
 const gis = require('../lib/gis');
-const { constants, errors, geo, worlds, objects, terrain, history, places, jobs, client, audit } = gis;
+// 注意：lib/gis/index.js 导出的 `errors` 是 errors.js 的模块命名空间（{ GisError, errors, sendError, wrap }），
+// 这里要取内层 `errors` 才是各错误工厂函数（invalid/forbidden/notFound…），否则调用会抛
+// 「errors.invalid is not a function」并 500。
+const errorsModule = gis.errors;
+const errors = errorsModule.errors;
+const { constants, geo, worlds, objects, terrain, history, places, jobs, client, audit } = gis;
 const { map, mapPalette } = gis;
 const { LIMITS, PERMISSIONS, DIMENSIONS, MARKER_CATEGORIES, MARKER_CATEGORY_LABEL, CONTOUR_INTERVALS, OBJECT_TYPES, DIMENSION_LABEL } = constants;
-const { wrap } = errors;
+const { wrap } = errorsModule;
 
 // 鉴权：统一走 middleware/auth（内部转发 lib/permissions 的实时权限计算，自洽鉴权）
 const { requirePermission, optionalAuthMiddleware } = require('../middleware/auth');
@@ -265,7 +270,8 @@ router.post('/client/chunks',
 
 router.get('/client/sync', requirePermission(PERMISSIONS.access), wrap(async (req, res) => {
     const worldId = geo.parseId(req.query.worldId, 'worldId');
-    const dimension = String(req.query.dimension || '');
+    // 兼容命名空间形式（minecraft:overworld / the_nether …），与 resolve-world / 上传保持一致
+    const dimension = client.canonicalDimension(req.query.dimension);
     if (!DIMENSIONS.includes(dimension)) throw errors.invalid('dimension 不合法', 'dimension');
     const data = await client.sync({ worldId, dimension, since: req.query.since, limit: req.query.limit });
     res.json({ ok: true, ...data });
