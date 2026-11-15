@@ -75,3 +75,8 @@ scripts/rag/
 _tmp_ssh/
 _notice-shots/
 ollama-dsh/
+
+# exam 服务运行时数据
+exam/data/
+exam/.env
+
