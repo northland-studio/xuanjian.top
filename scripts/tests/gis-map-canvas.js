@@ -108,6 +108,9 @@ async function main() {
         const FAR = [[7365, -3290], [7365, -3291], [7366, -3290]];
         for (const [cx, cz] of FAR) chunks.push(make(cx, cz, STONE));
         await terrain.storeChunks({ worldId: w.id, dimension: 'overworld', chunks }, {});
+        // 模拟「远区是后采集的」：把远区 chunk 的 created_at 改晚，用于默认「主城区」选择的 firstSeen 断言
+        await db.run(`UPDATE gis_elevation_chunks SET created_at = '2030-01-01 00:00:00'
+                       WHERE world_id = ? AND dimension = 'overworld' AND chunk_x >= ?`, [w.id, 7365]);
 
         const idx = await map.getIndex({ worldId: w.id });
         const dim = idx.dimensions.overworld;
@@ -154,12 +157,29 @@ async function main() {
         await insertDistrict(11, 9001, '工业区', 1600, 0, 1760, 96);
         // 远区：紫雪城（覆盖 X≈117840 / Z≈-52600 的远簇）
         await insertDistrict(12, 9002, '紫雪城', 7365 * 16, -3291 * 16, 7366 * 16 + 16, -3290 * 16 + 16);
+        // 主区域再加一个 location 标记：主区域对象数 > 远区，用于「挑选主城区默认视野」的启发式
+        const markerPayload = JSON.stringify({
+            type: 'marker', id: 21, worldId: regionWorldId, dimension: 'overworld', name: '刷铁机',
+            status: 'PUBLISHED', revision: 1,
+            geometry: { type: 'Point', coordinates: [1680, 48] }
+        });
+        await db.run(
+            `INSERT INTO gis_published (object_type, object_id, world_id, dimension, revision, seq, payload,
+                min_x, max_x, min_z, max_z, deleted, updated_at)
+             VALUES ('marker', 21, ?, 'overworld', 1, 9003, ?, 1680, 1680, 48, 48, 0, ?)`,
+            [regionWorldId, markerPayload, '2026-11-15 00:00:00']);
         const idx = await map.getIndex({ worldId: regionWorldId });
         const dim = idx.dimensions.overworld;
         assert.strictEqual(dim.regions[0].districtId, 11, '主区域应命中工业区');
         assert.strictEqual(dim.regions[0].districtName, '工业区');
         assert.strictEqual(dim.regions[1].districtId, 12, '远区应命中紫雪城');
         assert.strictEqual(dim.regions[1].districtName, '紫雪城');
+        assert.ok(dim.regions[0].objectCount >= 2, '主区域对象数应包含城区+标记');
+        assert.strictEqual(dim.regions[1].objectCount, 1, '远区只有城区对象');
+        // firstSeen：主区域先采集（较早），远区后采集（2030）→ 前端默认选「主城区」
+        assert.ok(dim.regions[0].firstSeen, 'region 应带 firstSeen');
+        assert.ok(String(dim.regions[0].firstSeen) < '2030', '主区域 firstSeen 应早于远区');
+        assert.ok(String(dim.regions[1].firstSeen).startsWith('2030'), '远区 firstSeen 应为后采集时间');
         // 未命中任何 district 的维度：不编造名字
         const idxEmpty = await map.getIndex({ worldId: regionWorldId });
         assert.ok(idxEmpty.dimensions.overworld.regions.every((r) => typeof r.districtName === 'string' || r.districtName === null));

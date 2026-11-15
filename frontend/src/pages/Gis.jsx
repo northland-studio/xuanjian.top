@@ -138,12 +138,20 @@ export default function Gis() {
 
     /* ---------------- 数据区域（region）聚类：默认只看最大区域 ---------------- */
     const regionList = useMemo(() => (mapDim && Array.isArray(mapDim.regions) ? mapDim.regions : []), [mapDim]);
-    const firstRegionId = regionList.length ? regionList[0].id : null;
+    // 默认视野（「主城区」）：对象最多的区域 → 最早开始采集的区域（firstSeen 升序）→ chunk 更多
+    const preferredRegion = useMemo(() => {
+        if (!regionList.length) return null;
+        return [...regionList].sort((a, b) =>
+            (Number(b.objectCount) || 0) - (Number(a.objectCount) || 0) ||
+            String(a.firstSeen || '9999').localeCompare(String(b.firstSeen || '9999')) ||
+            b.chunkCount - a.chunkCount || a.id - b.id)[0];
+    }, [regionList]);
+    const preferredRegionId = preferredRegion ? preferredRegion.id : null;
     const [activeRegionId, setActiveRegionId] = useState(null);
     useEffect(() => {
-        // 世界/维度/索引变化：默认选最大区域（regions[0]）
-        setActiveRegionId(firstRegionId);
-    }, [worldId, dimension, firstRegionId]);
+        // 世界/维度/索引变化：默认选「主城区」（对象最多，其次最大区域）
+        setActiveRegionId(preferredRegionId);
+    }, [worldId, dimension, preferredRegionId]);
     const activeRegion = useMemo(
         () => regionList.find((r) => r.id === activeRegionId) || regionList[0] || null,
         [regionList, activeRegionId]
@@ -154,12 +162,12 @@ export default function Gis() {
         if (b) return b;
         return dataBbox || null;
     }, [activeRegion, regionList, dataBbox]);
-    const regionLabel = useCallback((r, idx) => {
-        const name = r.districtName || (idx === 0 ? '主城区' : `区域 ${r.id}`);
-        if (r.districtName) return `${name}（${r.chunkCount} chunk）`;
-        if (idx === 0) return `${name}（${r.chunkCount} chunk）`;
+    const regionLabel = useCallback((r) => {
+        const isMain = r.id === preferredRegionId;
+        const name = r.districtName || (isMain ? '主城区' : `区域 ${r.id}`);
+        if (r.districtName || isMain) return `${name}（${r.chunkCount} chunk）`;
         return `${name}（${r.chunkCount} chunk，X${r.centerX} Z${r.centerZ}）`;
-    }, []);
+    }, [preferredRegionId]);
     const focusRegion = useCallback((id) => {
         const r = regionList.find((x) => x.id === id);
         setActiveRegionId(id);
@@ -678,7 +686,7 @@ export default function Gis() {
                         <select className="form-select gis-select-sm gis-select-region" value={activeRegionId || ''}
                             title={regionList.length > 1 ? '已采集多个数据区域，切换查看' : '当前维度的数据区域'}
                             onChange={(e) => focusRegion(Number(e.target.value))}>
-                            {regionList.map((r, idx) => <option key={r.id} value={r.id}>{regionLabel(r, idx)}</option>)}
+                            {regionList.map((r) => <option key={r.id} value={r.id}>{regionLabel(r)}</option>)}
                         </select>
                     )}
                     <input className="form-input gis-input-xy" type="number" placeholder="X" value={jump.x}
@@ -734,7 +742,7 @@ export default function Gis() {
                         <div className="gis-banner">
                             <b>当前视野内没有对象。</b>
                             {regionList.length > 1
-                                ? <>已采集 {regionList.length} 个数据区域，当前显示第 {regionList.findIndex((r) => r.id === (activeRegion && activeRegion.id)) + 1} 个（{activeRegion && activeRegion.districtName ? activeRegion.districtName : '最大区域'}，{activeRegion ? activeRegion.chunkCount : 0} chunk）。</>
+                                ? <>已采集 {regionList.length} 个数据区域，当前显示第 {regionList.findIndex((r) => r.id === (activeRegion && activeRegion.id)) + 1} 个（{activeRegion && (activeRegion.districtName || (activeRegion.id === preferredRegionId ? '主城区' : `区域 ${activeRegion.id}`))}，{activeRegion ? activeRegion.chunkCount : 0} chunk）。</>
                                 : <>当前数据区域范围是 X {autoFitBbox ? autoFitBbox.minX : dataBbox.minX}~{autoFitBbox ? autoFitBbox.maxX : dataBbox.maxX} / Z {autoFitBbox ? autoFitBbox.minZ : dataBbox.minZ}~{autoFitBbox ? autoFitBbox.maxZ : dataBbox.maxZ}。</>}
                             <button className="btn btn-secondary btn-sm" onClick={() => autoFitBbox && mapRef.current && mapRef.current.fitBbox(autoFitBbox)}>定位到数据</button>
                             {regionList.length > 1 && <span className="gis-dim">可用顶部「区域」下拉切换（如紫雪城区）。</span>}
