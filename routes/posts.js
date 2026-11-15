@@ -2,7 +2,7 @@ const express = require('express');
 const logger = require('../lib/logger');
 const db = require('../database');
 const { getLocalTimestamp } = require('../database');
-const { authMiddleware, adminMiddleware } = require('../middleware/auth');
+const { authMiddleware, adminMiddleware , hasPermission } = require('../middleware/auth');
 const { createNotification } = require('./notifications');
 const { addContributionLog } = require('../lib/contribution');
 const router = express.Router();
@@ -211,7 +211,11 @@ router.post('/', authMiddleware, async (req, res) => {
             return res.status(403).json({ error: '请先绑定QQ和邮箱后再发布内容' });
         }
         
-        if ((type === 'daily' || type === 'decision') && user.level < 1) {
+        if (type === 'decision' && user.level < 1) {
+            return res.status(403).json({ error: '权限不足，无法发布此类型内容' });
+        }
+        // 公会日报：Level>=1 或拥有 content.daily.publish（如「外会官号」角色，无需提升 Level）
+        if (type === 'daily' && user.level < 1 && !hasPermission(req, 'content.daily.publish')) {
             return res.status(403).json({ error: '权限不足，无法发布此类型内容' });
         }
         

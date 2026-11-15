@@ -1,20 +1,19 @@
 # xuanjian.top 权限组体系（Level + 角色 + 细粒度权限）
 
 > 本文档由 `scripts/tests/permissions-doc.js` 依据代码注册表生成，请勿手改表格。
-> 最后生成：2026-11-14T17:49:57.761Z
+> 最后生成：2026-11-15T04:28:49.280Z
 
 ## 1. 模型
 
 最终有效权限 = **Level 基础权限 ∪ 所有 ACTIVE 角色权限**（并集、无继承、无用户级 allow/deny、无单用户临时授权）。
 
 - **Level**：0 普通成员 / 1 管理员（保留原有全部管理能力）/ 2 超级管理员（`*` 全部权限，始终可进入权限中心，不可被普通权限管理员降级或移除）。
-  - **Level 0 基础权限 = `gis.submit`**：普通成员可通过模组/网页提交 GIS 草稿（进入 `REVIEW` 待审），但**不能审核发布**（需 `gis.object.review`）、不能绘制道路/城区（需 `gis.road.edit` / `gis.district.edit`）、不能进入 GIS 管理（需 `gis.access`）。其余细粒度权限仍必须由 ACTIVE 角色授予。
 - **角色**：全局角色（可配置普通业务模块权限）与模块角色（只能配置所属模块权限）；状态 `ACTIVE` / `DISABLED` / `ARCHIVED`，只有 ACTIVE 参与计算；禁用/归档保留成员与审计，可恢复。
 - **权限**：名称 `模块.资源.操作`，**全部由后端代码注册**（`lib/permissions/registry.js`），管理员不能自创权限名；每一项都有真实后端鉴权点；数据库只持久化定义同步、角色、成员、权限分配与审计。
 - **实时计算**：JWT 只做身份；`middleware/auth.js` 每次受保护请求实时查库解析权限，无缓存 → 角色成员/角色权限/角色状态/Level/封禁变更**下一次请求立即生效**。
 - **账号冻结**：`users.is_frozen` 语义保留；封禁后普通/管理/经济权限全部立即失效（403 `ACCOUNT_FROZEN`），不删除角色关系；解封自动重算。
 
-## 2. 权限注册表（39 项，ACTIVE 39 项）
+## 2. 权限注册表（40 项，ACTIVE 40 项）
 
 | 权限 | 模块 | 说明 | Level 1 基础 | 核心(仅 Level2 可授予) | 状态 |
 |---|---|---|---|---|---|
@@ -40,6 +39,7 @@
 | `announcement.edit` | 公告 | 编辑公告 | 是 |  | ACTIVE |
 | `announcement.publish` | 公告 | 发布/上线公告（isActive 置为真） | 是 |  | ACTIVE |
 | `announcement.delete` | 公告 | 删除公告 | 是 |  | ACTIVE |
+| `content.daily.publish` | 内容 | 发布/编辑公会日报（无需 Level 1，用于外会官号等特殊角色） | 是 |  | ACTIVE |
 | `economy.contribution_points.access` | 贡献点经济 | 贡献点账户准入：查看自己的余额与流水（经济成员角色授予，与 Level 无关） |  |  | ACTIVE |
 | `economy.contribution_points.earn` | 贡献点经济 | 获取贡献点（签到/任务等，需同时具备 access） |  |  | ACTIVE |
 | `economy.contribution_points.spend` | 贡献点经济 | 消费贡献点（商城/头衔/集市等，需同时具备 access） |  |  | ACTIVE |

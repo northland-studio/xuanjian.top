@@ -93,6 +93,7 @@ function startApp() {
     app.use('/api/wiki', require('../../routes/wiki'));
     app.use('/api/announcements', require('../../routes/announcement'));
     app.use('/api/mod', require('../../routes/mod'));
+    app.use('/api/posts', require('../../routes/posts'));
     // 集市路由（真实路由，用于 market.* 权限与经济资格回归；公开浏览不受权限影响）
     app.use('/api/market', require('../../routes/market'));
 
