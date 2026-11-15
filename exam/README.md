@@ -46,3 +46,14 @@ NODE_PATH=/var/www/xuanjian-guild/node_modules pm2 start server.js --name exam -
 - `redirect_uris = ["https://exam.xuanjian.top/callback/oauth"]`
 - `allowed_scopes = ["read:user","read:member"]`
 - `is_confidential = 1`
+
+## 批阅模式（/grade）
+
+像改卷子一样一份一份改：
+
+- 打开 /grade 自动显示下一份待审页面（今日任务优先，任务审完自动进入全站未审计页面）
+- 看完正文后一键「通过并下一份」/「有问题并下一份」，提交成功自动跳到下一份
+- 键盘：Enter=通过，2=有问题，→/n=跳过，备注框内 Ctrl+Enter=通过
+- 右上角显示进度（今日任务 3/10 · 剩余 N 页）
+- 每页全局只审一次，重复提交会提示并自动跳过
+

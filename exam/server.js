@@ -194,6 +194,7 @@ async function tasksWithInfo(userId) {
 function layout({ title, user, active, body, csrf }) {
     const nav = [
         ['/', '工作台'],
+        ['/grade', '批阅模式'],
         ['/pages', 'Wiki 全量'],
         ['/tasks', '我的任务'],
         ['/audits', '审计记录']
@@ -269,16 +270,17 @@ const app = express();
 app.use(express.urlencoded({ extended: false, limit: '2mb' }));
 app.use(express.json({ limit: '2mb' }));
 const publicDir = path.join(ROOT, 'public');
-app.use('/style.css', (req, res) => {
-    const f = path.join(publicDir, 'style.css');
-    if (!fs.existsSync(f)) return res.status(404).end();
-    res.type('text/css').send(fs.readFileSync(f, 'utf8'));
-});
-app.use('/page.js', (req, res) => {
-    const f = path.join(publicDir, 'page.js');
-    if (!fs.existsSync(f)) return res.status(404).end();
-    res.type('application/javascript').send(fs.readFileSync(f, 'utf8'));
-});
+for (const [route, file, type] of [
+    ['/style.css', 'style.css', 'text/css'],
+    ['/page.js', 'page.js', 'application/javascript'],
+    ['/grade.js', 'grade.js', 'application/javascript']
+]) {
+    app.get(route, (req, res) => {
+        const f = path.join(publicDir, file);
+        if (!fs.existsSync(f)) return res.status(404).end();
+        res.type(type).send(fs.readFileSync(f, 'utf8'));
+    });
+}
 
 /** 会话：仅 LV1+ 可进入 */
 function auth(req, res, next) {
@@ -326,6 +328,107 @@ app.get('/logout', (req, res) => {
     res.redirect('/login');
 });
 
+/* ---------------- 批阅模式：像改卷子一样一份一份改，改完自动下一份 ---------------- */
+
+/** 取下一份待审页面：优先今日任务中未完成的，其次全站未审计的（自由审计） */
+async function nextGradeTarget(userId, excludeIds = []) {
+    const exclude = new Set(excludeIds.filter(Boolean).map(Number));
+    const tasks = await ensureDailyTasks(userId);
+    const taskIds = tasks.filter((t) => !t.audited_page && !exclude.has(Number(t.page_id))).map((t) => Number(t.page_id));
+    const auditedRows = (await all(examDb, 'SELECT page_id FROM audits')).map((x) => x.page_id);
+    const audited = new Set(auditedRows.map(Number));
+    const filled = tasks.filter((t) => t.audited_page).length;
+    if (taskIds.length) {
+        const page = await get(guildDb, `SELECT p.id, p.title, p.updated_at, c.name AS category_name, u.nickname AS author_name
+            FROM wiki_pages p LEFT JOIN wiki_categories c ON c.id = p.category_id LEFT JOIN users u ON u.id = p.author_id WHERE p.id = ?`, [taskIds[0]]);
+        if (page) return { page, mode: 'task', index: filled + 1, total: tasks.length, remaining: taskIds.length };
+    }
+    if (!guildOnline) return null;
+    const rows = await all(guildDb, 'SELECT id FROM wiki_pages ORDER BY updated_at ASC LIMIT 500');
+    const id = rows.map((r) => Number(r.id)).find((x) => !audited.has(x) && !exclude.has(x));
+    if (!id) return null;
+    const page = await get(guildDb, `SELECT p.id, p.title, p.updated_at, c.name AS category_name, u.nickname AS author_name
+        FROM wiki_pages p LEFT JOIN wiki_categories c ON c.id = p.category_id LEFT JOIN users u ON u.id = p.author_id WHERE p.id = ?`, [id]);
+    const totalPending = (await get(guildDb, 'SELECT COUNT(*) AS c FROM wiki_pages')).c - auditedRows.length;
+    return page ? { page, mode: 'free', index: auditedRows.length + 1, total: totalPending + auditedRows.length, remaining: totalPending } : null;
+}
+
+app.get('/grade', auth, async (req, res, next) => {
+    try {
+        if (!guildOnline) return res.send(layout({ title: '批阅模式', user: req.user, active: '/grade', csrf: req.user.csrf, body: '<div class="card"><h2>无法读取 guild.db</h2></div>' }));
+
+        let target = null;
+        const explicitId = Number(req.query.page) || 0;
+        const skipId = Number(req.query.skip) || 0;
+        if (explicitId) {
+            const detail = await wikiPageDetail(explicitId);
+            if (detail) target = { page: detail.page, mode: 'explicit', index: 0, total: 0, remaining: 0, audit: detail.audit, revisions: detail.revisions };
+        }
+        if (!target) {
+            const nextTarget = await nextGradeTarget(req.user.uid, [skipId]);
+            if (nextTarget) {
+                const detail = await wikiPageDetail(nextTarget.page.id);
+                target = { ...nextTarget, page: detail.page, audit: detail.audit, revisions: detail.revisions };
+            }
+        }
+
+        if (!target) {
+            const stats = await wikiStats();
+            return res.send(layout({ title: '全部审完', user: req.user, active: '/grade', csrf: req.user.csrf, body: `
+                <div class="grade-done">
+                    <div class="done-emoji">🎉</div>
+                    <h1>全部页面都审完了</h1>
+                    <p class="muted">全站 ${stats.total} 页，已审计 ${stats.audited} 页。新页面出现后会重新进入队列。</p>
+                    <p><a class="btn primary" href="/">回到工作台</a> <a class="btn" href="/audits">查看审计记录</a></p>
+                </div>` }));
+        }
+
+        const { page, audit } = target;
+        const progress = target.mode === 'task'
+            ? `今日任务 ${target.index} / ${target.total}`
+            : (target.mode === 'free' ? `自由审计 · 剩余 ${target.remaining} 页` : '指定页面');
+        const auditedBadge = audit ? `<span class="badge ok">已审计 · ${esc(audit.auditor_name)}</span>` : '<span class="badge pending">待审计</span>';
+        const body = `
+        <div class="grade-top">
+            <div class="grade-left">
+                <a class="link" href="/grade">← 返回队列</a>
+                <span class="mono mini">#${page.id}</span>
+                ${badge(page.status)}
+                <span class="mini">${esc(page.category_name || '')} · ${esc(page.author_name || '')} · ${esc((page.updated_at || '').slice(0, 16))}</span>
+            </div>
+            <div class="grade-progress">${esc(progress)} ${auditedBadge}</div>
+        </div>
+        <article class="grade-paper">
+            <h1 class="paper-title">${esc(page.title)}</h1>
+            <div class="paper-meta">
+                <a class="link" href="https://xuanjian.top/wiki/${encodeURIComponent(page.slug)}" target="_blank" rel="noopener">官网查看 ↗</a>
+                <span class="mini">${page.content ? page.content.length : 0} 字符 · ${(target.revisions || []).length} 条版本</span>
+            </div>
+            <div class="wiki-content paper-content">${page.content || '<div class="empty">（空）</div>'}</div>
+        </article>
+        ${audit ? `<div class="grade-bar">
+            <div class="grade-bar-inner">
+                <div class="audit-summary"><b>审计结果：</b>${esc(RESULT_LABEL[audit.result] || audit.result)}${audit.note ? ` · ${esc(audit.note)}` : ''}<span class="mini">${esc(audit.auditor_name)} · ${esc(audit.created_at)}</span></div>
+                <a class="btn primary" href="/grade">下一份 →</a>
+            </div>
+        </div>` : `<div class="grade-bar">
+            <div class="grade-bar-inner">
+                <form class="grade-form" data-page="${page.id}">
+                    <input class="grade-note" name="note" placeholder="备注（可选，回车提交会用默认结果；有问题时建议写原因）" maxlength="1000">
+                    <div class="grade-actions">
+                        <button class="btn ok-btn" type="button" data-result="pass">✔ 通过并下一份 <span class="kbd">Enter</span></button>
+                        <button class="btn warn-btn" type="button" data-result="issue">✎ 有问题并下一份 <span class="kbd">2</span></button>
+                        <a class="btn ghost" href="/grade?skip=${page.id}">跳过 →</a>
+                    </div>
+                    <div class="form-msg"></div>
+                </form>
+            </div>
+        </div>`}
+        <script src="/grade.js"></script>`;
+        res.send(layout({ title: page.title + ' · 批阅', user: req.user, active: '/grade', csrf: req.user.csrf, body }));
+    } catch (e) { next(e); }
+});
+
 app.get('/', auth, async (req, res, next) => {
     try {
         const stats = guildOnline ? await wikiStats() : { total: 0, archived: 0, audited: 0, pending: 0 };
@@ -337,6 +440,7 @@ app.get('/', auth, async (req, res, next) => {
         <div class="hero">
             <h1>工作台</h1>
             <p class="muted">欢迎，${esc(req.user.name)}。每天自动分配 ${DAILY_TASK_COUNT} 条待审计页面；审计数量不设上限，每个页面只审计一次。</p>
+            <p><a class="btn primary big" href="/grade">▶ 开始批阅（像改卷子，一份一份来）</a></p>
         </div>
         ${guildOnline ? '' : '<div class="alert">⚠ 无法读取 guild.db（只读连接失败），数据展示为空。请检查路径权限。</div>'}
         <div class="grid stats">

@@ -120,3 +120,30 @@ h2 { font-size: 15px; margin: 0; }
 .tab { padding: 6px 14px; border-radius: 8px; color: var(--muted); border: 1px solid var(--line); }
 .tab.active { background: var(--panel-2); color: var(--text); }
 .tab:hover { text-decoration: none; border-color: var(--accent); }
+
+/* ===== 批阅模式（改卷子） ===== */
+.grade-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+.grade-left { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.grade-progress { color: var(--muted); font-size: 13px; display: flex; align-items: center; gap: 8px; }
+.grade-paper { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 26px 32px; margin-bottom: 96px; }
+.paper-title { font-size: 26px; margin: 0 0 8px; }
+.paper-meta { display: flex; gap: 14px; align-items: center; color: var(--muted); margin-bottom: 18px; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
+.paper-content { max-height: none; overflow: visible; font-size: 15px; line-height: 1.85; }
+.grade-bar { position: fixed; left: 0; right: 0; bottom: 0; background: #0b0f16ee; border-top: 1px solid var(--line); backdrop-filter: blur(8px); padding: 12px 22px; z-index: 20; }
+.grade-bar-inner { max-width: 1280px; margin: 0 auto; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.grade-form { display: flex; align-items: center; gap: 12px; width: 100%; flex-wrap: wrap; }
+.grade-note { flex: 1; min-width: 260px; background: var(--panel-2); border: 1px solid var(--line); color: var(--text); border-radius: 8px; padding: 9px 12px; font: inherit; }
+.grade-actions { display: flex; gap: 8px; align-items: center; }
+.grade-actions .btn { padding: 9px 16px; font-size: 14px; }
+.ok-btn { background: #1f6f43; border-color: #2ea043; }
+.ok-btn:hover { background: #247a4a; border-color: #3fb950; }
+.warn-btn { background: #6b4a12; border-color: #d29922; }
+.warn-btn:hover { background: #7a5514; border-color: #e3b341; }
+.btn.ghost { background: transparent; }
+.kbd { font-size: 11px; border: 1px solid #ffffff33; border-radius: 4px; padding: 0 5px; margin-left: 4px; opacity: .75; }
+.grade-form .form-msg { width: 100%; }
+.audit-summary { flex: 1; }
+.grade-done { text-align: center; padding: 80px 20px; }
+.done-emoji { font-size: 54px; margin-bottom: 10px; }
+.btn.big { padding: 11px 20px; font-size: 15px; }
+
