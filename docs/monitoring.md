@@ -60,3 +60,25 @@ systemctl enable --now nezha-agent
 - [ ] 限制 8008 端口的公网来源（仅放行节点 IP + Cloudflare），或加 Cloudflare Access
 - [ ] 群机器人服务器磁盘 97%（7.6G 用满），建议清理重复的 napcat 安装（/opt/napcat 与 /opt/napcat-admin 各约 0.5–2G）
 - [ ] 可选：加 Tailscale/Headscale 组网，管理流量走内网
+
+## 告警（邮件）
+
+- 通知方式：`邮件告警（企业邮箱）` → Webhook `https://monitor.xuanjian.top/hooks/email`
+  （Nezha 拒绝私有地址 Webhook，因此走公网域名；nginx 把 `/hooks/email` 反代到本机 127.0.0.1:3999）
+- 中继服务：`/var/www/nezha-email-relay`（systemd `nezha-email-relay`，源码 `monitor-relay/server.js`）
+  - 复用官网企业邮箱 `SMTP_USER`（来自 `/var/www/xuanjian-guild/.env`），默认收件人 `northland@xuanjian.top`
+  - 日志：`journalctl -u nezha-email-relay -f`
+- 通知组：`北域工作室告警组`
+- 告警规则（全部服务器）：
+  | 规则 | 条件 | 持续 |
+  |---|---|---|
+  | 服务器离线 | offline | 20 采样（≈60s） |
+  | CPU 高负载 | cpu > 90% | 100 采样（≈5min） |
+  | 内存使用率高 | memory > 90% | 100 采样（≈5min） |
+  | 磁盘空间不足 | disk > 90% | 200 采样（≈10min） |
+  | 交换分区告警 | swap > 85% | 200 采样（≈10min） |
+
+> 已实测：临时规则触发 → 面板 `Sending notification ... succeeded` → 中继发信成功
+> （收件人 northland@xuanjian.top，标题形如「【北域工作室监控】QQ 群机器人 告警」）。
+> 注：`H:\chengxuyuanma\monitor\.env` 里的 `northland@` SMTP 密码已失效，中继改用官网
+> `xuanjian_guild@xuanjian.top` 的邮箱配置；如需改发件人请更新对应 SMTP_PASS。
